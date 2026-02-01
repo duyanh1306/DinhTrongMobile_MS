@@ -5,7 +5,11 @@ const socketIo = require("socket.io");
 require("dotenv").config();
 const app = express();
 const server = http.createServer(app);
+
+
+
 const connectDB = require("./connect/database");
+const userRoute = require("./routes/userRoute");
 connectDB();
 app.use(
     cors({
@@ -14,6 +18,8 @@ app.use(
     })
 );
 app.use(express.json());
+app.use("/api/users", userRoute);
+
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
