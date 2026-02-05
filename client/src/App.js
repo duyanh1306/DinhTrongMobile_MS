@@ -4,15 +4,13 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import Login from './pages/Login';
-import Register from './pages/Register';
-import VerifyOtp from './pages/VerifyOtp';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import LoginSuccess from './pages/LoginSuccess';
-// import Home from './pages/Home'; // File Home của bạn
-
-const Home = () => <h1 className="text-center mt-10 text-2xl">Trang chủ DinhTrongMobile</h1>;
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import VerifyOtp from './pages/auth/VerifyOtp';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import LoginSuccess from './pages/auth/LoginSuccess';
+import Home from './pages/home/Home';
 
 function App() {
   return (

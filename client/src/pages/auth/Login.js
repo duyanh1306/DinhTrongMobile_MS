@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
+import axiosClient from '../../api/axiosClient';
 import { toast } from 'react-toastify';
 import { FaGoogle, FaPhoneAlt } from 'react-icons/fa';
 
