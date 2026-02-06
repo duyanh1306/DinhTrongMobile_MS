@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
+import axiosClient from '../../api/axiosClient';
 import { toast } from 'react-toastify';
 import { FaGoogle, FaPhoneAlt } from 'react-icons/fa';
 
@@ -18,10 +18,27 @@ const Login = () => {
     e.preventDefault();
     try {
       const res = await axiosClient.post('/users/login', formData);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      
+      const { token, user } = res.data; 
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
       toast.success("Đăng nhập thành công!");
-      navigate('/'); // Chuyển về trang chủ
+      // --- PHÂN QUYỀN ĐIỀU HƯỚNG ---
+      // user.roleId bây giờ là một object (do populate), ta lấy trường id (ADMIN, SALE_STAFF...)
+      const role = user.roleId?.id || "CUSTOMER"; 
+
+      if (role === 'ADMIN') {
+        navigate('/admin/dashboard');
+      } else if (role === 'SALE_STAFF') {
+        navigate('/sale/dashboard');
+      } else if (role === 'TECHNICIAN') {
+        navigate('/tech/dashboard');
+      } else {
+        // Khách hàng hoặc mặc định về trang chủ
+        navigate('/');
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || "Đăng nhập thất bại");
     }
