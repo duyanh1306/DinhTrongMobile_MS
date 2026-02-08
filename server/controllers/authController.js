@@ -1,4 +1,4 @@
-const User = require("../models/user"); // Đảm bảo đúng đường dẫn
+const User = require("../models/User"); // Đảm bảo đúng đường dẫn
 const Role = require("../models/Role");
 const Otp = require("../models/Otp");
 const bcrypt = require("bcryptjs");
