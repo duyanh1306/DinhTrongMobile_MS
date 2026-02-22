@@ -1,10 +1,7 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import CustomerLayout from "../../layouts/CustomerLayout"; // Nếu bạn muốn dùng layout, hoặc dùng Navbar riêng
-
-// Component này dùng Navbar riêng (như trang chủ Tiki/Shopee) nên mình sẽ return full page
-// Tuy nhiên để thống nhất, ở đây mình giả định bạn đã import Navbar vào trong file này hoặc dùng Layout
-// Dưới đây là nội dung chính của trang Home
+import React, { useState } from "react";
+import CustomerLayout from "../../layouts/CustomerLayout"; 
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronDown, User, Key, LogOut, LayoutDashboard } from "lucide-react";
 
 const products = [
     { id: 1, name: "iPhone 15 Pro Max", price: "34.990.000₫", img: "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png" },
@@ -14,28 +11,110 @@ const products = [
 ];
 
 export default function Home() {
-    // Lấy user từ localStorage để check login chưa
+    const navigate = useNavigate();
+    
+    // Lấy user từ localStorage
     const user = JSON.parse(localStorage.getItem('user'));
+    
+    // State để đóng/mở menu dropdown
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    // Hàm xử lý đăng xuất
+    const handleLogout = () => {
+        // 1. Xóa dữ liệu trong localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // 2. Đóng menu
+        setIsMenuOpen(false);
+        
+        // 3. Chuyển hướng về trang đăng nhập (hoặc trang chủ tùy bạn)
+        navigate('/login');
+    };
+
+    // Hàm kiểm tra role để hiển thị link về Dashboard (nếu là nhân viên/admin)
+    const renderDashboardLink = () => {
+        if (!user || !user.roleId) return null;
+        const role = user.roleId.id || user.roleId;
+        
+        if (role === 'ADMIN') return "/admin/dashboard";
+        if (role === 'SALE_STAFF') return "/sale/dashboard";
+        if (role === 'TECHNICIAN') return "/tech/dashboard";
+        return null;
+    };
+
+    const dashboardLink = renderDashboardLink();
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Navbar Customer (Nếu bạn chưa có Layout bao ngoài thì đặt Navbar vào đây) */}
+      {/* Navbar */}
       <nav className="bg-primary text-white p-4 sticky top-0 z-50 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-2xl font-bold">DinhTrongMobile</h1>
+            <Link to="/" className="text-2xl font-bold">DinhTrongMobile</Link>
+            
             <div className="flex gap-4 items-center">
                 {user ? (
-                   <span className="font-medium">Xin chào, {user.fullName}</span>
+                   // --- PHẦN MENU DROPDOWN CỦA USER ---
+                   <div className="relative">
+                       {/* Nút bấm hiển thị tên và icon mũi tên */}
+                       <button 
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="flex items-center gap-2 font-medium hover:text-gray-200 transition focus:outline-none"
+                       >
+                           Xin chào, {user.fullName} 
+                           <ChevronDown size={18} className={`transition-transform duration-200 ${isMenuOpen ? "rotate-180" : ""}`} />
+                       </button>
+
+                       {/* Khung menu xổ xuống */}
+                       {isMenuOpen && (
+                           <div className="absolute right-0 mt-3 w-56 bg-white rounded-lg shadow-xl py-2 text-gray-700 border border-gray-100 animate-fade-in-down">
+                               
+                               {/* Link về trang Dashboard nếu không phải là Customer */}
+                               {dashboardLink && (
+                                   <Link 
+                                        to={dashboardLink} 
+                                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition"
+                                   >
+                                       <LayoutDashboard size={18} /> Quản trị hệ thống
+                                   </Link>
+                               )}
+
+                               <Link 
+                                    to="/account/profile" 
+                                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition"
+                                >
+                                   <User size={18} /> Thông tin tài khoản
+                               </Link>
+                               
+                               <Link 
+                                    to="/account/change-password" 
+                                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition"
+                                >
+                                   <Key size={18} /> Đổi mật khẩu
+                               </Link>
+                               
+                               <div className="border-t border-gray-100 my-1"></div>
+                               
+                               {/* Nút Đăng xuất */}
+                               <button 
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-3 w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 transition font-medium"
+                               >
+                                   <LogOut size={18} /> Đăng xuất
+                               </button>
+                           </div>
+                       )}
+                   </div>
+                   // --- KẾT THÚC PHẦN MENU DROPDOWN ---
                 ) : (
                     <>
-                        <Link to="/login" className="hover:text-gray-200">Đăng nhập</Link>
-                        <Link to="/register" className="bg-white text-primary px-3 py-1 rounded font-bold">Đăng ký</Link>
+                        <Link to="/login" className="hover:text-gray-200 font-medium">Đăng nhập</Link>
+                        <Link to="/register" className="bg-white text-primary px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition shadow-sm">Đăng ký</Link>
                     </>
                 )}
             </div>
         </div>
       </nav>
-
       {/* Banner Section */}
       <div className="bg-gray-900 text-white">
         <div className="container mx-auto py-20 px-4 flex flex-col md:flex-row items-center">
