@@ -13,9 +13,9 @@ const userSchema = new mongoose.Schema(
         },
         password: {
             type: String,
-            required: false, // <-- Sửa thành false
+            required: false, 
         },
-        googleId: { // <-- Thêm trường này
+        googleId: { 
             type: String,
             unique: true,
             sparse: true // Cho phép null và vẫn unique
@@ -63,7 +63,7 @@ const userSchema = new mongoose.Schema(
             default: null,
         },
         roleId: {
-            type: String,
+            type: mongoose.Schema.Types.ObjectId, 
             ref: "Role",
             required: true,
         },
