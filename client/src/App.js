@@ -20,6 +20,7 @@ import LoginSuccess from './pages/auth/LoginSuccess';
 // --- 3. Import Role-Based Pages ---
 // Admin
 import AdminDashboard from './pages/admin/AdminDashboard';
+import ManageStores from "./pages/admin/ManageStore";
 // Sale Staff
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
 // Technician
@@ -67,13 +68,14 @@ function App() {
         <Route 
           path="/admin/dashboard" 
           element={
-            <PrivateRoute allowedRoles={['ADMIN']}>
+            // <PrivateRoute allowedRoles={['ADMIN']}>
               <AdminLayout>
                 <AdminDashboard />
               </AdminLayout>
-            </PrivateRoute>
+            // {/* </PrivateRoute> */}
           } 
         />
+        <Route path="/admin/stores" element={<ManageStores />} />
         {/* Bạn có thể thêm các route admin khác ở đây, ví dụ: /admin/users */}
         
         {/* ================= SALE STAFF ROUTES ================= */}
