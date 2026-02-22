@@ -1,6 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
+const {
+  getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser,
+  resetPassword
+} = require("../controllers/userController");
 const passport = require("../config/passport");
 const upload = require("../middlewares/upload");
 // AUTH ROUTES
@@ -28,5 +36,10 @@ router.get(
   authController.googleAuthCallback
 );
 
-
+router.get("/", getAllUsers);
+router.get("/:id", getUserById);
+router.post("/", createUser);
+router.put("/:id", updateUser);
+router.delete("/:id", deleteUser);
+router.put("/:id/reset-password", resetPassword);
 module.exports = router;

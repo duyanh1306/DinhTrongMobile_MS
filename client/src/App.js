@@ -14,6 +14,8 @@ import ResetPassword from './pages/auth/ResetPassword';
 import LoginSuccess from './pages/auth/LoginSuccess';
 import Home from './pages/home/Home';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import ManageStores from "./pages/admin/ManageStore";
+import ManageUser from "./pages/admin/ManageUser";
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
 import TechDashboard from './pages/technician/TechDashboard';
 import Profile from './pages/customer/Profile';
@@ -87,17 +89,31 @@ function App() {
                     }
                 />
 
-                {/* ================= SALE STAFF ROUTES ================= */}
-                <Route
-                    path="/sale/dashboard"
-                    element={
-                        <PrivateRoute allowedRoles={['SALE_STAFF']}>
-                            <SaleLayout>
-                                <SaleDashboard/>
-                            </SaleLayout>
-                        </PrivateRoute>
-                    }
-                />
+              {/* ================= ADMIN ROUTES ================= */}
+              <Route 
+                path="/admin/dashboard" 
+                element={
+                  // <PrivateRoute allowedRoles={['ADMIN']}>
+                    <AdminLayout>
+                      <AdminDashboard />
+                    </AdminLayout>
+                  // {/* </PrivateRoute> */}
+                } 
+              />
+              <Route path="/admin/stores" element={<ManageStores />} />
+              <Route path="/admin/users" element={<ManageUser />} />
+
+              {/* ================= SALE STAFF ROUTES ================= */}
+              <Route 
+                path="/sale/dashboard" 
+                element={
+                  <PrivateRoute allowedRoles={['SALE_STAFF']}>
+                    <SaleLayout>
+                      <SaleDashboard />
+                    </SaleLayout>
+                  </PrivateRoute>
+                } 
+              />
 
                 {/* ================= TECHNICIAN ROUTES ================= */}
                 <Route
@@ -119,7 +135,6 @@ function App() {
                             <CustomerLayout>
                                 <Routes>
                                     <Route path="profile" element={<CustomerProfile/>}/>
-                                    {/* Thêm các route con khác nếu cần */}
                                 </Routes>
                             </CustomerLayout>
                         </PrivateRoute>
