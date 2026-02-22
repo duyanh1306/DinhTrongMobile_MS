@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-const socketIo = require("socket.io");
+// const socketIo = require("socket.io");
 require("dotenv").config();
 const app = express();
 const server = http.createServer(app);
@@ -10,7 +10,11 @@ const server = http.createServer(app);
 
 const connectDB = require("./connect/database");
 const userRoute = require("./routes/userRoute");
+const item_typeRoute = require("./routes/item_typeRoute");
+const phone_modelRoute = require("./routes/phone_modelRoute");
+
 connectDB();
+
 app.use(
     cors({
         origin: true, // Allow all origins
@@ -19,6 +23,8 @@ app.use(
 );
 app.use(express.json());
 app.use("/api/users", userRoute);
+app.use("/api/item_types", item_typeRoute);
+app.use("/api/phone_models", phone_modelRoute);
 
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
