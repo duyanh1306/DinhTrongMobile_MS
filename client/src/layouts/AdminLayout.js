@@ -15,7 +15,8 @@ export default function AdminLayout({ children }) {
           <AdminSidebar />
         </div>
         {/* Page content goes here */}
-        <div className="max-h-[675px] w-full p-8 bg-gray-50 overflow-y-auto overflow-x-auto">
+
+        <div className="h-[90vh] w-full p-8 bg-gray-50 overflow-y-auto overflow-x-auto">
           {children ? (
             children
           ) : (

@@ -166,7 +166,6 @@ export default function AdminPhoneModel() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
@@ -181,7 +180,6 @@ export default function AdminPhoneModel() {
                 </button>
             </div>
 
-            {/* Search and Filters */}
             <div className="bg-white rounded-xl shadow-sm p-6 flex-shrink-0">
                 <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
@@ -202,7 +200,6 @@ export default function AdminPhoneModel() {
                 </div>
             </div>
 
-            {/* Table Container - Takes remaining space */}
             <div className="flex-1 flex flex-col min-h-0">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
                     <div className="overflow-x-auto flex-1">
@@ -284,7 +281,6 @@ export default function AdminPhoneModel() {
                         </table>
                     </div>
 
-                    {/* Pagination - Inside table container */}
                     {pagination.totalPages > 1 && (
                         <div className="border-t border-gray-200 p-6 bg-gray-50">
                             <div className="flex items-center justify-between">
@@ -303,7 +299,6 @@ export default function AdminPhoneModel() {
                                         <span>Previous</span>
                                     </button>
                                     
-                                    {/* Page Numbers */}
                                     <div className="flex items-center space-x-1">
                                         {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                                             let pageNum;
@@ -348,7 +343,6 @@ export default function AdminPhoneModel() {
                 </div>
             </div>
 
-            {/* Add/Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
