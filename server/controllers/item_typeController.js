@@ -85,6 +85,7 @@ const getItemTypePaginatedAndSearch = async (req, res) => {
         });
     }
 };
+
 // POST /api/item_types/create
 const createItemType = async (req, res) => {
     try {
@@ -125,6 +126,19 @@ const createItemType = async (req, res) => {
         });
     } catch (error) {
         console.error("Error creating item type:", error);
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                message: "Item_type with this name and code already exists"
+            });
+        }
+
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: "Internal server error",
@@ -154,6 +168,19 @@ const updateItemType = async (req, res) => {
         });
     } catch (error) {
         console.error("Error updating item tpye:", error);
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                message: "Item_type with this name and code already exists"
+            });
+        }
+
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: "Internal server error",
@@ -161,8 +188,6 @@ const updateItemType = async (req, res) => {
         });
     }
 };
-
-
 
 
 module.exports = {

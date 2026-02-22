@@ -356,13 +356,13 @@ export default function AdminItemType() {
                                                 >
                                                     <Edit size={16} />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleDelete(itemType._id)}
-                                                    className="text-red-600 hover:text-red-900 transition"
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                {/*<button*/}
+                                                {/*    onClick={() => handleDelete(itemType._id)}*/}
+                                                {/*    className="text-red-600 hover:text-red-900 transition"*/}
+                                                {/*    title="Delete"*/}
+                                                {/*>*/}
+                                                {/*    <Trash2 size={16} />*/}
+                                                {/*</button>*/}
                                             </div>
                                         </td>
                                     </tr>

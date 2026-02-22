@@ -1,5 +1,5 @@
 import {useNavigate} from "react-router-dom";
-import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle} from "lucide-react";
+import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle,Users, BookOpen, GraduationCap, Newspaper } from "lucide-react";
 
 export default function AdminSidebar() {
     const navigate = useNavigate();

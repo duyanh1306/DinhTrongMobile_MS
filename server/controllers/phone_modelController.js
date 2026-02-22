@@ -109,13 +109,11 @@ const updatePhoneModel = async (req, res) => {
 const getPhoneModelPaginatedAndSearch = async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'modelName', sortOrder = 'asc' } = req.query;
-        console.log(req.query);
-        // Convert to numbers
+
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
         
-        // Build search query
         let searchQuery = {};
         if (search) {
             searchQuery = {
