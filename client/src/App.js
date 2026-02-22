@@ -21,6 +21,7 @@ import LoginSuccess from './pages/auth/LoginSuccess';
 // Admin
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageStores from "./pages/admin/ManageStore";
+import ManageUser from "./pages/admin/ManageUser";
 // Sale Staff
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
 // Technician
@@ -76,6 +77,7 @@ function App() {
           } 
         />
         <Route path="/admin/stores" element={<ManageStores />} />
+        <Route path="/admin/users" element={<ManageUser />} />
         {/* Bạn có thể thêm các route admin khác ở đây, ví dụ: /admin/users */}
         
         {/* ================= SALE STAFF ROUTES ================= */}

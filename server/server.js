@@ -11,6 +11,7 @@ const server = http.createServer(app);
 const connectDB = require("./connect/database");
 const userRoute = require("./routes/userRoute");
 const storeRoute = require("./routes/storeRoute");
+const roleRoute = require("./routes/roleRoutes");
 connectDB();
 app.use(
     cors({
@@ -21,6 +22,7 @@ app.use(
 app.use(express.json());
 app.use("/api/users", userRoute);
 app.use("/api/stores", storeRoute);
+app.use("/api/roles", roleRoute);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
