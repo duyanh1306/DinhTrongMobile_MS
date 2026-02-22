@@ -24,8 +24,6 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
 // Technician
 import TechDashboard from './pages/technician/TechDashboard';
-// Customer
-import Home from './pages/customer/Home';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
 // (Tùy chọn) Component trang cá nhân cho khách hàng nếu muốn dùng CustomerLayout
@@ -57,14 +55,14 @@ function App() {
         <BrowserRouter>
             <Routes>
                 {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
-                <Route path="/" element={<Home/>}/>
-                <Route path="/login" element={<Login/>}/>
+                <Route path="/" element={<Login/>}/>
+                {/*<Route path="/login" element={<Login/>}/>*/}
                 <Route path="/register" element={<Register/>}/>
                 <Route path="/verify-otp" element={<VerifyOtp/>}/>
                 <Route path="/forgot-password" element={<ForgotPassword/>}/>
                 <Route path="/reset-password" element={<ResetPassword/>}/>
                 <Route path="/login-success" element={<LoginSuccess/>}/>
-
+                <Route path="/home" element={<Home/>}/>
                 {/* ================= ADMIN ROUTES ================= */}
                 <Route
                     path="/admin/dashboard"
