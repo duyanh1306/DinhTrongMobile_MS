@@ -26,8 +26,7 @@ import SaleDashboard from './pages/saleStaff/SaleDashboard';
 import TechDashboard from './pages/technician/TechDashboard';
 // Customer
 import Home from './pages/customer/Home';
-// (Tùy chọn) Component trang cá nhân cho khách hàng nếu muốn dùng CustomerLayout
-const CustomerProfile = () => <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>;
+import Profile from './pages/customer/Profile';
 
 // --- 4. Component Bảo vệ Route (Private Route) ---
 // Giúp chặn người chưa login hoặc sai quyền truy cập vào các trang nội bộ
@@ -110,7 +109,7 @@ function App() {
             <PrivateRoute allowedRoles={['CUSTOMER']}>
               <CustomerLayout>
                  <Routes>
-                    <Route path="profile" element={<CustomerProfile />} />
+                 <Route path="profile" element={<Profile />} />
                     {/* Thêm các route con khác nếu cần */}
                  </Routes>
               </CustomerLayout>
