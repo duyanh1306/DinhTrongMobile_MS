@@ -2,14 +2,10 @@ import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {ToastContainer} from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-// --- 1. Import Layouts ---
 import AdminLayout from './layouts/AdminLayout';
 import SaleLayout from './layouts/SaleLayout';
 import TechLayout from './layouts/TechLayout';
 import CustomerLayout from './layouts/CustomerLayout';
-
-// --- 2. Import Auth Pages ---
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import VerifyOtp from './pages/auth/VerifyOtp';
@@ -17,19 +13,12 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import LoginSuccess from './pages/auth/LoginSuccess';
 import Home from './pages/home/Home';
-// --- 3. Import Role-Based Pages ---
-// Admin
 import AdminDashboard from './pages/admin/AdminDashboard';
-// Sale Staff
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
-// Technician
 import TechDashboard from './pages/technician/TechDashboard';
-// Customer
-import Home from './pages/customer/Home';
 import Profile from './pages/customer/Profile';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
-// (Tùy chọn) Component trang cá nhân cho khách hàng nếu muốn dùng CustomerLayout
 const CustomerProfile = () => <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>;
 
 // --- 4. Component Bảo vệ Route (Private Route) ---
@@ -97,7 +86,6 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-                {/* Bạn có thể thêm các route admin khác ở đây, ví dụ: /admin/users */}
 
                 {/* ================= SALE STAFF ROUTES ================= */}
                 <Route
@@ -110,7 +98,6 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-                {/* Ví dụ: /sale/orders, /sale/products */}
 
                 {/* ================= TECHNICIAN ROUTES ================= */}
                 <Route
@@ -123,10 +110,8 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-                {/* Ví dụ: /tech/tasks */}
 
                 {/* ================= CUSTOMER ACCOUNT ROUTES ================= */}
-                {/* Các trang quản lý tài khoản của khách (Profile, Lịch sử mua hàng...) */}
                 <Route
                     path="/account/*"
                     element={
