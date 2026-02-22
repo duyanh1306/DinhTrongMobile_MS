@@ -24,6 +24,9 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
 // Technician
 import TechDashboard from './pages/technician/TechDashboard';
+// Customer
+import Home from './pages/customer/Home';
+import Profile from './pages/customer/Profile';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
 // (Tùy chọn) Component trang cá nhân cho khách hàng nếu muốn dùng CustomerLayout

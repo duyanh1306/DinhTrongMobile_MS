@@ -2,13 +2,14 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 const passport = require("../config/passport");
+const upload = require("../middlewares/upload");
 // AUTH ROUTES
 router.post("/register", authController.register);
 router.post("/verify-otp", authController.verifyOtpRegister);
 router.post("/login", authController.login);
 router.post("/forgot-password", authController.forgotPassword);
 router.post("/reset-password", authController.resetPassword);
-
+router.put("/profile", upload.single("avatar"), authController.updateProfile);
 // ... Các route CRUD user khác của bạn (nhớ thêm middleware authMiddleware vào nếu cần bảo mật)
 // 1. Route: Gửi người dùng sang trang Login của Google
 // URL: http://localhost:9999/api/users/auth/google
