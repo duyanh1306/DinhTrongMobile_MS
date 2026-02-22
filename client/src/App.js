@@ -16,7 +16,7 @@ import VerifyOtp from './pages/auth/VerifyOtp';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import LoginSuccess from './pages/auth/LoginSuccess';
-
+import Home from './pages/home/Home';
 // --- 3. Import Role-Based Pages ---
 // Admin
 import AdminDashboard from './pages/admin/AdminDashboard';
