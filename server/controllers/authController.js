@@ -217,3 +217,28 @@ exports.googleAuthCallback = (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
+  // --- 7. CẬP NHẬT PROFILE & AVATAR ---
+exports.updateProfile = async (req, res) => {
+  try {
+    const { userId, fullName, number, address, birthday } = req.body;
+    const updateData = { fullName, number, address, birthday };
+
+    // Nếu người dùng có chọn ảnh mới, thì gán đường dẫn ảnh mới
+    if (req.file) {
+      updateData.image = `/uploads/avatar/${req.file.filename}`;
+    }
+
+    // Cập nhật vào DB
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).populate("roleId");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    const { password: _, ...userInfo } = updatedUser._doc;
+    res.status(200).json({ message: "Cập nhật hồ sơ thành công!", user: userInfo });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
