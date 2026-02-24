@@ -48,7 +48,6 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-                {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
                 <Route path="/" element={<Login/>}/>
                 {/*<Route path="/login" element={<Login/>}/>*/}
                 <Route path="/register" element={<Register/>}/>
@@ -57,7 +56,7 @@ function App() {
                 <Route path="/reset-password" element={<ResetPassword/>}/>
                 <Route path="/login-success" element={<LoginSuccess/>}/>
                 <Route path="/home" element={<Home/>}/>
-                {/* ================= ADMIN ROUTES ================= */}
+
                 <Route
                     path="/admin/dashboard"
                     element={
@@ -89,8 +88,7 @@ function App() {
                     }
                 />
 
-              {/* ================= ADMIN ROUTES ================= */}
-              <Route 
+              <Route
                 path="/admin/dashboard" 
                 element={
                   // <PrivateRoute allowedRoles={['ADMIN']}>
