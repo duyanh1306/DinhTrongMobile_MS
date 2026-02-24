@@ -1,5 +1,5 @@
 import {useNavigate} from "react-router-dom";
-import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle } from "lucide-react";
+import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle, Users, Store  } from "lucide-react";
 
 export default function AdminSidebar() {
     const navigate = useNavigate();
@@ -13,6 +13,16 @@ export default function AdminSidebar() {
             icon: <UserCircle size={20}/>,
             text: "Profile",
             link: "/admin/profile",
+        },
+        {
+            icon: <Store size={20} />,
+            text: "Manage Stores",
+            link: "/admin/stores"
+        },
+        {
+            icon: <Users size={20} />,
+            text: "Manage Users",
+            link: "/admin/users"
         },
         {   icon: <Smartphone size={20}/>,
             text: "Manage Phone Model",
