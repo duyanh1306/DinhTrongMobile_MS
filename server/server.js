@@ -16,6 +16,7 @@ const storeRoute = require("./routes/storeRoute");
 const roleRoute = require("./routes/roleRoutes");
 const item_typeRoute = require("./routes/item_typeRoute");
 const phone_modelRoute = require("./routes/phone_modelRoute");
+const repair_serviceRoute = require("./routes/repair_serviceRoute");
 
 connectDB();
 
@@ -31,6 +32,7 @@ app.use("/api/stores", storeRoute);
 app.use("/api/roles", roleRoute);
 app.use("/api/item_types", item_typeRoute);
 app.use("/api/phone_models", phone_modelRoute);
+app.use("/api/repair_services", repair_serviceRoute);
 
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
