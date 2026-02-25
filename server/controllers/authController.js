@@ -182,41 +182,26 @@ exports.resetPassword = async (req, res) => {
 };
 // --- 6. XỬ LÝ CALLBACK SAU KHI LOGIN GOOGLE THÀNH CÔNG ---
 exports.googleAuthCallback = (req, res) => {
-    try {
-      // Lúc này Passport đã xử lý xong và gắn user vào req.user
-      const user = req.user;
-  
-      if (!user) {
-        return res.status(401).json({ message: "Xác thực Google thất bại" });
-      }
-  
-      // Tạo Token JWT
-      const token = jwt.sign(
-        {
-          id: user._id,
-          roleId: user.roleId._id, // Lấy ID của object Role
-          roleName: user.roleId.id, // Lấy tên Role (CUSTOMER, ADMIN...)
-        },
-        process.env.JWT_KEY,
-        { expiresIn: "1d" }
-      );
-  
-      // Ẩn mật khẩu trước khi trả về (dù user google ko có pass, nhưng cứ làm cho chuẩn)
-      const { password: _, ...userInfo } = user._doc ? user._doc : user;
-  
-      res.status(200).json({
-        message: "Login Google thành công",
-        token,
-        user: userInfo,
-      });
-      
-      // Lưu ý: Nếu làm với React Frontend thật, đoạn này thường sẽ redirect
-      // res.redirect(`http://localhost:3000/login-success?token=${token}`);
-  
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: "Xác thực Google thất bại" });
+
+    const token = jwt.sign(
+      { id: user._id, roleId: user.roleId._id, roleName: user.roleId.id },
+      process.env.JWT_KEY,
+      { expiresIn: "1d" }
+    );
+
+    const { password: _, ...userInfo } = user._doc ? user._doc : user;
+
+    // 👇 SỬA ĐOẠN NÀY: Chuyển userInfo thành chuỗi để gửi qua URL
+    const userString = encodeURIComponent(JSON.stringify(userInfo));
+    res.redirect(`http://localhost:3000/login-success?token=${token}&user=${userString}`);
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
   // --- 7. CẬP NHẬT PROFILE & AVATAR ---
 exports.updateProfile = async (req, res) => {
   try {

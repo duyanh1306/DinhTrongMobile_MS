@@ -12,19 +12,19 @@ import VerifyOtp from './pages/auth/VerifyOtp';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import LoginSuccess from './pages/auth/LoginSuccess';
-import Home from './pages/home/Home';
+import Home from './pages/customer/Home';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageStores from "./pages/admin/ManageStore";
 import ManageUser from "./pages/admin/ManageUser";
 import SaleDashboard from './pages/saleStaff/SaleDashboard';
 import TechDashboard from './pages/technician/TechDashboard';
-import Profile from './pages/customer/Profile';
+import Profile from './pages/common/Profile';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
 import ManageRepairService from "./pages/admin/ManageRepairService";
 const CustomerProfile = () => <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>;
 
-// --- 4. Component Bảo vệ Route (Private Route) ---
+
 // Giúp chặn người chưa login hoặc sai quyền truy cập vào các trang nội bộ
 const PrivateRoute = ({children, allowedRoles}) => {
     const token = localStorage.getItem('token');
@@ -44,20 +44,37 @@ const PrivateRoute = ({children, allowedRoles}) => {
 
     return children;
 };
+// Tự động bọc Profile bằng Sidebar tương ứng với chức vụ
+const RoleBasedLayout = ({ children }) => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) return children;
+  
+    const role = user.roleId?.id || user.roleId;
+  
+    switch (role) {
+      case 'ADMIN': return <AdminLayout>{children}</AdminLayout>;
+      case 'SALE_STAFF': return <SaleLayout>{children}</SaleLayout>;
+      case 'TECHNICIAN': return <TechLayout>{children}</TechLayout>;
+      case 'CUSTOMER': 
+      default: return <CustomerLayout>{children}</CustomerLayout>;
+    }
+  };
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<Login/>}/>
-                {/*<Route path="/login" element={<Login/>}/>*/}
+                {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
+                <Route path="/" element={<Navigate to="/login" replace />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register/>}/>
                 <Route path="/verify-otp" element={<VerifyOtp/>}/>
                 <Route path="/forgot-password" element={<ForgotPassword/>}/>
                 <Route path="/reset-password" element={<ResetPassword/>}/>
                 <Route path="/login-success" element={<LoginSuccess/>}/>
-                <Route path="/home" element={<Home/>}/>
-
+                
+                {/* ================= ADMIN ROUTES ================= */}
                 <Route
                     path="/admin/dashboard"
                     element={
@@ -135,19 +152,16 @@ function App() {
                     }
                 />
 
-                {/* ================= CUSTOMER ACCOUNT ROUTES ================= */}
-                <Route
-                    path="/account/*"
-                    element={
-                        <PrivateRoute allowedRoles={['CUSTOMER']}>
-                            <CustomerLayout>
-                                <Routes>
-                                    <Route path="profile" element={<CustomerProfile/>}/>
-                                </Routes>
-                            </CustomerLayout>
-                        </PrivateRoute>
-                    }
-                />
+                <Route 
+                        path="/profile" 
+                        element={
+                            <PrivateRoute>
+                            <RoleBasedLayout>
+                                <Profile />
+                            </RoleBasedLayout>
+                            </PrivateRoute>
+                        } 
+                        />
 
                 {/* ================= 404 NOT FOUND ================= */}
                 <Route path="*" element={<div className="text-center mt-20 text-2xl">404 - Trang không tồn tại</div>}/>
