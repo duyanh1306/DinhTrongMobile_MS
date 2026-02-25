@@ -21,6 +21,7 @@ import TechDashboard from './pages/technician/TechDashboard';
 import Profile from './pages/customer/Profile';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
+import ManageRepairService from "./pages/admin/ManageRepairService";
 const CustomerProfile = () => <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>;
 
 // --- 4. Component Bảo vệ Route (Private Route) ---
@@ -87,31 +88,40 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+                <Route
+                    path="/admin/repair_service"
+                    element={
+                        <PrivateRoute allowedRoles={['ADMIN']}>
+                            <AdminLayout>
+                                <ManageRepairService/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/admin/dashboard"
+                    element={
+                        // <PrivateRoute allowedRoles={['ADMIN']}>
+                        <AdminLayout>
+                            <AdminDashboard/>
+                        </AdminLayout>
+                        // {/* </PrivateRoute> */}
+                    }
+                />
+                <Route path="/admin/stores" element={<ManageStores/>}/>
+                <Route path="/admin/users" element={<ManageUser/>}/>
 
-              <Route
-                path="/admin/dashboard" 
-                element={
-                  // <PrivateRoute allowedRoles={['ADMIN']}>
-                    <AdminLayout>
-                      <AdminDashboard />
-                    </AdminLayout>
-                  // {/* </PrivateRoute> */}
-                } 
-              />
-              <Route path="/admin/stores" element={<ManageStores />} />
-              <Route path="/admin/users" element={<ManageUser />} />
-
-              {/* ================= SALE STAFF ROUTES ================= */}
-              <Route 
-                path="/sale/dashboard" 
-                element={
-                  <PrivateRoute allowedRoles={['SALE_STAFF']}>
-                    <SaleLayout>
-                      <SaleDashboard />
-                    </SaleLayout>
-                  </PrivateRoute>
-                } 
-              />
+                {/* ================= SALE STAFF ROUTES ================= */}
+                <Route
+                    path="/sale/dashboard"
+                    element={
+                        <PrivateRoute allowedRoles={['SALE_STAFF']}>
+                            <SaleLayout>
+                                <SaleDashboard/>
+                            </SaleLayout>
+                        </PrivateRoute>
+                    }
+                />
 
                 {/* ================= TECHNICIAN ROUTES ================= */}
                 <Route
