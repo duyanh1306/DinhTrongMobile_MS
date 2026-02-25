@@ -1,5 +1,5 @@
 import {useNavigate} from "react-router-dom";
-import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle,Users, BookOpen, GraduationCap, Newspaper } from "lucide-react";
+import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle, Users, Store  } from "lucide-react";
 
 export default function AdminSidebar() {
     const navigate = useNavigate();
@@ -16,19 +16,14 @@ export default function AdminSidebar() {
           },
         { icon: <Users size={20} />, text: "Manage Users", link: "/admin/users" },
         {
-            icon: <BookOpen size={20} />,
-            text: "Manage Courses",
-            link: "/admin/courses",
+            icon: <Store size={20} />,
+            text: "Manage Stores",
+            link: "/admin/stores"
         },
         {
-            icon: <GraduationCap size={20} />,
-            text: "Manage Classes",
-            link: "/admin/classes",
-        },
-        {
-            icon: <Newspaper size={20} />,
-            text: "News List",
-            link: "/admin/news/list",
+            icon: <Users size={20} />,
+            text: "Manage Users",
+            link: "/admin/users"
         },
         {   icon: <Smartphone size={20}/>,
             text: "Manage Phone Model",

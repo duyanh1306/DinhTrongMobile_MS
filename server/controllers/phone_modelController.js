@@ -93,7 +93,7 @@ const updatePhoneModel = async (req, res) => {
 
         if (error.name === "ValidationError") {
             return res.status(400).json({
-                message: err.message
+                message: error.message
             });
         }
 

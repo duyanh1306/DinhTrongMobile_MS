@@ -7,13 +7,25 @@ const item_typeSchema = new Schema(
             type: String,
             required: true,
             minlength: [2,"Name must have at least 2 characters"],
-            maxlength: [100,"Max 100 character"]
+            maxlength: [100,"Max 100 character"],
+            validate: {
+                validator: function(v) {
+                    return /^[a-zA-Z0-9\s\-_]+$/.test(v);
+                },
+                message: 'Name can only contain letters, numbers, spaces, hyphens, and underscores'
+            }
         },
         code: {
             type: String,
             required: true,
             minlength: [2,"Code must have at least 2 characters"],
-            maxlength: 100
+            maxlength: 100,
+            validate: {
+                validator: function(v) {
+                    return /^[a-zA-Z0-9\s\-_]+$/.test(v);
+                },
+                message: 'Code can only contain letters, numbers, spaces, hyphens, and underscores'
+            }
         },
         price: {
             type: Number,
