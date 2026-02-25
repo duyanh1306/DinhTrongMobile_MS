@@ -36,8 +36,7 @@ const Login = () => {
       } else if (role === 'TECHNICIAN') {
         navigate('/tech/dashboard');
       } else {
-        // Khách hàng hoặc mặc định về trang chủ
-        navigate('/');
+        navigate('/home');
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Đăng nhập thất bại");

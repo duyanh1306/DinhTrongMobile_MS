@@ -4,7 +4,8 @@ import {
   Wrench, 
   ClipboardList, 
   Cpu, 
-  History 
+  History,
+  User 
 } from "lucide-react";
 
 export default function TechSidebar() {
@@ -12,37 +13,18 @@ export default function TechSidebar() {
   const location = useLocation();
 
   const items = [
-    {
-      text: "Dashboard",
-      link: "/tech/dashboard",
-      icon: <LayoutDashboard size={20} />,
-    },
-    {
-      text: "Việc cần làm",
-      link: "/tech/tasks",
-      icon: <Wrench size={20} />,
-    },
-    {
-      text: "Yêu cầu linh kiện",
-      link: "/tech/components",
-      icon: <Cpu size={20} />,
-    },
-    {
-      text: "Lịch sử sửa chữa",
-      link: "/tech/history",
-      icon: <History size={20} />,
-    },
-    {
-      text: "Phiếu tiếp nhận",
-      link: "/tech/tickets",
-      icon: <ClipboardList size={20} />,
-    },
+    { text: "Dashboard", link: "/tech/dashboard", icon: <LayoutDashboard size={20} /> },
+    { text: "Tasks", link: "/tech/tasks", icon: <Wrench size={20} /> },
+    { text: "Parts Request", link: "/tech/components", icon: <Cpu size={20} /> },
+    { text: "Repair History", link: "/tech/history", icon: <History size={20} /> },
+    { text: "Intake Tickets", link: "/tech/tickets", icon: <ClipboardList size={20} /> },
+    { text: "Profile", link: "/profile", icon: <User size={20} /> },
   ];
 
   return (
     <div className="h-screen w-64 bg-slate-800 text-white flex flex-col shadow-lg">
       <div className="text-xl font-bold p-6 border-b border-slate-700">
-        Kỹ Thuật Viên
+        Technician
       </div>
       <nav className="flex flex-col p-4 gap-2">
         {items.map((item, index) => {

@@ -12,8 +12,9 @@ export default function AdminSidebar() {
         {
             icon: <UserCircle size={20}/>,
             text: "Profile",
-            link: "/admin/profile",
-        },
+            link: "/profile", 
+          },
+        { icon: <Users size={20} />, text: "Manage Users", link: "/admin/users" },
         {
             icon: <Store size={20} />,
             text: "Manage Stores",

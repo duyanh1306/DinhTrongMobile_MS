@@ -8,23 +8,27 @@ const LoginSuccess = () => {
 
   useEffect(() => {
     const token = searchParams.get('token');
-    if (token) {
+    const userString = searchParams.get('user');
+
+    if (token && userString) {
+      // 1. Lưu dữ liệu vào máy
       localStorage.setItem('token', token);
+      localStorage.setItem('user', decodeURIComponent(userString));
       
       try {
-        // Giải mã token để lấy roleName
         const decoded = jwtDecode(token);
-        const role = decoded.roleName; // Backend bạn đặt tên key là roleName
+        const role = decoded.roleName; 
 
-        // --- PHÂN QUYỀN ĐIỀU HƯỚNG ---
+        // 2. PHÂN QUYỀN ĐIỀU HƯỚNG 
         if (role === 'ADMIN') {
           navigate('/admin/dashboard');
         } else if (role === 'SALE_STAFF') {
           navigate('/sale/dashboard');
         } else if (role === 'TECHNICIAN') {
-          navigate('/technician/dashboard');
+          navigate('/tech/dashboard');
         } else {
-          navigate('/');
+          
+          navigate('/home');
         }
       } catch (error) {
         console.error("Lỗi decode token:", error);
@@ -35,7 +39,7 @@ const LoginSuccess = () => {
     }
   }, [navigate, searchParams]);
 
-  return <div className="text-center mt-20">Đang xử lý đăng nhập...</div>;
+  return <div className="text-center mt-20 text-xl text-primary font-bold">Đang xử lý đăng nhập Google...</div>;
 };
 
 export default LoginSuccess;
