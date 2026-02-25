@@ -1,5 +1,5 @@
 import {useNavigate} from "react-router-dom";
-import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle, Users, Store  } from "lucide-react";
+import { Cpu, Hammer ,Store, LayoutDashboard, Smartphone, UserCircle,Users, BookOpen, GraduationCap, Newspaper } from "lucide-react";
 
 export default function AdminSidebar() {
     const navigate = useNavigate();
@@ -39,7 +39,11 @@ export default function AdminSidebar() {
             text: "Manage Repair Service",
             link: "/admin/repair_service",
         },
-
+{
+      icon: <Store size={20} />,
+      text: "Manage Stores",
+      link: "/admin/stores",
+    },
     ];
 
     return (
