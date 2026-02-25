@@ -288,11 +288,27 @@ export default function AdminItemType() {
                                         )}
                                     </div>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Price
+                                <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    onClick={() => handleSortChange('price')}
+                                >
+                                    <div className="flex items-center space-x-1">
+                                        <span>Price</span>
+                                        {filters.sortBy === 'price' && (
+                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                        )}
+                                    </div>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Base Cost
+                                <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    onClick={() => handleSortChange('baseCost')}
+                                >
+                                    <div className="flex items-center space-x-1">
+                                        <span>Base Cost</span>
+                                        {filters.sortBy === 'baseCost' && (
+                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                        )}
+                                    </div>
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Compatible Models

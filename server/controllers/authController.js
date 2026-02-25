@@ -1,9 +1,15 @@
-const User = require("../models/User"); // Đảm bảo đúng đường dẫn
+const User = require("../models/User"); 
 const Role = require("../models/Role");
 const Otp = require("../models/Otp");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
+
+// Hàm kiểm tra mật khẩu: Tối thiểu 8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt
+const isValidPassword = (password) => {
+  const regex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+  return regex.test(password);
+};
 
 // --- 1. ĐĂNG KÝ (Gửi OTP) ---
 exports.register = async (req, res) => {
@@ -13,14 +19,18 @@ exports.register = async (req, res) => {
     // Kiểm tra user đã tồn tại chưa
     const existingUser = await User.findOne({ $or: [{ email }, { userName }] });
     if (existingUser) {
-      return res.status(400).json({ message: "Email hoặc Username đã tồn tại" });
+      return res.status(400).json({ message: "Email hoặc Tên đăng nhập đã tồn tại trong hệ thống." });
     }
 
     // Mặc định user đăng ký mới sẽ là 'CUSTOMER'
-    // Cần tìm _id của Role CUSTOMER trong DB
     const customerRole = await Role.findOne({ id: "CUSTOMER" });
     if (!customerRole) {
-      return res.status(500).json({ message: "Lỗi hệ thống: Không tìm thấy Role Customer" });
+      return res.status(500).json({ message: "Lỗi hệ thống: Không tìm thấy phân quyền Khách hàng." });
+    }
+    
+    // Kiểm tra định dạng mật khẩu
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ message: "Mật khẩu phải tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ viết hoa và 1 ký tự đặc biệt." });
     }
 
     // Mã hóa mật khẩu
@@ -36,8 +46,8 @@ exports.register = async (req, res) => {
       number,
       address,
       birthday,
-      roleId: customerRole._id, // Gán ID của role Customer
-      status: "pending", // Chưa kích hoạt
+      roleId: customerRole._id, 
+      status: "pending", 
     });
 
     await newUser.save();
@@ -49,9 +59,9 @@ exports.register = async (req, res) => {
     await new Otp({ email, otp: otpCode }).save();
 
     // Gửi Email
-    await sendEmail(email, "Xác thực tài khoản - DinhTrongMobile", `Mã OTP của bạn là: ${otpCode}. Mã hết hạn sau 5 phút.`);
+    await sendEmail(email, "Xác thực tài khoản - DinhTrongMobile", `Mã OTP của bạn là: ${otpCode}. Mã sẽ hết hạn sau 5 phút.`);
 
-    res.status(201).json({ message: "Đăng ký thành công! Vui lòng kiểm tra email để lấy OTP." });
+    res.status(201).json({ message: "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã xác thực OTP." });
 
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -65,12 +75,12 @@ exports.verifyOtpRegister = async (req, res) => {
 
     const validOtp = await Otp.findOne({ email, otp });
     if (!validOtp) {
-      return res.status(400).json({ message: "Mã OTP không đúng hoặc đã hết hạn" });
+      return res.status(400).json({ message: "Mã OTP không chính xác hoặc đã hết hạn." });
     }
 
     // Kích hoạt User
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User không tồn tại" });
+    if (!user) return res.status(404).json({ message: "Không tìm thấy thông tin người dùng." });
 
     user.status = "active";
     await user.save();
@@ -78,7 +88,7 @@ exports.verifyOtpRegister = async (req, res) => {
     // Xóa OTP sau khi dùng xong
     await Otp.deleteMany({ email });
 
-    res.status(200).json({ message: "Xác thực thành công! Bạn có thể đăng nhập ngay." });
+    res.status(200).json({ message: "Xác thực tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ." });
 
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -90,39 +100,34 @@ exports.login = async (req, res) => {
   try {
     const { userName, password } = req.body;
 
-    // Tìm user và populate role để lấy thông tin role
-    const user = await User.findOne({ userName }).populate("roleId"); // populate cần setup ref chuẩn trong User model
+    const user = await User.findOne({ userName }).populate("roleId"); 
     if (!user) {
-      return res.status(400).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+      return res.status(400).json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
     }
 
-    // Kiểm tra mật khẩu
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+      return res.status(400).json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
     }
 
-    // Kiểm tra trạng thái
     if (user.status !== "active") {
-      return res.status(403).json({ message: "Tài khoản chưa được kích hoạt hoặc bị khóa" });
+      return res.status(403).json({ message: "Tài khoản của bạn chưa được kích hoạt hoặc đang bị khóa." });
     }
 
-    // Tạo Token (Payload chứa thông tin cần thiết)
     const token = jwt.sign(
       { 
         id: user._id, 
-        roleId: user.roleId._id, // ID của Role object
-        roleName: user.roleId.id // Tên định danh Role (VD: ADMIN, CUSTOMER) để frontend dễ check
+        roleId: user.roleId._id, 
+        roleName: user.roleId.id 
       },
       process.env.JWT_KEY,
       { expiresIn: "1d" }
     );
 
-    // Trả về info (bỏ password)
     const { password: _, ...userInfo } = user._doc;
 
     res.status(200).json({
-      message: "Đăng nhập thành công",
+      message: "Đăng nhập thành công!",
       token,
       user: userInfo,
     });
@@ -138,19 +143,33 @@ exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "Email không tồn tại trong hệ thống" });
+      return res.status(404).json({ message: "Email này chưa được đăng ký trong hệ thống." });
     }
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Xóa OTP cũ nếu có
     await Otp.deleteMany({ email });
     await new Otp({ email, otp: otpCode }).save();
 
-    await sendEmail(email, "Đặt lại mật khẩu - DinhTrongMobile", `Mã OTP đặt lại mật khẩu của bạn là: ${otpCode}`);
+    await sendEmail(email, "Yêu cầu khôi phục mật khẩu - DinhTrongMobile", `Mã OTP để đặt lại mật khẩu của bạn là: ${otpCode}`);
 
-    res.status(200).json({ message: "Đã gửi mã OTP đến email của bạn." });
+    res.status(200).json({ message: "Đã gửi mã xác thực OTP đến email của bạn." });
 
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+// --- 4.5. KIỂM TRA OTP HỢP LỆ (Bước trung gian cho Quên mật khẩu) ---
+exports.verifyOtpReset = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const validOtp = await Otp.findOne({ email, otp });
+    
+    if (!validOtp) {
+      return res.status(400).json({ message: "Mã OTP không chính xác hoặc đã hết hạn." });
+    }
+    
+    res.status(200).json({ message: "Xác thực OTP thành công!" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -163,81 +182,95 @@ exports.resetPassword = async (req, res) => {
 
     const validOtp = await Otp.findOne({ email, otp });
     if (!validOtp) {
-      return res.status(400).json({ message: "OTP không đúng hoặc hết hạn" });
+      return res.status(400).json({ message: "Mã OTP không chính xác hoặc đã hết hạn." });
     }
 
     const user = await User.findOne({ email });
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ message: "Mật khẩu mới phải tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ viết hoa và 1 ký tự đặc biệt." });
+    }
+    
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     await user.save();
 
-    // Xóa OTP
     await Otp.deleteMany({ email });
 
-    res.status(200).json({ message: "Đổi mật khẩu thành công! Hãy đăng nhập lại." });
+    res.status(200).json({ message: "Khôi phục mật khẩu thành công! Vui lòng đăng nhập lại." });
 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 // --- 6. XỬ LÝ CALLBACK SAU KHI LOGIN GOOGLE THÀNH CÔNG ---
 exports.googleAuthCallback = (req, res) => {
-    try {
-      // Lúc này Passport đã xử lý xong và gắn user vào req.user
-      const user = req.user;
-  
-      if (!user) {
-        return res.status(401).json({ message: "Xác thực Google thất bại" });
-      }
-  
-      // Tạo Token JWT
-      const token = jwt.sign(
-        {
-          id: user._id,
-          roleId: user.roleId._id, // Lấy ID của object Role
-          roleName: user.roleId.id, // Lấy tên Role (CUSTOMER, ADMIN...)
-        },
-        process.env.JWT_KEY,
-        { expiresIn: "1d" }
-      );
-  
-      // Ẩn mật khẩu trước khi trả về (dù user google ko có pass, nhưng cứ làm cho chuẩn)
-      const { password: _, ...userInfo } = user._doc ? user._doc : user;
-  
-      res.status(200).json({
-        message: "Login Google thành công",
-        token,
-        user: userInfo,
-      });
-      
-      // Lưu ý: Nếu làm với React Frontend thật, đoạn này thường sẽ redirect
-      // res.redirect(`http://localhost:3000/login-success?token=${token}`);
-  
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
-  // --- 7. CẬP NHẬT PROFILE & AVATAR ---
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: "Xác thực tài khoản Google thất bại." });
+
+    const token = jwt.sign(
+      { id: user._id, roleId: user.roleId._id, roleName: user.roleId.id },
+      process.env.JWT_KEY,
+      { expiresIn: "1d" }
+    );
+
+    const { password: _, ...userInfo } = user._doc ? user._doc : user;
+
+    const userString = encodeURIComponent(JSON.stringify(userInfo));
+    res.redirect(`http://localhost:3000/login-success?token=${token}&user=${userString}`);
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// --- 7. CẬP NHẬT PROFILE & AVATAR ---
 exports.updateProfile = async (req, res) => {
   try {
     const { userId, fullName, number, address, birthday } = req.body;
     const updateData = { fullName, number, address, birthday };
 
-    // Nếu người dùng có chọn ảnh mới, thì gán đường dẫn ảnh mới
     if (req.file) {
       updateData.image = `/uploads/avatar/${req.file.filename}`;
     }
 
-    // Cập nhật vào DB
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).populate("roleId");
 
     if (!updatedUser) {
-      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      return res.status(404).json({ message: "Không tìm thấy thông tin người dùng." });
     }
 
     const { password: _, ...userInfo } = updatedUser._doc;
-    res.status(200).json({ message: "Cập nhật hồ sơ thành công!", user: userInfo });
+    res.status(200).json({ message: "Cập nhật hồ sơ cá nhân thành công!", user: userInfo });
 
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// --- 8. ĐỔI MẬT KHẨU (Cho người đã đăng nhập) ---
+exports.changePassword = async (req, res) => {
+  try {
+    const { userId, oldPassword, newPassword } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy thông tin người dùng." });
+
+    // Kiểm tra mật khẩu cũ
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Mật khẩu hiện tại không chính xác." });
+
+    // Kiểm tra định dạng mật khẩu mới
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ message: "Mật khẩu mới phải tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ viết hoa và 1 ký tự đặc biệt." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.status(200).json({ message: "Đổi mật khẩu thành công!" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

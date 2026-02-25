@@ -12,23 +12,18 @@ export default function AdminSidebar() {
         {
             icon: <UserCircle size={20}/>,
             text: "Profile",
-            link: "/admin/profile",
-        },
+            link: "/profile", 
+          },
         { icon: <Users size={20} />, text: "Manage Users", link: "/admin/users" },
         {
-            icon: <BookOpen size={20} />,
-            text: "Manage Courses",
-            link: "/admin/courses",
+            icon: <Store size={20} />,
+            text: "Manage Stores",
+            link: "/admin/stores"
         },
         {
-            icon: <GraduationCap size={20} />,
-            text: "Manage Classes",
-            link: "/admin/classes",
-        },
-        {
-            icon: <Newspaper size={20} />,
-            text: "News List",
-            link: "/admin/news/list",
+            icon: <Users size={20} />,
+            text: "Manage Users",
+            link: "/admin/users"
         },
         {   icon: <Smartphone size={20}/>,
             text: "Manage Phone Model",

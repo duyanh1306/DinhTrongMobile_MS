@@ -17,7 +17,9 @@ router.post("/verify-otp", authController.verifyOtpRegister);
 router.post("/login", authController.login);
 router.post("/forgot-password", authController.forgotPassword);
 router.post("/reset-password", authController.resetPassword);
+router.post("/verify-otp-reset", authController.verifyOtpReset);
 router.put("/profile", upload.single("avatar"), authController.updateProfile);
+router.put("/change-password", authController.changePassword);
 // ... Các route CRUD user khác của bạn (nhớ thêm middleware authMiddleware vào nếu cần bảo mật)
 // 1. Route: Gửi người dùng sang trang Login của Google
 // URL: http://localhost:9999/api/users/auth/google
@@ -42,4 +44,5 @@ router.post("/", createUser);
 router.put("/:id", updateUser);
 router.delete("/:id", deleteUser);
 router.put("/:id/reset-password", resetPassword);
+
 module.exports = router;
