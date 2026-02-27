@@ -1,25 +1,25 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
-const item_typeSchema = new Schema(
+const itemSchema = new Schema(
     {
         name:{
             type: String,
-            required: true,
+            required: false, // Make optional for existing data
             minlength: [2,"Name must have at least 2 characters"],
             maxlength: [100,"Max 100 character"],
             validate: {
                 validator: function(v) {
-                    return /^[a-zA-Z0-9\s\-_]+$/.test(v);
+                    return !v || /^[a-zA-Z0-9\s\-_]+$/.test(v);
                 },
                 message: 'Name can only contain letters, numbers, spaces, hyphens, and underscores'
             }
         },
-        code: {
+        serialCode: {
             type: String,
             required: true,
             minlength: [2,"Code must have at least 2 characters"],
-            maxlength: 100,
+            maxlength: [100,"Max 100 character"],
             validate: {
                 validator: function(v) {
                     return /^[a-zA-Z0-9\s\-_]+$/.test(v);
@@ -27,15 +27,25 @@ const item_typeSchema = new Schema(
                 message: 'Code can only contain letters, numbers, spaces, hyphens, and underscores'
             }
         },
-        price: {
-            type: Number,
-            required: true,
-            min: [1,"Price must be 1 or higher"],
+        status: {
+            type: String,
+            default: "available"
         },
-        baseCost: {
-            type: Number,
-            required: true,
-            min: [1,"Base cost must be 1 or higher"],
+        item_type: {
+            type: Schema.Types.ObjectId,
+            ref: "Item_type",
+        },
+        itemTypeId: {
+            type: Schema.Types.ObjectId,
+            ref: "Item_type",
+        },
+        store: {
+            type: Schema.Types.ObjectId,
+            ref: "Store",
+        },
+        storeId: {
+            type: Schema.Types.ObjectId,
+            ref: "Store",
         }
     },
     {
@@ -43,6 +53,6 @@ const item_typeSchema = new Schema(
     }
 );
 
-item_typeSchema.index({name: 1, code: 1}, {unique: true})
+itemSchema.index({name: 1, serialCode: 1}, {unique: true})
 
-module.exports = mongoose.model("Item_type", item_typeSchema);
+module.exports = mongoose.model("Item", itemSchema);

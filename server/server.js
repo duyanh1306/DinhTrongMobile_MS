@@ -15,6 +15,7 @@ const userRoute = require("./routes/userRoute");
 const storeRoute = require("./routes/storeRoute");
 const roleRoute = require("./routes/roleRoutes");
 const item_typeRoute = require("./routes/item_typeRoute");
+const itemRoute = require("./routes/itemRoute");
 const phone_modelRoute = require("./routes/phone_modelRoute");
 const repair_serviceRoute = require("./routes/repair_serviceRoute");
 
@@ -31,6 +32,7 @@ app.use("/api/users", userRoute);
 app.use("/api/stores", storeRoute);
 app.use("/api/roles", roleRoute);
 app.use("/api/item_types", item_typeRoute);
+app.use("/api/items", itemRoute);
 app.use("/api/phone_models", phone_modelRoute);
 app.use("/api/repair_services", repair_serviceRoute);
 

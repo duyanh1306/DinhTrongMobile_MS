@@ -27,6 +27,10 @@ const phone_modelSchema = new Schema(
                 message: 'Brand can only contain letters, numbers, spaces, hyphens, and underscores'
             }
         },
+        compatibleItemTypes: [{
+            type: Schema.Types.ObjectId,
+            ref: "Item_type",
+        }]
     },
     {
         timestamps: true,

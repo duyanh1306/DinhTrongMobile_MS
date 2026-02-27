@@ -4,6 +4,7 @@ const Phone_model = require("../models/Phone_model");
 const getAllPhoneModels = async (req, res) => {
     try{
         const phone_models = await Phone_model.find()
+            .populate('compatibleItemTypes', 'name code')
         res.status(200).json({
             success: true,
             message: "Phone models retrieved successfully",
@@ -24,12 +25,14 @@ const createPhoneModel = async (req, res) => {
     try {
         const {
             name,
-            brand
+            brand,
+            compatibleItemTypes
         } = req.body;
 
         const newPhoneModel = new Phone_model({
             name,
-            brand
+            brand,
+            compatibleItemTypes
         });
 
         const savedPhoneModel = await newPhoneModel.save();
@@ -130,6 +133,7 @@ const getPhoneModelPaginatedAndSearch = async (req, res) => {
         
         const phoneModels = await Phone_model
             .find(searchQuery)
+            .populate('compatibleItemTypes', 'name code')
             .sort(sortQuery)
             .skip(skip)
             .limit(limitNum);
