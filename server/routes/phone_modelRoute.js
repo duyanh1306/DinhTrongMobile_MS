@@ -9,7 +9,7 @@ const {
 } = require("../controllers/phone_modelController");
 
 router.get("/", authAdmin, getPhoneModelPaginatedAndSearch);
-// router.get("/all", authAdmin, getAllPhoneModels);
+router.get("/all", getAllPhoneModels);
 router.post("/create", authAdmin , createPhoneModel);
 router.put("/update/:id", authAdmin, updatePhoneModel);
 

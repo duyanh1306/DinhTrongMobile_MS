@@ -21,6 +21,8 @@ import TechDashboard from './pages/technician/TechDashboard';
 import Profile from './pages/common/Profile';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
+import AdminItem from "./pages/admin/AdminItem";
+import AdminFilteredItems from "./pages/admin/AdminFilteredItems";
 import ManageRepairService from "./pages/admin/ManageRepairService";
 const CustomerProfile = () => <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>;
 
@@ -101,6 +103,26 @@ function App() {
                         <PrivateRoute allowedRoles={['ADMIN']}>
                             <AdminLayout>
                                 <AdminItemType/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/admin/items"
+                    element={
+                        <PrivateRoute allowedRoles={['ADMIN']}>
+                            <AdminLayout>
+                                <AdminItem/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/admin/items/filtered"
+                    element={
+                        <PrivateRoute allowedRoles={['ADMIN']}>
+                            <AdminLayout>
+                                <AdminFilteredItems/>
                             </AdminLayout>
                         </PrivateRoute>
                     }

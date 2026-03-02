@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Smartphone, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Edit, Trash2, Smartphone, Search, ChevronLeft, ChevronRight, X, ChevronDown } from "lucide-react";
 
 export default function AdminPhoneModel() {
     const [phoneModels, setPhoneModels] = useState([]);
@@ -23,9 +23,12 @@ export default function AdminPhoneModel() {
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
-        brand: ''
+        brand: '',
+        compatibleItemTypes: []
     });
     const [editingId, setEditingId] = useState(null);
+    const [availableItemTypes, setAvailableItemTypes] = useState([]);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     useEffect(() => {
         fetchPhoneModel(true);
@@ -36,6 +39,19 @@ export default function AdminPhoneModel() {
             fetchPhoneModel(false);
         }
     }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
+
+    const fetchItemTypes = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const { data } = await axios.get(`http://localhost:9999/api/item_types?limit=1000`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setAvailableItemTypes(data.data || []);
+        } catch (error) {
+            console.error("Failed to fetch item types:", error);
+            toast.error("Failed to load item types");
+        }
+    };
 
     const fetchPhoneModel = async (isInitialLoad = false) => {
         try {
@@ -102,8 +118,9 @@ export default function AdminPhoneModel() {
 
     const handleAddPhoneModel = () => {
         setIsEditing(false);
-        setFormData({ name: '', brand: '' });
+        setFormData({ name: '', brand: '', compatibleItemTypes: [] });
         setEditingId(null);
+        fetchItemTypes();
         setShowModal(true);
     };
 
@@ -111,23 +128,41 @@ export default function AdminPhoneModel() {
         setIsEditing(true);
         setFormData({ 
             name: model.name, 
-            brand: model.brand 
+            brand: model.brand,
+            compatibleItemTypes: model.compatibleItemTypes?.map(item => item._id) || []
         });
         setEditingId(model._id);
+        fetchItemTypes();
         setShowModal(true);
     };
 
     const handleCloseModal = () => {
         setShowModal(false);
-        setFormData({ name: '', brand: '' });
+        setFormData({ name: '', brand: '', compatibleItemTypes: [] });
         setIsEditing(false);
         setEditingId(null);
+        setIsDropdownOpen(false);
     };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
+
+    const handleItemTypesChange = (selectedItemTypes) => {
+        setFormData(prev => ({ ...prev, compatibleItemTypes: selectedItemTypes }));
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (isDropdownOpen && !event.target.closest('.item-type-dropdown')) {
+                setIsDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isDropdownOpen]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -169,14 +204,14 @@ export default function AdminPhoneModel() {
             <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Manage Phone Models</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý mẫu điện thoại</h1>
                 </div>
                 <button 
                     onClick={handleAddPhoneModel}
                     className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
                     <Plus size={20} />
-                    <span>Add Phone Model</span>
+                    <span>Thêm Mẫu Điện Thoại</span>
                 </button>
             </div>
 
@@ -187,7 +222,7 @@ export default function AdminPhoneModel() {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                             <input
                                 type="text"
-                                placeholder="Search phone models or brands ..."
+                                placeholder="Tìm kiếm mẫu điện thoại hoặc hãng ..."
                                 value={filters.search}
                                 onChange={handleSearchChange}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -195,7 +230,7 @@ export default function AdminPhoneModel() {
                         </div>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Total: {pagination.totalCount} items</span>
+                        <span>Tổng: {pagination.totalCount} mẫu</span>
                     </div>
                 </div>
             </div>
@@ -211,7 +246,7 @@ export default function AdminPhoneModel() {
                                     onClick={() => handleSortChange('name')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Model Name</span>
+                                        <span>Tên Mẫu</span>
                                         {filters.sortBy === 'name' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
@@ -222,21 +257,24 @@ export default function AdminPhoneModel() {
                                     onClick={() => handleSortChange('brand')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Brand</span>
+                                        <span>Hãng</span>
                                         {filters.sortBy === 'brand' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
                                     </div>
                                 </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Linh kiện phù hợp
+                                </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    Hành động
                                 </th>
                             </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                             {phoneModels.length === 0 ? (
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
                                         <div className="flex flex-col items-center space-y-2">
                                             <Smartphone size={48} className="text-gray-300" />
                                             <span>No phone models found</span>
@@ -254,6 +292,18 @@ export default function AdminPhoneModel() {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
                                                 {model.brand}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm text-gray-500 max-w-xs">
+                                                {model.compatibleItemTypes?.length > 0 
+                                                    ? model.compatibleItemTypes
+                                                        .slice(0, 3)
+                                                        .map(item => `${item.name} (${item.code})`)
+                                                        .join(', ') + 
+                                                      (model.compatibleItemTypes.length > 3 ? '...' : '')
+                                                    : '-'
+                                                }
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -285,9 +335,9 @@ export default function AdminPhoneModel() {
                         <div className="border-t border-gray-200 p-6 bg-gray-50">
                             <div className="flex items-center justify-between">
                                 <div className="text-sm text-gray-600">
-                                    Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
-                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
-                                    {pagination.totalCount} results
+                                    Thông tin {((pagination.currentPage - 1) * pagination.limit) + 1} đến{' '}
+                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} trong{' '}
+                                    {pagination.totalCount} kết quả
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <button
@@ -296,7 +346,7 @@ export default function AdminPhoneModel() {
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <ChevronLeft size={16} />
-                                        <span>Previous</span>
+                                        <span>Trước</span>
                                     </button>
                                     
                                     <div className="flex items-center space-x-1">
@@ -333,7 +383,7 @@ export default function AdminPhoneModel() {
                                         disabled={!pagination.hasNextPage}
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <span>Next</span>
+                                        <span>Tiếp</span>
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
@@ -348,7 +398,7 @@ export default function AdminPhoneModel() {
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
                             <h2 className="text-xl font-semibold text-gray-800">
-                                {isEditing ? 'Edit Phone Model' : 'Add Phone Model'}
+                                {isEditing ? 'Chỉnh sửa loại đồ' : 'Thêm Mẫu Điện Thoại'}
                             </h2>
                             <button
                                 onClick={handleCloseModal}
@@ -387,6 +437,66 @@ export default function AdminPhoneModel() {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     placeholder="Enter brand name"
                                 />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Compatible Item Types
+                                </label>
+                                <div className="relative item-type-dropdown">
+                                    <div 
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-h-[42px] flex items-center justify-between"
+                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    >
+                                        <div className="flex flex-wrap gap-1">
+                                            {formData.compatibleItemTypes.length === 0 ? (
+                                                <span className="text-gray-500">Select item types...</span>
+                                            ) : (
+                                                formData.compatibleItemTypes.map(itemTypeId => {
+                                                    const itemType = availableItemTypes.find(i => i._id === itemTypeId);
+                                                    return itemType ? (
+                                                        <span key={itemTypeId} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                                            {itemType.name} ({itemType.code})
+                                                        </span>
+                                                    ) : null;
+                                                })
+                                            )}
+                                        </div>
+                                        <ChevronDown size={20} className="text-gray-400" />
+                                    </div>
+                                    
+                                    {isDropdownOpen && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                            {availableItemTypes.length === 0 ? (
+                                                <div className="px-4 py-2 text-gray-500">No item types available</div>
+                                            ) : (
+                                                availableItemTypes.map(itemType => (
+                                                    <label
+                                                        key={itemType._id}
+                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.compatibleItemTypes.includes(itemType._id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    handleItemTypesChange([...formData.compatibleItemTypes, itemType._id]);
+                                                                } else {
+                                                                    handleItemTypesChange(formData.compatibleItemTypes.filter(id => id !== itemType._id));
+                                                                }
+                                                            }}
+                                                            className="mr-3"
+                                                        />
+                                                        <span className="text-sm">{itemType.name} ({itemType.code})</span>
+                                                    </label>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Select item types that are compatible with this phone model.
+                                </p>
                             </div>
                             
                             <div className="flex justify-end space-x-3 pt-4">

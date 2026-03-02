@@ -18,7 +18,7 @@ const item_typeSchema = new Schema(
         code: {
             type: String,
             required: true,
-            minlength: [2,"Code must have at least 2 characters"],
+            minlength: [0,"Code must have at least 2 characters"],
             maxlength: 100,
             validate: {
                 validator: function(v) {
@@ -27,6 +27,7 @@ const item_typeSchema = new Schema(
                 message: 'Code can only contain letters, numbers, spaces, hyphens, and underscores'
             }
         },
+
         price: {
             type: Number,
             required: true,
@@ -36,11 +37,7 @@ const item_typeSchema = new Schema(
             type: Number,
             required: true,
             min: [1,"Base cost must be 1 or higher"],
-        },
-        compatiblePhoneModels: [{
-            type: Schema.Types.ObjectId,
-            ref: 'Phone_model'
-        }]
+        }
     },
     {
         timestamps: true,

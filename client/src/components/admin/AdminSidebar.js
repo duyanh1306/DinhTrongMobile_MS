@@ -1,5 +1,5 @@
 import {useNavigate} from "react-router-dom";
-import { Cpu, Hammer ,Store, LayoutDashboard, Smartphone, UserCircle,Users, BookOpen, GraduationCap, Newspaper } from "lucide-react";
+import { Cpu, Hammer , LayoutDashboard, Smartphone, UserCircle, Users, Store, Package  } from "lucide-react";
 
 export default function AdminSidebar() {
     const navigate = useNavigate();
@@ -11,32 +11,36 @@ export default function AdminSidebar() {
         },
         {
             icon: <UserCircle size={20}/>,
-            text: "Profile",
+            text: "Thông tin cá nhân",
             link: "/profile", 
           },
-        { icon: <Users size={20} />, text: "Manage Users", link: "/admin/users" },
-        {
-            icon: <Store size={20} />,
-            text: "Manage Stores",
-            link: "/admin/stores"
-        },
         {
             icon: <Users size={20} />,
-            text: "Manage Users",
+            text: "Quản lý người dùng",
             link: "/admin/users"
         },
+        {
+            icon: <Store size={20} />,
+            text: "Quản lý chuỗi cửa hàng",
+            link: "/admin/stores"
+        },
         {   icon: <Smartphone size={20}/>,
-            text: "Manage Phone Model",
+            text: "Quản lỹ mẫu điện thoại",
             link: "/admin/phone_model"
         },
         {
             icon: <Cpu size={20}/>,
-            text: "Manage Item Types",
+            text: "Quản lý loại đồ",
             link: "/admin/item_type",
         },
         {
+            icon: <Package size={20}/>,
+            text: "Quản lý đồ",
+            link: "/admin/items",
+        },
+        {
             icon: <Hammer size={20}/>,
-            text: "Manage Repair Service",
+            text: "Quản lý dịch vụ sửa chữa",
             link: "/admin/repair_service",
         },
 {
