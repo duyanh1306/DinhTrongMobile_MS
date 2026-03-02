@@ -2,42 +2,34 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { toast } from 'react-toastify';
-import { FaUser, FaEnvelope, FaLock, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Register = () => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    fullName: '',
-    userName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    number: '',
-    address: '',
-    birthday: '' // Nếu backend bắt buộc
-  });
-
+  const [formData, setFormData] = useState({ fullName: '', userName: '', email: '', number: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const validatePassword = (password) => {
+    const regex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    return regex.test(password);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      return toast.error("Mật khẩu xác nhận không khớp!");
+    if (!validatePassword(formData.password)) {
+      return toast.error("Mật khẩu phải tối thiểu 8 ký tự, bao gồm chữ viết hoa và ký tự đặc biệt");
     }
 
     setLoading(true);
     try {
-      // Gọi API đăng ký
-      // Lưu ý: Backend bạn cần xử lý birthday nếu require, ở đây mình gửi tạm
-      const payload = { ...formData, birthday: '2000-01-01' }; 
-      await axiosClient.post('/users/register', payload);
-      
-      toast.success("Đăng ký thành công! Hãy kiểm tra email lấy OTP.");
-      // Chuyển sang trang nhập OTP, truyền theo email để đỡ phải nhập lại
+      const res = await axiosClient.post('/users/register', formData);
+      toast.success(res.data.message);
+      // Chuyển sang trang Verify OTP và truyền email theo
       navigate(`/verify-otp?email=${formData.email}`);
     } catch (error) {
       toast.error(error.response?.data?.message || "Đăng ký thất bại");
@@ -47,84 +39,55 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-primary">Tạo tài khoản mới</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Trở thành thành viên của DinhTrongMobile
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-primary">DinhTrongMobile</h1>
+          <p className="text-gray-500">Tạo tài khoản mới</p>
         </div>
-        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-          
-          {/* Full Name & Username Group */}
-          <div className="grid grid-cols-2 gap-4">
-             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaUser className="text-gray-400" />
-                </div>
-                <input name="fullName" type="text" required className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Họ tên" onChange={handleChange} />
-             </div>
-             <div className="relative">
-                <input name="userName" type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Username" onChange={handleChange} />
-             </div>
-          </div>
 
-          {/* Email & Phone */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaEnvelope className="text-gray-400" />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Họ và tên</label>
+              <input type="text" name="fullName" onChange={handleChange} required className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-primary outline-none" />
             </div>
-            <input name="email" type="email" required className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Email của bạn" onChange={handleChange} />
-          </div>
-
-          <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaPhone className="text-gray-400" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Tên đăng nhập</label>
+              <input type="text" name="userName" onChange={handleChange} required className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-primary outline-none" />
             </div>
-            <input name="number" type="text" className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Số điện thoại" onChange={handleChange} />
-          </div>
-
-           {/* Address */}
-           <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaMapMarkerAlt className="text-gray-400" />
-            </div>
-            <input name="address" type="text" className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Địa chỉ" onChange={handleChange} />
-          </div>
-
-          {/* Password Group */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaLock className="text-gray-400" />
-            </div>
-            <input name="password" type="password" required className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Mật khẩu" onChange={handleChange} />
           </div>
           
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaLock className="text-gray-400" />
-            </div>
-            <input name="confirmPassword" type="password" required className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Nhập lại mật khẩu" onChange={handleChange} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Địa chỉ Email</label>
+            <input type="email" name="email" onChange={handleChange} required className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-primary outline-none" />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-          >
-            {loading ? 'Đang xử lý...' : 'Đăng Ký Tài Khoản'}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Số điện thoại</label>
+            <input type="text" name="number" onChange={handleChange} required className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-primary outline-none" />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
+            <div className="relative mt-1">
+              <input type={showPassword ? "text" : "password"} name="password" onChange={handleChange} required
+                className="w-full pl-4 pr-10 py-2 border rounded-lg focus:ring-primary outline-none" placeholder="••••••••" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Tối thiểu 8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt.</p>
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full bg-primary text-white py-2.5 rounded-lg hover:bg-blue-600 transition font-semibold disabled:opacity-70 mt-4">
+            {loading ? "Đang xử lý..." : "Đăng Ký"}
           </button>
         </form>
 
-        <div className="text-center mt-4">
-          <p className="text-sm text-gray-600">
-            Đã có tài khoản?{' '}
-            <Link to="/login" className="font-medium text-primary hover:text-blue-500">
-              Đăng nhập ngay
-            </Link>
-          </p>
-        </div>
+        <p className="mt-6 text-center text-sm text-gray-600">
+          Đã có tài khoản? <Link to="/login" className="text-primary font-semibold hover:underline">Đăng nhập ngay</Link>
+        </p>
       </div>
     </div>
   );

@@ -43,7 +43,11 @@ export default function AdminSidebar() {
             text: "Quản lý dịch vụ sửa chữa",
             link: "/admin/repair_service",
         },
-
+{
+      icon: <Store size={20} />,
+      text: "Manage Stores",
+      link: "/admin/stores",
+    },
     ];
 
     return (
