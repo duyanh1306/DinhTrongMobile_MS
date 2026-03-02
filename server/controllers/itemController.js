@@ -5,17 +5,18 @@ const getAllItems = async (req, res) => {
     try {
         const items = await Item.find()
             .populate('item_type', 'name code')
-            .populate('itemTypeId', 'name code')
-            .populate('store', 'name address')
+            .populate('phoneModelId', 'name brand compatibleItemTypes')
             .populate('storeId', 'name address');
         
-        // Map the data to handle both old and new field names
         const mappedItems = items.map(item => ({
             ...item.toObject(),
-            name: item.name || item.serialCode, // Use serialCode as fallback for name
-            item_type: item.item_type || item.itemTypeId,
-            store: item.store || item.storeId
+            name: item.name || item.serialCode,
+            item_type: item.item_type,
+            store: item.storeId,
+            phoneModel: item.phoneModelId
         }));
+
+        console.log(`Fetched ${items.length} items (all items)`);
 
         res.status(200).json({
             success: true,
@@ -41,27 +42,42 @@ const getItemsPaginatedAndSearch = async (req, res) => {
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
         
-        let searchQuery = {};
+        let andConditions = [];
+        
+        if (item_type) {
+            andConditions.push({
+                $or: [
+                    { item_type: item_type },
+                    { itemTypeId: item_type }
+                ]
+            });
+        }
+        
+        if (status) {
+            andConditions.push({ status: status });
+        }
+        if (store) {
+            andConditions.push({ storeId: store });
+        }
+        
         if (search) {
-            searchQuery = {
+            andConditions.push({
                 $or: [
                     { name: { $regex: search, $options: 'i' } },
                     { serialCode: { $regex: search, $options: 'i' } }
                 ]
-            };
+            });
         }
         
-        if (status) {
-            searchQuery.status = status;
+        // Build final query
+        let searchQuery = {};
+        if (andConditions.length === 1) {
+            searchQuery = andConditions[0];
+        } else if (andConditions.length > 1) {
+            searchQuery = { $and: andConditions };
         }
         
-        if (item_type) {
-            searchQuery.item_type = item_type;
-        }
-        
-        if (store) {
-            searchQuery.store = store;
-        }
+        console.log(`Fetching items with query: ${Object.keys(searchQuery).length} filter(s)`);
         
         const sortQuery = {};
         sortQuery[sortBy] = sortOrder === 'desc' ? -1 : 1;
@@ -70,21 +86,20 @@ const getItemsPaginatedAndSearch = async (req, res) => {
             .find(searchQuery)
             .populate('item_type', 'name code')
             .populate('itemTypeId', 'name code')
-            .populate('store', 'name address')
             .populate('storeId', 'name address')
             .sort(sortQuery)
             .skip(skip)
             .limit(limitNum);
         
-        // Map the data to handle both old and new field names
         const mappedItems = items.map(item => ({
             ...item.toObject(),
-            name: item.name || item.serialCode, // Use serialCode as fallback for name
+            name: item.name || item.serialCode,
             item_type: item.item_type || item.itemTypeId,
-            store: item.store || item.storeId
+            store: item.storeId
         }));
         
         const totalCount = await Item.countDocuments(searchQuery);
+        console.log(`Fetched ${items.length} items (total: ${totalCount})`);
         
         const totalPages = Math.ceil(totalCount / limitNum);
         const hasNextPage = pageNum < totalPages;
@@ -131,7 +146,6 @@ const getItemById = async (req, res) => {
         const item = await Item.findById(id)
             .populate('item_type', 'name code')
             .populate('itemTypeId', 'name code')
-            .populate('store', 'name address')
             .populate('storeId', 'name address');
         
         if (!item) {
@@ -141,14 +155,15 @@ const getItemById = async (req, res) => {
             });
         }
         
-        // Map the data to handle both old and new field names
         const mappedItem = {
             ...item.toObject(),
-            name: item.name || item.serialCode, // Use serialCode as fallback for name
+            name: item.name || item.serialCode,
             item_type: item.item_type || item.itemTypeId,
-            store: item.store || item.storeId
+            store: item.storeId
         };
         
+        console.log(`Fetched item: ${item.serialCode}`);
+
         res.status(200).json({
             success: true,
             message: "Item retrieved successfully",
@@ -171,7 +186,8 @@ const createItem = async (req, res) => {
             serialCode,
             status,
             item_type,
-            store
+            phoneModelId,
+            storeId
         } = req.body;
 
         if (!serialCode || !item_type) {
@@ -182,15 +198,16 @@ const createItem = async (req, res) => {
         }
 
         const newItem = new Item({
-            name: serialCode, // Use serialCode as name
+            name: serialCode,
             serialCode,
-            status: status || "available",
+            status: status || "in_stock",
             item_type,
-            store
+            phoneModelId,
+            storeId
         });
 
         const savedItem = await newItem.save();
-        const populatedItem = await Item.findById(savedItem._id).populate('item_type', 'name code').populate('store', 'name address');
+        const populatedItem = await Item.findById(savedItem._id).populate('item_type', 'name code').populate('phoneModelId', 'name code').populate('storeId', 'name address');
 
         res.status(201).json({
             success: true,
@@ -227,32 +244,28 @@ const updateItem = async (req, res) => {
     try {
         const { id } = req.params;
         
-        // If serialCode is being updated, also update the name to match
         const updateData = { ...req.body };
         if (updateData.serialCode) {
             updateData.name = updateData.serialCode;
         }
-
-        const updated = await Item.findByIdAndUpdate(id, updateData, {
+                const updated = await Item.findByIdAndUpdate(id, updateData, {
             new: true,
             runValidators: true,
         }).populate('item_type', 'name code')
-          .populate('itemTypeId', 'name code')
-          .populate('store', 'name address')
+          .populate('phoneModelId', 'name brand compatibleItemTypes')
           .populate('storeId', 'name address');
-
-        if (!updated) {
+                if (!updated) {
             return res
                 .status(404)
                 .json({ success: false, message: "Item not found" });
         }
 
-        // Map the data to handle both old and new field names
         const mappedItem = {
             ...updated.toObject(),
-            name: updated.name || updated.serialCode, // Use serialCode as fallback for name
-            item_type: updated.item_type || updated.itemTypeId,
-            store: updated.store || updated.storeId
+            name: updated.name || updated.serialCode,
+            item_type: updated.item_type,
+            phoneModelId: updated.phoneModelId,
+            store: updated.storeId
         };
 
         res.status(200).json({

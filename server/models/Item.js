@@ -35,13 +35,17 @@ const itemSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: "Item_type",
         },
+        phoneModelId:{
+            type: Schema.Types.ObjectId,
+            ref: "Phone_model",
+        },
+        repairOrderId: {
+            type: Schema.Types.ObjectId,
+            ref: "Repair_order"
+        },
         itemTypeId: {
             type: Schema.Types.ObjectId,
             ref: "Item_type",
-        },
-        store: {
-            type: Schema.Types.ObjectId,
-            ref: "Store",
         },
         storeId: {
             type: Schema.Types.ObjectId,
@@ -52,6 +56,20 @@ const itemSchema = new Schema(
         timestamps: true,
     }
 );
+
+itemSchema.pre('save', function(next) {
+    if (this.phoneModelId && this.item_type) {
+        const error = new Error('Item cannot have both phoneModel and item_type. Please provide only one.');
+        return next(error);
+    }
+    
+    if (!this.phoneModelId && !this.item_type) {
+        const error = new Error('Item must have either phoneModel or item_type.');
+        return next(error);
+    }
+    
+    next();
+});
 
 itemSchema.index({name: 1, serialCode: 1}, {unique: true})
 

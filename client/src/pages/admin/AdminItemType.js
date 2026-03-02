@@ -349,7 +349,7 @@ export default function AdminItemType() {
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <ChevronLeft size={16} />
-                                        <span>Previous</span>
+                                        <span>Trước</span>
                                     </button>
                                     
                                     <div className="flex items-center space-x-1">
@@ -386,7 +386,7 @@ export default function AdminItemType() {
                                         disabled={!pagination.hasNextPage}
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <span>Next</span>
+                                        <span>Tiếp</span>
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>

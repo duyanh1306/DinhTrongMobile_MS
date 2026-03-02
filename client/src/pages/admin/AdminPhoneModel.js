@@ -204,14 +204,14 @@ export default function AdminPhoneModel() {
             <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Manage Phone Models</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý mẫu điện thoại</h1>
                 </div>
                 <button 
                     onClick={handleAddPhoneModel}
                     className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
                     <Plus size={20} />
-                    <span>Add Phone Model</span>
+                    <span>Thêm Mẫu Điện Thoại</span>
                 </button>
             </div>
 
@@ -222,7 +222,7 @@ export default function AdminPhoneModel() {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                             <input
                                 type="text"
-                                placeholder="Search phone models or brands ..."
+                                placeholder="Tìm kiếm mẫu điện thoại hoặc hãng ..."
                                 value={filters.search}
                                 onChange={handleSearchChange}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -230,7 +230,7 @@ export default function AdminPhoneModel() {
                         </div>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Total: {pagination.totalCount} items</span>
+                        <span>Tổng: {pagination.totalCount} mẫu</span>
                     </div>
                 </div>
             </div>
@@ -246,7 +246,7 @@ export default function AdminPhoneModel() {
                                     onClick={() => handleSortChange('name')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Model Name</span>
+                                        <span>Tên Mẫu</span>
                                         {filters.sortBy === 'name' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
@@ -257,17 +257,17 @@ export default function AdminPhoneModel() {
                                     onClick={() => handleSortChange('brand')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Brand</span>
+                                        <span>Hãng</span>
                                         {filters.sortBy === 'brand' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
                                     </div>
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Compatible Item Types
+                                    Linh kiện phù hợp
                                 </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    Hành động
                                 </th>
                             </tr>
                             </thead>
@@ -335,9 +335,9 @@ export default function AdminPhoneModel() {
                         <div className="border-t border-gray-200 p-6 bg-gray-50">
                             <div className="flex items-center justify-between">
                                 <div className="text-sm text-gray-600">
-                                    Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
-                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
-                                    {pagination.totalCount} results
+                                    Thông tin {((pagination.currentPage - 1) * pagination.limit) + 1} đến{' '}
+                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} trong{' '}
+                                    {pagination.totalCount} kết quả
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <button
@@ -346,7 +346,7 @@ export default function AdminPhoneModel() {
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <ChevronLeft size={16} />
-                                        <span>Previous</span>
+                                        <span>Trước</span>
                                     </button>
                                     
                                     <div className="flex items-center space-x-1">
@@ -383,7 +383,7 @@ export default function AdminPhoneModel() {
                                         disabled={!pagination.hasNextPage}
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <span>Next</span>
+                                        <span>Tiếp</span>
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
@@ -398,7 +398,7 @@ export default function AdminPhoneModel() {
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
                             <h2 className="text-xl font-semibold text-gray-800">
-                                {isEditing ? 'Edit Phone Model' : 'Add Phone Model'}
+                                {isEditing ? 'Chỉnh sửa loại đồ' : 'Thêm Mẫu Điện Thoại'}
                             </h2>
                             <button
                                 onClick={handleCloseModal}
