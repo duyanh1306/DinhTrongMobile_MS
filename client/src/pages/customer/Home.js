@@ -1,141 +1,205 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, User, Package, Wrench, MapPin, Heart, LogOut, LayoutDashboard } from "lucide-react";
-
-const products = [
-    { id: 1, name: "iPhone 15 Pro Max", price: "34,990,000₫", img: "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png" },
-    { id: 2, name: "Samsung Galaxy S24 Ultra", price: "29,990,000₫", img: "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/s/ss-s24-ultra-xam-222.png" },
-    { id: 3, name: "Xiaomi 14", price: "22,990,000₫", img: "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/x/i/xiaomi-14_1.png" },
-    { id: 4, name: "MacBook Air M3", price: "27,990,000₫", img: "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/m/a/macbook_air_m3_13_inch_silver_1_1.png" },
-];
-
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Smartphone, Cpu, HardDrive } from "lucide-react";
+import axiosClient from "../../api/axiosClient";
+import { toast } from "react-toastify";
+import CustomerLayout from "../../layouts/CustomerLayout";
 export default function Home() {
-    const navigate = useNavigate();
-    const user = JSON.parse(localStorage.getItem('user'));
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [newPhones, setNewPhones] = useState([]);
+  const [usedPhones, setUsedPhones] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setIsMenuOpen(false);
-        navigate('/login');
+  // Gọi API lấy dữ liệu và GỘP 2 bảng (Phone Models + Item Types)
+  useEffect(() => {
+    const fetchAndCombineData = async () => {
+      try {
+        // Gọi song song 2 API cùng lúc để tiết kiệm thời gian
+        const [modelsRes, itemTypesRes] = await Promise.all([
+          axiosClient.get('/phone_models/all'),
+          axiosClient.get('/item_types/all')
+        ]);
+
+        const phoneModels = modelsRes.data.data || [];
+        const itemTypes = itemTypesRes.data.data || [];
+
+        // Ghép đôi: Tìm giá tiền trong bảng item_types có tên khớp với phone_models
+        const combinedData = phoneModels.map(phone => {
+          const matchedItemType = itemTypes.find(item => item.name === phone.name);
+          return {
+            ...phone,
+            // Nếu tìm thấy mã giá, lấy price của nó. Nếu không, để giá = 0
+            price: matchedItemType ? matchedItemType.price : 0,
+            itemTypeId: matchedItemType ? matchedItemType._id : null
+          };
+        });
+
+        // Phân loại Máy MỚI (condition = 1) và CŨ (condition < 1)
+        const newList = combinedData.filter(p => p.condition === 1 || p.condition === undefined);
+        const usedList = combinedData.filter(p => p.condition < 1);
+
+        setNewPhones(newList);
+        setUsedPhones(usedList);
+      } catch (error) {
+        console.error("Lỗi lấy danh sách sản phẩm:", error);
+        toast.error("Không thể tải danh sách sản phẩm từ máy chủ.");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const renderDashboardLink = () => {
-        if (!user || !user.roleId) return null;
-        const role = user.roleId.id || user.roleId;
+    fetchAndCombineData();
+  }, []);
+
+  // Component Thẻ Sản Phẩm (Product Card)
+  const ProductCard = ({ product, isUsed }) => {
+    // Tự động set ảnh đại diện theo hãng
+    let displayImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png";
+    if (product.brand === "Samsung") displayImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/s/ss-s24-ultra-xam-222.png";
+    if (product.brand === "Xiaomi") displayImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/x/i/xiaomi-14_1.png";
+    if (product.brand === "OPPO") displayImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/o/p/oppo-find-n3-gold-1.png";
+
+    // Format Giá tiền Việt Nam (VD: 24.590.000₫)
+    const displayPrice = product.price > 0 
+        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price) 
+        : "Giá: Đang cập nhật";
+    
+    // Rút gọn thông số kỹ thuật
+    const specs = product.specifications || {};
+
+    return (
+      <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
         
-        if (role === 'ADMIN') return "/admin/dashboard";
-        if (role === 'SALE_STAFF') return "/sale/dashboard";
-        if (role === 'TECHNICIAN') return "/tech/dashboard";
-        return null;
-    };
+        {/* Nhãn máy cũ */}
+        {isUsed && product.condition && (
+          <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">
+            Cũ {Math.round(product.condition * 100)}%
+          </span>
+        )}
 
-    const dashboardLink = renderDashboardLink();
+        {/* Khu vực Ảnh sản phẩm */}
+        <div className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
+          <img 
+            src={product.image || displayImage} 
+            alt={product.name} 
+            className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" 
+          />
+        </div>
+
+        {/* Thông tin Chi tiết */}
+        <div className="flex-1 flex flex-col">
+          <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">
+            {product.name}
+          </h4>
+          
+          <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
+
+          {/* Các ô thông số kỹ thuật (Mini Specs) */}
+          <div className="flex flex-wrap gap-2 mt-auto mb-4">
+            <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md">
+              <Smartphone size={12} className="text-gray-400" /> {specs.screenSize || "N/A"}
+            </div>
+            <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md">
+              <HardDrive size={12} className="text-gray-400" /> {specs.internalStorage || "N/A"}
+            </div>
+            <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md w-full truncate">
+              <Cpu size={12} className="text-gray-400" /> <span className="truncate">{specs.chipset || "N/A"}</span>
+            </div>
+          </div>
+
+          {/* Nút Xem chi tiết */}
+          <Link 
+            to={`/product/${product._id}`} 
+            className="mt-auto w-full text-center bg-[#f0f7ff] text-[#007bff] border border-[#cce5ff] py-2.5 rounded-lg font-semibold hover:bg-[#007bff] hover:text-white transition-colors"
+          >
+            Xem chi tiết
+          </Link>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#007bff]"></div>
+        <p className="text-gray-500 font-medium mt-4">Đang tải dữ liệu sản phẩm...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Navbar */}
-      <nav className="bg-primary text-white p-4 sticky top-0 z-50 shadow-md">
-        <div className="container mx-auto flex justify-between items-center">
-            <Link to="/" className="text-2xl font-bold">DinhTrongMobile</Link>
+    <CustomerLayout>
+      <div className="w-full pb-10">
+        
+        {/* BANNER */}
+        <div className="bg-gradient-to-r from-blue-800 to-blue-500 text-white rounded-2xl overflow-hidden mb-12 shadow-lg relative">
+          <div className="py-12 px-8 flex flex-col md:flex-row items-center z-10 relative">
+              <div className="md:w-3/5 space-y-4">
+                  <span className="bg-yellow-400 text-blue-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    Khuyến mãi HOT
+                  </span>
+                  <h2 className="text-3xl md:text-5xl font-bold leading-tight drop-shadow-md">
+                    Sắm Điện Thoại Sang <br/> Rinh Ngàn Ưu Đãi
+                  </h2>
+                  <p className="text-blue-100 text-lg max-w-md drop-shadow-sm">
+                    Hỗ trợ thu cũ đổi mới trợ giá lên đến 2 triệu đồng. Trả góp 0% lãi suất.
+                  </p>
+              </div>
+              <div className="md:w-2/5 mt-8 md:mt-0 flex justify-center">
+                  <img src="https://shopdunk.com/images/uploaded/banner/banner%202024/thang%203/ip15%20prm%20pc.png" alt="Banner" className="max-w-full h-auto drop-shadow-2xl scale-110" />
+              </div>
+          </div>
+        </div>
+
+        {/* ĐIỆN THOẠI MỚI */}
+        {newPhones.length > 0 && (
+          <div className="mb-14">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-800 uppercase flex items-center gap-2">
+                <span className="w-1.5 h-7 bg-[#007bff] rounded-full inline-block"></span>
+                Điện Thoại Mới Chính Hãng
+              </h3>
+              <Link to="/category/new" className="text-[#007bff] font-medium hover:underline text-sm md:text-base transition">
+                Xem tất cả &rarr;
+              </Link>
+            </div>
             
-            <div className="flex gap-4 items-center">
-                {user ? (
-                   // --- USER MENU DROPDOWN ---
-                   <div className="relative">
-                       <button 
-                            onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="flex items-center gap-2 font-medium hover:text-gray-200 transition focus:outline-none"
-                       >
-                           Hi, {user.fullName} 
-                           <ChevronDown size={18} className={`transition-transform duration-200 ${isMenuOpen ? "rotate-180" : ""}`} />
-                       </button>
-
-                       {isMenuOpen && (
-                           <div className="absolute right-0 mt-3 w-64 bg-white rounded-lg shadow-xl py-2 text-gray-700 border border-gray-100 z-50">
-                               <div className="px-4 py-2 border-b border-gray-100 mb-1">
-                                    <p className="text-sm text-gray-500">Welcome back,</p>
-                                    <p className="font-bold text-gray-800 truncate">{user.fullName}</p>
-                               </div>
-
-                               {dashboardLink && (
-                                   <Link to={dashboardLink} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition">
-                                       <LayoutDashboard size={18} /> System Dashboard
-                                   </Link>
-                               )}
-
-                               <Link to="/profile" className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition">
-                                   <User size={18} /> Account Profile
-                               </Link>
-                               <Link to="/my-orders" className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition">
-                                   <Package size={18} /> My Orders
-                               </Link>
-                               <Link to="/repair-history" className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition">
-                                   <Wrench size={18} /> Repair History
-                               </Link>
-                               <Link to="/addresses" className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition">
-                                   <MapPin size={18} /> Address Book
-                               </Link>
-                               <Link to="/wishlist" className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 hover:text-primary transition">
-                                   <Heart size={18} /> Favorites
-                               </Link>
-                               
-                               <div className="border-t border-gray-100 my-1"></div>
-                               
-                               <button 
-                                    onClick={handleLogout}
-                                    className="flex items-center gap-3 w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 transition font-medium"
-                               >
-                                   <LogOut size={18} /> Logout
-                               </button>
-                           </div>
-                       )}
-                   </div>
-                ) : (
-                    <>
-                        <Link to="/login" className="hover:text-gray-200 font-medium">Login</Link>
-                        <Link to="/register" className="bg-white text-primary px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition shadow-sm">Register</Link>
-                    </>
-                )}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {newPhones.map(product => (
+                    <ProductCard key={product._id} product={product} isUsed={false} />
+                ))}
             </div>
-        </div>
-      </nav>
+          </div>
+        )}
 
-      {/* Banner Section */}
-      <div className="bg-gray-900 text-white">
-        <div className="container mx-auto py-20 px-4 flex flex-col md:flex-row items-center">
-            <div className="md:w-1/2 space-y-6">
-                <h2 className="text-4xl md:text-5xl font-bold leading-tight">Upgrade your experience <br/>with iPhone 15 Series</h2>
-                <p className="text-gray-300 text-lg">Durable Titanium design. The most powerful A17 Pro chip. Capture every moment.</p>
-                <button className="bg-orange-500 px-8 py-3 rounded-full font-bold text-lg hover:bg-orange-600 transition shadow-lg shadow-orange-500/30">
-                    Shop Now
-                </button>
+        {/* ĐIỆN THOẠI CŨ */}
+        {usedPhones.length > 0 && (
+          <div className="mb-10 p-6 bg-red-50/50 rounded-2xl border border-red-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600 uppercase flex items-center gap-2">
+                <span className="w-1.5 h-7 bg-red-600 rounded-full inline-block"></span>
+                Máy Cũ Giá Rẻ - Trợ Giá Thu Cũ
+              </h3>
+              <Link to="/category/used" className="text-red-600 font-medium hover:underline text-sm md:text-base transition">
+                Xem tất cả &rarr;
+              </Link>
             </div>
-            <div className="md:w-1/2 mt-10 md:mt-0 flex justify-center">
-                <img src="https://shopdunk.com/images/uploaded/banner/banner%202024/thang%203/ip15%20prm%20pc.png" alt="Banner" className="max-w-full h-auto drop-shadow-2xl" />
+            
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {usedPhones.map(product => (
+                    <ProductCard key={product._id} product={product} isUsed={true} />
+                ))}
             </div>
-        </div>
+          </div>
+        )}
+
+        {newPhones.length === 0 && usedPhones.length === 0 && (
+          <div className="text-center text-gray-500 py-10 bg-white rounded-xl border border-dashed border-gray-300">
+            Chưa có sản phẩm nào trong hệ thống.
+          </div>
+        )}
+
       </div>
-
-      {/* Featured Products */}
-      <div className="container mx-auto py-16 px-4">
-        <h3 className="text-2xl font-bold text-gray-800 mb-8 border-l-4 border-primary pl-3">Featured Products</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {products.map(product => (
-                <div key={product.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-xl transition group cursor-pointer">
-                    <div className="overflow-hidden rounded-lg mb-4">
-                        <img src={product.img} alt={product.name} className="w-full h-48 object-contain group-hover:scale-110 transition duration-300" />
-                    </div>
-                    <h4 className="font-bold text-gray-800 mb-1">{product.name}</h4>
-                    <p className="text-primary font-bold text-lg">{product.price}</p>
-                    <button className="w-full mt-4 border border-primary text-primary py-2 rounded-lg font-medium hover:bg-primary hover:text-white transition">
-                        View Details
-                    </button>
-                </div>
-            ))}
-        </div>
-      </div>
-    </div>
+    </CustomerLayout>
   );
 }

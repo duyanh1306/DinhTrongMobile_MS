@@ -1,41 +1,247 @@
-import { useState } from "react";
-// Có thể bạn sẽ muốn một Navbar khác cho khách (có giỏ hàng, search bar...)
-// Ở đây tôi dùng tạm Navbar admin nhưng bạn nên tạo CustomerNavbar riêng.
-import Navbar from "../components/admin/Navbar"; 
-import CustomerSidebar from "../components/customer/CustomerSidebar";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { 
+  ChevronDown, 
+  User, 
+  Package, 
+  Wrench, 
+  MapPin, 
+  Heart, 
+  LogOut,
+  Search,
+  Loader2
+} from "lucide-react";
+import axiosClient from "../api/axiosClient";
 
 export default function CustomerLayout({ children }) {
-  // Với khách hàng, trên mobile thì ẩn sidebar, desktop thì hiện
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    
+    // State cho tính năng Search chuẩn CellphoneS
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const searchRef = useRef(null);
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Navbar cho khách */}
-      <Navbar 
-        user={{ name: "Khách hàng" }} 
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
-      />
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsMenuOpen(false);
+        navigate('/login');
+    };
 
-      <div className="flex flex-1 container mx-auto max-w-7xl pt-6 px-4 gap-6">
-        {/* Sidebar Sidebar */}
-        <aside 
-            className={`${
-                isSidebarOpen ? "block" : "hidden"
-            } md:block w-64 flex-shrink-0 bg-white rounded-xl shadow-sm h-fit min-h-[500px] overflow-hidden`}
-        >
-          <CustomerSidebar />
-        </aside>
+    // Hàm gọi API tìm kiếm khi người dùng gõ phím (Debounce)
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (searchQuery.trim()) {
+                setIsSearching(true);
+                try {
+                    const res = await axiosClient.get('/phone_models', {
+                        params: { search: searchQuery.trim(), limit: 5 }
+                    });
+                    setSearchResults(res.data.data || []);
+                    setShowSuggestions(true);
+                } catch (error) {
+                    console.error("Lỗi tìm kiếm:", error);
+                } finally {
+                    setIsSearching(false);
+                }
+            } else {
+                setSearchResults([]);
+                setShowSuggestions(false);
+            }
+        }, 500);
 
-        {/* Main Content */}
-        <main className="flex-1 bg-white rounded-xl shadow-sm p-6 h-fit min-h-[500px]">
-          {children ? children : <p>Chọn một mục để xem chi tiết.</p>}
-        </main>
-      </div>
-      
-      {/* Footer nếu cần */}
-      <footer className="py-6 text-center text-gray-400 text-sm mt-8">
-        © 2026 DinhTrongMobile. All rights reserved.
-      </footer>
-    </div>
-  );
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery]);
+
+    // Đóng popup tìm kiếm khi click ra ngoài
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowSuggestions(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [searchRef]);
+
+    // Xử lý khi bấm phím Enter hoặc nút Kính lúp
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            setShowSuggestions(false);
+            navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
+
+    return (
+        <div className="bg-gray-50 min-h-screen flex flex-col">
+            
+            {/* ================= NAVBAR TMĐT CHUẨN CELLPHONES ================= */}
+            <nav className="bg-[#007bff] text-white p-3 md:p-4 sticky top-0 z-50 shadow-md">
+                <div className="container mx-auto max-w-7xl flex flex-wrap justify-between items-center gap-4">
+                    
+                    {/* 1. Logo */}
+                    <Link to="/home" className="text-2xl font-bold tracking-wide flex-shrink-0">
+                        DinhTrongMobile
+                    </Link>
+                    
+                    {/* 2. Thanh Tìm Kiếm Cực Xịn (Trung tâm) */}
+                    <div className="flex-1 max-w-2xl hidden md:block mx-4 relative" ref={searchRef}>
+                        <form onSubmit={handleSearchSubmit} className="relative w-full">
+                            <input 
+                                type="text" 
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setShowSuggestions(true);
+                                }}
+                                onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+                                placeholder="Bạn cần tìm điện thoại gì?" 
+                                className="w-full bg-white text-gray-800 px-4 py-2.5 rounded-xl outline-none focus:ring-4 focus:ring-blue-300/50 shadow-sm pr-12 transition-all"
+                            />
+                            <button 
+                                type="submit" 
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#007bff] p-2 bg-white rounded-lg transition"
+                            >
+                                <Search size={20} />
+                            </button>
+                        </form>
+
+                        {/* Bảng Dropdown Gợi ý tìm kiếm */}
+                        {showSuggestions && searchQuery.trim() !== "" && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                                {isSearching ? (
+                                    <div className="p-4 flex justify-center items-center text-blue-500 font-medium">
+                                        <Loader2 className="animate-spin mr-2" size={20} /> Đang tìm kiếm...
+                                    </div>
+                                ) : searchResults.length > 0 ? (
+                                    <div className="flex flex-col">
+                                        <div className="px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                            Sản phẩm gợi ý
+                                        </div>
+                                        {searchResults.map(product => (
+                                            <Link 
+                                                key={product._id} 
+                                                to={`/product/${product._id}`}
+                                                onClick={() => setShowSuggestions(false)}
+                                                className="flex items-center gap-4 p-3 hover:bg-gray-50 border-b border-gray-50 transition"
+                                            >
+                                                <img 
+                                                    src={product.image || "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png"} 
+                                                    alt={product.name} 
+                                                    className="w-12 h-12 object-contain"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-semibold text-gray-800 line-clamp-1">{product.name}</span>
+                                                    <span className="text-xs text-red-600 font-bold mt-0.5">
+                                                        {product.price ? product.price.toLocaleString() + '₫' : 'Liên hệ để biết giá'}
+                                                    </span>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                        <div 
+                                            onClick={handleSearchSubmit}
+                                            className="p-3 text-center text-sm text-[#007bff] hover:bg-blue-50 cursor-pointer font-semibold transition"
+                                        >
+                                            Xem tất cả kết quả cho "{searchQuery}"
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 text-center text-gray-500 text-sm">
+                                        Không tìm thấy sản phẩm nào phù hợp với "{searchQuery}".
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 3. Cột phải: Menu User */}
+                    <div className="flex-shrink-0 flex justify-end items-center gap-4">
+                        {user ? (
+                        <div className="relative">
+                            <button 
+                                onClick={() => setIsMenuOpen(!isMenuOpen)} 
+                                className="flex items-center gap-1.5 font-medium hover:text-gray-200 transition focus:outline-none text-sm md:text-base bg-blue-600/30 px-3 py-1.5 rounded-lg border border-blue-500/50"
+                            >
+                                Hi, {user.fullName || "Khách hàng"} 
+                                <ChevronDown size={16} className={`transition-transform duration-200 ${isMenuOpen ? "rotate-180" : ""}`} />
+                            </button>
+
+                            {isMenuOpen && (
+                                <div className="absolute right-0 mt-3 w-64 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden text-gray-700">
+                                    <div className="p-5 border-b border-gray-100 bg-gray-50/50">
+                                        <h2 className="font-bold text-lg text-red-600">DinhTrong Member</h2>
+                                    </div>
+
+                                    <div className="flex flex-col py-2">
+                                        <Link to="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
+                                            <User size={18} /> <span className="text-sm font-medium">Thông tin tài khoản</span>
+                                        </Link>
+                                        <Link to="/my-orders" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
+                                            <Package size={18} /> <span className="text-sm font-medium">Đơn hàng của tôi</span>
+                                        </Link>
+                                        <Link to="/repair-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
+                                            <Wrench size={18} /> <span className="text-sm font-medium">Lịch sử sửa chữa</span>
+                                        </Link>
+                                        <Link to="/addresses" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
+                                            <MapPin size={18} /> <span className="text-sm font-medium">Sổ địa chỉ</span>
+                                        </Link>
+                                        <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
+                                            <Heart size={18} /> <span className="text-sm font-medium">Sản phẩm yêu thích</span>
+                                        </Link>
+                                    </div>
+                                    
+                                    <div className="border-t border-gray-100 p-2">
+                                        <button 
+                                            onClick={handleLogout} 
+                                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 hover:bg-red-50 text-red-500 transition font-medium rounded-md"
+                                        >
+                                            <LogOut size={18} /> <span className="text-sm">Đăng xuất</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        ) : (
+                            <>
+                                <Link to="/login" className="hover:text-gray-200 font-medium text-sm">Đăng nhập</Link>
+                                <Link to="/register" className="bg-white text-[#007bff] px-4 py-1.5 rounded-lg font-bold hover:bg-gray-100 transition shadow-sm text-sm">Đăng ký</Link>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Thanh tìm kiếm trên Mobile (Sẽ hiển thị dưới cùng khi ở màn hình nhỏ) */}
+                    <div className="w-full md:hidden mt-2">
+                        <form onSubmit={handleSearchSubmit} className="relative w-full">
+                            <input 
+                                type="text" 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Bạn cần tìm điện thoại gì?" 
+                                className="w-full bg-white text-gray-800 px-4 py-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 pr-10"
+                            />
+                            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
+                                <Search size={18} />
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </nav>
+
+            {/* ================= KHU VỰC NỘI DUNG CHÍNH (HOME) ================= */}
+            <main className="flex-1 w-full max-w-7xl mx-auto py-6 md:py-8 px-4">
+                {children}
+            </main>
+
+            <footer className="py-6 text-center text-gray-400 text-sm mt-auto bg-white border-t border-gray-200">
+                © 2026 DinhTrongMobile. All rights reserved.
+            </footer>
+        </div>
+    );
 }

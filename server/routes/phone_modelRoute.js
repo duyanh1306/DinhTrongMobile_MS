@@ -7,7 +7,9 @@ const {
     getAllPhoneModels,
     getPhoneModelPaginatedAndSearch
 } = require("../controllers/phone_modelController");
-
+// PUBLIC ROUTES
+router.get("/all", getAllPhoneModels)
+// PRIVATE ROUTES
 router.get("/", authAdmin, getPhoneModelPaginatedAndSearch);
 // router.get("/all", authAdmin, getAllPhoneModels);
 router.post("/create", authAdmin , createPhoneModel);
