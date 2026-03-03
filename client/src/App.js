@@ -22,6 +22,8 @@ import Profile from './pages/common/Profile';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
 import AdminItemType from "./pages/admin/AdminItemType";
 import ManageRepairService from "./pages/admin/ManageRepairService";
+import AdminPhone from "./pages/admin/AdminPhone";
+import PhoneDetail from './pages/customer/PhoneDetail';
 const CustomerProfile = () => <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>;
 
 
@@ -67,6 +69,7 @@ function App() {
                 {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="/home" element={<Home />} />
+                <Route path="/product/:id" element={<PhoneDetail />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register/>}/>
                 <Route path="/verify-otp" element={<VerifyOtp/>}/>
@@ -91,6 +94,16 @@ function App() {
                         <PrivateRoute allowedRoles={['ADMIN']}>
                             <AdminLayout>
                                 <AdminPhoneModel/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/admin/phones"
+                    element={
+                        <PrivateRoute allowedRoles={['ADMIN']}>
+                            <AdminLayout>
+                                <AdminPhone/>
                             </AdminLayout>
                         </PrivateRoute>
                     }
