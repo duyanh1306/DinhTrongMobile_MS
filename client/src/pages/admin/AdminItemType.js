@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, ChevronLeft, ChevronRight, X, ChevronDown } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export default function AdminItemType() {
     const [itemTypes, setItemTypes] = useState([]);
@@ -25,12 +25,9 @@ export default function AdminItemType() {
         name: '',
         code: '',
         price: '',
-        baseCost: '',
-        compatiblePhoneModels: []
+        baseCost: ''
     });
     const [editingId, setEditingId] = useState(null);
-    const [availablePhoneModels, setAvailablePhoneModels] = useState([]);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     useEffect(() => {
         fetchItemType(true);
@@ -42,18 +39,6 @@ export default function AdminItemType() {
         }
     }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
 
-    const fetchPhoneModels = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/phone_models?limit=1000`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setAvailablePhoneModels(data.data || []);
-        } catch (error) {
-            console.error("Failed to fetch phone models:", error);
-            toast.error("Failed to load phone models");
-        }
-    };
 
     const fetchItemType = async (isInitialLoad = false) => {
         try {
@@ -124,11 +109,9 @@ export default function AdminItemType() {
             name: '', 
             code: '', 
             price: '', 
-            baseCost: '', 
-            compatiblePhoneModels: [] 
+            baseCost: ''
         });
         setEditingId(null);
-        fetchPhoneModels();
         setShowModal(true);
     };
 
@@ -138,11 +121,9 @@ export default function AdminItemType() {
             name: itemType.name, 
             code: itemType.code, 
             price: itemType.price,
-            baseCost: itemType.baseCost,
-            compatiblePhoneModels: itemType.compatiblePhoneModels?.map(model => model._id) || []
+            baseCost: itemType.baseCost
         });
         setEditingId(itemType._id);
-        fetchPhoneModels();
         setShowModal(true);
     };
 
@@ -152,33 +133,18 @@ export default function AdminItemType() {
             name: '', 
             code: '', 
             price: '', 
-            baseCost: '', 
-            compatiblePhoneModels: [] 
+            baseCost: ''
         });
         setIsEditing(false);
         setEditingId(null);
-        setIsDropdownOpen(false);
     };
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (isDropdownOpen && !event.target.closest('.phone-model-dropdown')) {
-                setIsDropdownOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isDropdownOpen]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handlePhoneModelsChange = (selectedModels) => {
-        setFormData(prev => ({ ...prev, compatiblePhoneModels: selectedModels }));
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -192,13 +158,11 @@ export default function AdminItemType() {
             };
             
             if (isEditing) {
-                // Update existing item type
                 await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 toast.success("Item type updated successfully");
             } else {
-                // Create new item type
                 await axios.post("http://localhost:9999/api/item_types/create", submitData, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -223,22 +187,20 @@ export default function AdminItemType() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                     <Package className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Manage Item Types</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý loại đồ</h1>
                 </div>
                 <button 
                     onClick={handleAddItemType}
                     className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
                     <Plus size={20} />
-                    <span>Add Item Type</span>
+                    <span>Thêm loại đồ</span>
                 </button>
             </div>
 
-            {/* Search and Filters */}
             <div className="bg-white rounded-xl shadow-sm p-6 flex-shrink-0">
                 <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
@@ -246,7 +208,7 @@ export default function AdminItemType() {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                             <input
                                 type="text"
-                                placeholder="Search item types or codes ..."
+                                placeholder="Tìm theo tên loại đồ hoặc mã ..."
                                 value={filters.search}
                                 onChange={handleSearchChange}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -254,12 +216,11 @@ export default function AdminItemType() {
                         </div>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Total: {pagination.totalCount} items</span>
+                        <span>Tổng: {pagination.totalCount} loại đồ</span>
                     </div>
                 </div>
             </div>
 
-            {/* Table Container - Takes remaining space */}
             <div className="flex-1 flex flex-col min-h-0">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
                     <div className="overflow-x-auto flex-1">
@@ -271,7 +232,7 @@ export default function AdminItemType() {
                                     onClick={() => handleSortChange('name')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Name</span>
+                                        <span>Tên</span>
                                         {filters.sortBy === 'name' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
@@ -282,7 +243,7 @@ export default function AdminItemType() {
                                     onClick={() => handleSortChange('code')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Code</span>
+                                        <span>Mã</span>
                                         {filters.sortBy === 'code' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
@@ -293,7 +254,7 @@ export default function AdminItemType() {
                                     onClick={() => handleSortChange('price')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Price</span>
+                                        <span>Giá</span>
                                         {filters.sortBy === 'price' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
@@ -304,27 +265,24 @@ export default function AdminItemType() {
                                     onClick={() => handleSortChange('baseCost')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Base Cost</span>
+                                        <span>Giá nhập</span>
                                         {filters.sortBy === 'baseCost' && (
                                             <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
                                     </div>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Compatible Models
-                                </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    Hành động
                                 </th>
                             </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                             {itemTypes.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                                         <div className="flex flex-col items-center space-y-2">
                                             <Package size={48} className="text-gray-300" />
-                                            <span>No item types found</span>
+                                            <span>Không tìm thấy loại đồ</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -349,18 +307,6 @@ export default function AdminItemType() {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
                                                 ${itemType.baseCost?.toFixed(2) || '0.00'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-500 max-w-xs">
-                                                {itemType.compatiblePhoneModels?.length > 0 
-                                                    ? itemType.compatiblePhoneModels
-                                                        .slice(0, 3)
-                                                        .map(model => `${model.name} (${model.brand})`)
-                                                        .join(', ') + 
-                                                      (itemType.compatiblePhoneModels.length > 3 ? '...' : '')
-                                                    : '-'
-                                                }
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -388,14 +334,13 @@ export default function AdminItemType() {
                         </table>
                     </div>
 
-                    {/* Pagination - Inside table container */}
                     {pagination.totalPages > 1 && (
                         <div className="border-t border-gray-200 p-6 bg-gray-50">
                             <div className="flex items-center justify-between">
                                 <div className="text-sm text-gray-600">
-                                    Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
-                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
-                                    {pagination.totalCount} results
+                                    Thông tin {((pagination.currentPage - 1) * pagination.limit) + 1} đến {' '}
+                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} trong{' '}
+                                    {pagination.totalCount} kết quả
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <button
@@ -404,10 +349,9 @@ export default function AdminItemType() {
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <ChevronLeft size={16} />
-                                        <span>Previous</span>
+                                        <span>Trước</span>
                                     </button>
                                     
-                                    {/* Page Numbers */}
                                     <div className="flex items-center space-x-1">
                                         {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                                             let pageNum;
@@ -442,7 +386,7 @@ export default function AdminItemType() {
                                         disabled={!pagination.hasNextPage}
                                         className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <span>Next</span>
+                                        <span>Tiếp</span>
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
@@ -452,13 +396,12 @@ export default function AdminItemType() {
                 </div>
             </div>
 
-            {/* Add/Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
                             <h2 className="text-xl font-semibold text-gray-800">
-                                {isEditing ? 'Edit Item Type' : 'Add Item Type'}
+                                {isEditing ? 'Chỉnh sửa loại đồ' : 'Thêm loại đồ'}
                             </h2>
                             <button
                                 onClick={handleCloseModal}
@@ -471,7 +414,7 @@ export default function AdminItemType() {
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Name
+                                    Tên
                                 </label>
                                 <input
                                     type="text"
@@ -480,13 +423,13 @@ export default function AdminItemType() {
                                     onChange={handleInputChange}
                                     required
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter item type name"
+                                    placeholder="Nhập tên"
                                 />
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Code
+                                    Mã
                                 </label>
                                 <input
                                     type="text"
@@ -495,13 +438,13 @@ export default function AdminItemType() {
                                     onChange={handleInputChange}
                                     required
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter item code"
+                                    placeholder="Nhập mã"
                                 />
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Price
+                                    Giá
                                 </label>
                                 <input
                                     type="number"
@@ -512,13 +455,13 @@ export default function AdminItemType() {
                                     step="0.01"
                                     min="0"
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter price"
+                                    placeholder="Nhập giá"
                                 />
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Base Cost
+                                    Giá nhập
                                 </label>
                                 <input
                                     type="number"
@@ -529,68 +472,8 @@ export default function AdminItemType() {
                                     step="0.01"
                                     min="0"
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter base cost"
+                                    placeholder="Nhập giá nhập"
                                 />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Compatible Phone Models
-                                </label>
-                                <div className="relative phone-model-dropdown">
-                                    <div 
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-h-[42px] flex items-center justify-between"
-                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    >
-                                        <div className="flex flex-wrap gap-1">
-                                            {formData.compatiblePhoneModels.length === 0 ? (
-                                                <span className="text-gray-500">Select phone models...</span>
-                                            ) : (
-                                                formData.compatiblePhoneModels.map(modelId => {
-                                                    const model = availablePhoneModels.find(m => m._id === modelId);
-                                                    return model ? (
-                                                        <span key={modelId} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                                                            {model.name} ({model.brand})
-                                                        </span>
-                                                    ) : null;
-                                                })
-                                            )}
-                                        </div>
-                                        <ChevronDown size={20} className="text-gray-400" />
-                                    </div>
-                                    
-                                    {isDropdownOpen && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                            {availablePhoneModels.length === 0 ? (
-                                                <div className="px-4 py-2 text-gray-500">No phone models available</div>
-                                            ) : (
-                                                availablePhoneModels.map(model => (
-                                                    <label
-                                                        key={model._id}
-                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData.compatiblePhoneModels.includes(model._id)}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    handlePhoneModelsChange([...formData.compatiblePhoneModels, model._id]);
-                                                                } else {
-                                                                    handlePhoneModelsChange(formData.compatiblePhoneModels.filter(id => id !== model._id));
-                                                                }
-                                                            }}
-                                                            className="mr-3"
-                                                        />
-                                                        <span className="text-sm">{model.name} ({model.brand})</span>
-                                                    </label>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Select phone models that are compatible with this item type.
-                                </p>
                             </div>
                             
                             <div className="flex justify-end space-x-3 pt-4">
@@ -599,13 +482,13 @@ export default function AdminItemType() {
                                     onClick={handleCloseModal}
                                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
                                 >
-                                    Cancel
+                                    Hủy
                                 </button>
                                 <button
                                     type="submit"
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                                 >
-                                    {isEditing ? 'Update' : 'Create'}
+                                    {isEditing ? 'Cập nhật' : 'Tạo'}
                                 </button>
                             </div>
                         </form>

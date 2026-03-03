@@ -36,6 +36,7 @@ export default function AdminPhoneModel() {
         }
     }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
 
+
     const fetchPhoneModel = async (isInitialLoad = false) => {
         try {
             if (isInitialLoad) setLoading(true);
@@ -162,7 +163,7 @@ export default function AdminPhoneModel() {
                         </div>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Total: {pagination.totalCount} items</span>
+                        <span>Tổng: {pagination.totalCount} mẫu</span>
                     </div>
                 </div>
             </div>

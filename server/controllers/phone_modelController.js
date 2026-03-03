@@ -90,6 +90,7 @@ const getPhoneModelPaginatedAndSearch = async (req, res) => {
         
         const phoneModels = await Phone_model
             .find(searchQuery)
+            .populate('compatibleItemTypes', 'name code')
             .sort(sortQuery)
             .skip(skip)
             .limit(limitNum);
