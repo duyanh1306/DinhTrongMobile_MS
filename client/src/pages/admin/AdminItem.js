@@ -449,14 +449,14 @@ export default function AdminItem() {
             <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                     <Package className="text-blue-600" size={28}/>
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý đồ vật</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý kho</h1>
                 </div>
                 <button
                     onClick={handleAddItem}
                     className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
                     <Plus size={20}/>
-                    <span>Thêm đồ vật</span>
+                    <span>Thêm vào kho</span>
                 </button>
             </div>
 
@@ -471,7 +471,7 @@ export default function AdminItem() {
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                         }`}
                     >
-                        Loại đồ vật
+                        Loại linh kiện
                     </button>
                     <button
                         onClick={() => setActiveTab('phoneModel')}
@@ -537,7 +537,7 @@ export default function AdminItem() {
                             <div className="px-6 py-12 text-center text-gray-500">
                                 <div className="flex flex-col items-center space-y-2">
                                     <Package size={48} className="text-gray-300"/>
-                                    <span>Không tìm thấy đồ vật</span>
+                                    <span>Không tìm thấy đồ</span>
                                 </div>
                             </div>
                         ) : (
@@ -653,9 +653,14 @@ export default function AdminItem() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-semibold text-gray-800">
-                                {isEditing ? 'Chỉnh sửa đồ vật' : 'Thêm đồ vật'}
-                            </h2>
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-800">
+                                    {isEditing ? 'Chỉnh sửa' : 'Thêm'}
+                                </h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {activeTab === 'itemType' ? 'Loại linh kiện' : 'Mẫu điện thoại'}
+                                </p>
+                            </div>
                             <button
                                 onClick={handleCloseModal}
                                 className="text-gray-400 hover:text-gray-600 transition"

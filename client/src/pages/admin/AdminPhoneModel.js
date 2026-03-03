@@ -29,6 +29,13 @@ export default function AdminPhoneModel() {
     const [editingId, setEditingId] = useState(null);
     const [availableItemTypes, setAvailableItemTypes] = useState([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [itemTypeSearch, setItemTypeSearch] = useState('');
+
+    // Filter item types based on search
+    const filteredItemTypes = availableItemTypes.filter(itemType =>
+        itemType.name.toLowerCase().includes(itemTypeSearch.toLowerCase()) ||
+        itemType.code.toLowerCase().includes(itemTypeSearch.toLowerCase())
+    );
 
     useEffect(() => {
         fetchPhoneModel(true);
@@ -39,6 +46,31 @@ export default function AdminPhoneModel() {
             fetchPhoneModel(false);
         }
     }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
+
+    // Close dropdown when clicking outside or pressing Escape
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (isDropdownOpen && !event.target.closest('.item-type-dropdown')) {
+                setIsDropdownOpen(false);
+                setItemTypeSearch('');
+            }
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape' && isDropdownOpen) {
+                setIsDropdownOpen(false);
+                setItemTypeSearch('');
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isDropdownOpen]);
 
     const fetchItemTypes = async () => {
         try {
@@ -411,7 +443,7 @@ export default function AdminPhoneModel() {
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Model Name
+                                    Tên Mẫu Máy
                                 </label>
                                 <input
                                     type="text"
@@ -420,13 +452,13 @@ export default function AdminPhoneModel() {
                                     onChange={handleInputChange}
                                     required
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter model name"
+                                    placeholder="Nhập tên mẫu máy"
                                 />
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Brand
+                                    Hãng
                                 </label>
                                 <input
                                     type="text"
@@ -435,22 +467,27 @@ export default function AdminPhoneModel() {
                                     onChange={handleInputChange}
                                     required
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter brand name"
+                                    placeholder="Nhập tên hãng"
                                 />
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Compatible Item Types
+                                    Linh kiện phù hợp
                                 </label>
                                 <div className="relative item-type-dropdown">
                                     <div 
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-h-[42px] flex items-center justify-between"
-                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                        onClick={() => {
+                                            setIsDropdownOpen(!isDropdownOpen);
+                                            if (isDropdownOpen) {
+                                                setItemTypeSearch('');
+                                            }
+                                        }}
                                     >
                                         <div className="flex flex-wrap gap-1">
                                             {formData.compatibleItemTypes.length === 0 ? (
-                                                <span className="text-gray-500">Select item types...</span>
+                                                <span className="text-gray-500">Chọn linh kiện...</span>
                                             ) : (
                                                 formData.compatibleItemTypes.map(itemTypeId => {
                                                     const itemType = availableItemTypes.find(i => i._id === itemTypeId);
@@ -466,36 +503,53 @@ export default function AdminPhoneModel() {
                                     </div>
                                     
                                     {isDropdownOpen && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                            {availableItemTypes.length === 0 ? (
-                                                <div className="px-4 py-2 text-gray-500">No item types available</div>
-                                            ) : (
-                                                availableItemTypes.map(itemType => (
-                                                    <label
-                                                        key={itemType._id}
-                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData.compatibleItemTypes.includes(itemType._id)}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    handleItemTypesChange([...formData.compatibleItemTypes, itemType._id]);
-                                                                } else {
-                                                                    handleItemTypesChange(formData.compatibleItemTypes.filter(id => id !== itemType._id));
-                                                                }
-                                                            }}
-                                                            className="mr-3"
-                                                        />
-                                                        <span className="text-sm">{itemType.name} ({itemType.code})</span>
-                                                    </label>
-                                                ))
-                                            )}
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                                            <div className="sticky top-0 bg-white border-b border-gray-200 p-3">
+                                                <div className="relative">
+                                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Tìm kiếm loại đồ..."
+                                                        value={itemTypeSearch}
+                                                        onChange={(e) => setItemTypeSearch(e.target.value)}
+                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="max-h-48 overflow-y-auto">
+                                                {filteredItemTypes.length === 0 ? (
+                                                    <div className="px-4 py-2 text-gray-500 text-sm">
+                                                        {itemTypeSearch ? 'Không tìm thấy loại đồ nào' : 'No item types available'}
+                                                    </div>
+                                                ) : (
+                                                    filteredItemTypes.map(itemType => (
+                                                        <label
+                                                            key={itemType._id}
+                                                            className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.compatibleItemTypes.includes(itemType._id)}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        handleItemTypesChange([...formData.compatibleItemTypes, itemType._id]);
+                                                                    } else {
+                                                                        handleItemTypesChange(formData.compatibleItemTypes.filter(id => id !== itemType._id));
+                                                                    }
+                                                                }}
+                                                                className="mr-3"
+                                                            />
+                                                            <span className="text-sm">{itemType.name} ({itemType.code})</span>
+                                                        </label>
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Select item types that are compatible with this phone model.
+                                    Chọn linh kiện phù hợp với mẫu máy này.
                                 </p>
                             </div>
                             
@@ -505,13 +559,13 @@ export default function AdminPhoneModel() {
                                     onClick={handleCloseModal}
                                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
                                 >
-                                    Cancel
+                                    Hủy
                                 </button>
                                 <button
                                     type="submit"
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                                 >
-                                    {isEditing ? 'Update' : 'Create'}
+                                    {isEditing ? 'Cập nhật' : 'Tạo'}
                                 </button>
                             </div>
                         </form>
