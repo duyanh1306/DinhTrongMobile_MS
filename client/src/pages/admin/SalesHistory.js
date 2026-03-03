@@ -98,12 +98,33 @@ export default function SalesHistory() {
     });
   };
 
+  // Hàm tạo màu cho trạng thái
   const getStatusBadge = (status) => {
     switch (status) {
       case "Completed": return "bg-green-100 text-green-800";
       case "Pending": return "bg-yellow-100 text-yellow-800";
       case "Cancelled": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Hàm chuyển đổi Text cho Trạng thái
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Completed": return "Đã hoàn thành";
+      case "Pending": return "Đang xử lý";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
+    }
+  };
+
+  // Hàm chuyển đổi Text cho Loại Đơn
+  const getOrderTypeText = (type) => {
+    switch (type) {
+      case "PURCHASE": return "Thu mua";
+      case "SALE": return "Bán hàng";
+      case "REPAIR": return "Sửa chữa";
+      default: return type;
     }
   };
 
@@ -171,13 +192,15 @@ export default function SalesHistory() {
                     {formatDate(order.purchaseOrderDate)}
                   </td>
                   <td className="p-3">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded border border-blue-200">
-                      {order.orderType}
+                    <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded border border-blue-200 font-medium">
+                      {/* Đã chuyển đổi Text sang Tiếng Việt */}
+                      {getOrderTypeText(order.orderType)}
                     </span>
                   </td>
                   <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
-                      {order.status}
+                      {/* Đã chuyển đổi Text sang Tiếng Việt */}
+                      {getStatusText(order.status)}
                     </span>
                   </td>
                   <td className="p-3 flex justify-center">
@@ -232,7 +255,7 @@ export default function SalesHistory() {
             <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white rounded-t-lg z-10">
               <div>
                 <h3 className="text-xl font-bold text-gray-800">
-                  Chi tiết đơn bán hàng #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
+                  Chi tiết đơn {getOrderTypeText(selectedOrder.orderType).toLowerCase()} #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
                 </h3>
                 <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                   <Calendar size={14} /> {formatDate(selectedOrder.purchaseOrderDate)}
@@ -272,14 +295,13 @@ export default function SalesHistory() {
                   <table className="w-full text-left">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="p-3 text-sm font-semibold text-gray-700">Tên sản phẩm</th>
-                        <th className="p-3 text-sm font-semibold text-gray-700">Serial Code</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Tên sản phẩm/Serial Code</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Bảo hành</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Hạn bảo hành</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Ghi chú</th>
                       </tr>
                     </thead>
-                     <tbody>
+                    <tbody>
                       {orderDetails.map((detail, idx) => {
                         const displayName = detail.itemId?.item_type?.name 
                                          || detail.itemId?.itemTypeId?.name 

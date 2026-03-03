@@ -98,12 +98,33 @@ export default function PurchaseHistory() {
     });
   };
 
+  // Hàm tạo màu cho trạng thái
   const getStatusBadge = (status) => {
     switch (status) {
       case "Completed": return "bg-green-100 text-green-800";
       case "Pending": return "bg-yellow-100 text-yellow-800";
       case "Cancelled": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Hàm chuyển đổi Text cho Trạng thái
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Completed": return "Đã hoàn thành";
+      case "Pending": return "Đang xử lý";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
+    }
+  };
+
+  // Hàm chuyển đổi Text cho Loại Đơn
+  const getOrderTypeText = (type) => {
+    switch (type) {
+      case "PURCHASE": return "Thu mua";
+      case "SALE": return "Bán hàng";
+      case "REPAIR": return "Sửa chữa";
+      default: return type;
     }
   };
 
@@ -115,7 +136,7 @@ export default function PurchaseHistory() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <FileText className="text-blue-600" />
-            Lịch sử mua hàng
+            Lịch sử thu mua
           </h2>
         </div>
 
@@ -174,13 +195,15 @@ export default function PurchaseHistory() {
                     {formatDate(order.purchaseOrderDate)}
                   </td>
                   <td className="p-3">
-                    <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded border border-purple-200">
-                      {order.orderType}
+                    <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded border border-purple-200 font-medium">
+                      {/* Đã chuyển đổi Text sang Tiếng Việt */}
+                      {getOrderTypeText(order.orderType)}
                     </span>
                   </td>
                   <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
-                      {order.status}
+                      {/* Đã chuyển đổi Text sang Tiếng Việt */}
+                      {getStatusText(order.status)}
                     </span>
                   </td>
                   <td className="p-3 flex justify-center">
@@ -230,14 +253,14 @@ export default function PurchaseHistory() {
         )}
       </div>
 
-      {/* --- MODAL CHI TIẾT --- (Bên trong Modal giữ nguyên như cũ) */}
+      {/* --- MODAL CHI TIẾT --- */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-4xl relative shadow-xl max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white rounded-t-lg z-10">
               <div>
                 <h3 className="text-xl font-bold text-gray-800">
-                  Chi tiết đơn mua hàng #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
+                  Chi tiết đơn {getOrderTypeText(selectedOrder.orderType).toLowerCase()} #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
                 </h3>
                 <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                   <Calendar size={14} /> {formatDate(selectedOrder.purchaseOrderDate)}
@@ -277,12 +300,13 @@ export default function PurchaseHistory() {
                   <table className="w-full text-left">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="p-3 text-sm font-semibold text-gray-700">Tên sản phẩm</th>
-                        <th className="p-3 text-sm font-semibold text-gray-700">Serial Code</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Tên sản phẩm/Serial Code</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Bảo hành</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Hạn bảo hành</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Ghi chú</th>
                       </tr>
                     </thead>
-                   <tbody>
+                    <tbody>
                       {orderDetails.map((detail, idx) => {
                         const displayName = detail.itemId?.item_type?.name 
                                          || detail.itemId?.itemTypeId?.name 
