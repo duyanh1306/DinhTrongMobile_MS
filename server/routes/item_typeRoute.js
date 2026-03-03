@@ -8,8 +8,10 @@ const {
     getItemTypePaginatedAndSearch
 } = require("../controllers/item_typeController");
 
+// PUBLIC ROUTES
+router.get("/all", getAllItemTypes);
+// PRIVATE ROUTES
 router.get("/", authAdmin, getItemTypePaginatedAndSearch);
-router.get("/all", authAdmin, getAllItemTypes);
 router.post("/create",authAdmin ,createItemType);
 router.put("/update/:id",authAdmin, updateItemType);
 

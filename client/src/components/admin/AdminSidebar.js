@@ -37,6 +37,7 @@ export default function AdminSidebar() {
       items: [
         { text: "Người dùng", link: "/admin/users", icon: <Users size={18} /> },
         { text: "Chuỗi cửa hàng", link: "/admin/stores", icon: <Store size={18} /> },
+        { text: "Kho Máy",link: "/admin/phones",icon: <Package size={18}/>},
         { text: "Mẫu điện thoại", link: "/admin/phone_model", icon: <Smartphone size={18} /> },
         { text: "Loại sản phẩm", link: "/admin/item_type", icon: <Cpu size={18} /> },
         { text: "Kho hàng", link: "/admin/items", icon: <Package size={18} /> },

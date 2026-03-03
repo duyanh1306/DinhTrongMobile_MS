@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const {authAdmin} = require("../middlewares/auth");
+const { authAdmin } = require("../middlewares/auth");
+const uploadCloud = require("../config/cloudinary"); // Chắc chắn có dòng này
+
 const {
     createPhoneModel,
     updatePhoneModel,
@@ -8,9 +10,13 @@ const {
     getPhoneModelPaginatedAndSearch
 } = require("../controllers/phone_modelController");
 
-router.get("/", authAdmin, getPhoneModelPaginatedAndSearch);
+// PUBLIC ROUTES
 router.get("/all", getAllPhoneModels);
-router.post("/create", authAdmin , createPhoneModel);
-router.put("/update/:id", authAdmin, updatePhoneModel);
+
+// PRIVATE ROUTES
+router.get("/", authAdmin, getPhoneModelPaginatedAndSearch);
+
+router.post("/create", authAdmin, uploadCloud.single("image"), createPhoneModel);
+router.put("/update/:id", authAdmin, uploadCloud.single("image"), updatePhoneModel);
 
 module.exports = router;
