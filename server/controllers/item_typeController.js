@@ -4,7 +4,6 @@ const Item_types = require("../models/Item_type");
 const getAllItemTypes = async (req, res) => {
     try {
         const item_types = await Item_types.find()
-            .populate('compatiblePhoneModels', 'name brand')
 
         res.status(200).json({
             success: true,
@@ -45,7 +44,6 @@ const getItemTypePaginatedAndSearch = async (req, res) => {
         
         const itemTypes = await Item_types
             .find(searchQuery)
-            .populate('compatiblePhoneModels', 'name brand')
             .sort(sortQuery)
             .skip(skip)
             .limit(limitNum);
@@ -93,8 +91,7 @@ const createItemType = async (req, res) => {
             name,
             code,
             price,
-            baseCost,
-            compatiblePhoneModels
+            baseCost
         } = req.body;
 
         if (
@@ -113,8 +110,7 @@ const createItemType = async (req, res) => {
             name,
             code,
             price,
-            baseCost,
-            compatiblePhoneModels
+            baseCost
         });
 
         const savedItemType = await newItemType.save();

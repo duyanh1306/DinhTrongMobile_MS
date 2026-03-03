@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Edit, Trash2, Eye, Key, Plus, X } from "lucide-react";
+import { Search, Edit, Trash2, Eye, Key, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import AdminLayout from "../../layouts/AdminLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -13,6 +13,10 @@ export default function ManageUser() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("STAFF");
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 10; // Số lượng user trên 1 trang
+
   // Modals state
   const [modalType, setModalType] = useState(null); // 'DETAIL', 'CREATE_STAFF', 'UPDATE', null
   const [selectedUser, setSelectedUser] = useState(null);
@@ -25,6 +29,11 @@ export default function ManageUser() {
     fetchUsers();
     fetchRoles();
   }, []);
+
+  // Đặt lại trang 1 mỗi khi đổi từ khóa tìm kiếm hoặc đổi bộ lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedFilter]);
 
   const fetchUsers = async () => {
     try {
@@ -50,7 +59,7 @@ export default function ManageUser() {
     }
   };
 
-  // Lọc danh sách User
+  // 1. Lọc danh sách User (Tìm kiếm & Filter)
   const filteredUsers = users.filter((user) => {
     const matchName = user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.userName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -66,6 +75,14 @@ export default function ManageUser() {
 
     return matchName && matchRole;
   });
+
+  // 2. Phân trang dựa trên danh sách đã lọc
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -139,11 +156,10 @@ export default function ManageUser() {
   };
 
   const openCreateStaffModal = () => {
-    // Tìm ID của role SALE_STAFF để làm mặc định
     const staffRole = roles.find((r) => r.id === "SALE_STAFF");
     setFormData({
       fullName: "", userName: "", email: "", number: "", birthday: "",
-      roleId: staffRole ? staffRole._id : "", // Set mặc định
+      roleId: staffRole ? staffRole._id : "", 
       status: "active", password: ""
     });
     setErrors({});
@@ -151,6 +167,10 @@ export default function ManageUser() {
   };
 
   const openUpdateModal = (user) => {
+    if (isAdminRole(user.roleId?.id)) {
+        toast.error("Không thể chỉnh sửa tài khoản Quản trị viên.");
+        return;
+    }
     setSelectedUser(user);
     setFormData({
       fullName: user.fullName,
@@ -211,7 +231,12 @@ export default function ManageUser() {
   };
 
   // --- XÓA USER (SWEETALERT2) ---
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, roleCode) => {
+    if (isAdminRole(roleCode)) {
+        toast.error("Không thể xóa tài khoản Quản trị viên.");
+        return;
+    }
+
     Swal.fire({
       title: "Bạn có chắc chắn không?",
       text: "Dữ liệu này sẽ không thể khôi phục sau khi xóa!",
@@ -227,6 +252,12 @@ export default function ManageUser() {
           const res = await fetch(`http://localhost:9999/api/users/${id}`, { method: "DELETE" });
           if (res.ok) {
             setUsers(users.filter((u) => u._id !== id));
+            
+            // Xử lý lùi trang nếu xóa user cuối cùng của trang hiện tại
+            if (currentUsers.length === 1 && currentPage > 1) {
+              setCurrentPage(currentPage - 1);
+            }
+            
             toast.success("Xóa người dùng thành công!");
           } else {
             toast.error("Xóa người dùng thất bại.");
@@ -274,6 +305,7 @@ export default function ManageUser() {
   };
 
   const isStaffRole = (roleCode) => roleCode === "SALE_STAFF" || roleCode === "TECHNICIAN";
+  const isAdminRole = (roleCode) => roleCode === "ADMIN";
 
   // Hàm chuyển đổi trạng thái sang Tiếng Việt
   const getStatusText = (status) => {
@@ -281,14 +313,14 @@ export default function ManageUser() {
       case 'active': return 'HOẠT ĐỘNG';
       case 'inactive': return 'VÔ HIỆU HÓA';
       case 'pending': return 'CHỜ DUYỆT';
-      default: return status.toUpperCase();
+      default: return status?.toUpperCase() || "";
     }
   };
 
   return (
     <AdminLayout>
       <ToastContainer position="top-right" autoClose={3000} />
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 min-h-[600px]">
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 min-h-[600px] flex flex-col">
         {/* Header & Actions */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-gray-800">Quản lý người dùng</h2>
@@ -325,10 +357,10 @@ export default function ManageUser() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="bg-gray-100 border-b border-gray-200">
+              <tr className="bg-gray-100 border-y border-gray-200">
                 <th className="p-3 font-semibold text-gray-700">Họ và tên</th>
                 <th className="p-3 font-semibold text-gray-700">Tên đăng nhập</th>
                 <th className="p-3 font-semibold text-gray-700">Vai trò</th>
@@ -337,7 +369,7 @@ export default function ManageUser() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user) => (
+              {currentUsers.map((user) => (
                 <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="p-3 font-medium text-gray-800">{user.fullName}</td>
                   <td className="p-3 text-gray-600">{user.userName}</td>
@@ -357,31 +389,80 @@ export default function ManageUser() {
                     <button onClick={() => { setSelectedUser(user); setModalType("DETAIL"); }} className="text-gray-500 hover:text-gray-800 transition" title="Xem chi tiết">
                       <Eye size={18} />
                     </button>
-                    <button onClick={() => openUpdateModal(user)} className="text-blue-500 hover:text-blue-700 transition" title="Sửa">
-                      <Edit size={18} />
-                    </button>
+                    {/* Ẩn nút Edit nếu là ADMIN */}
+                    {!isAdminRole(user.roleId?.id) && (
+                        <button onClick={() => openUpdateModal(user)} className="text-blue-500 hover:text-blue-700 transition" title="Sửa">
+                        <Edit size={18} />
+                        </button>
+                    )}
                     {isStaffRole(user.roleId?.id) && (
                       <button onClick={() => handleResetPassword(user._id)} className="text-yellow-500 hover:text-yellow-700 transition" title="Đặt lại mật khẩu">
                         <Key size={18} />
                       </button>
                     )}
-                    <button onClick={() => handleDelete(user._id)} className="text-red-500 hover:text-red-700 transition" title="Xóa">
-                      <Trash2 size={18} />
-                    </button>
+                    {/* Ẩn nút Xóa nếu là ADMIN */}
+                    {!isAdminRole(user.roleId?.id) && (
+                        <button onClick={() => handleDelete(user._id, user.roleId?.id)} className="text-red-500 hover:text-red-700 transition" title="Xóa">
+                        <Trash2 size={18} />
+                        </button>
+                    )}
                   </td>
                 </tr>
               ))}
-              {filteredUsers.length === 0 && (
+              {currentUsers.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="p-6 text-center text-gray-500">Không tìm thấy người dùng nào.</td>
+                  <td colSpan="5" className="p-6 text-center text-gray-500">
+                    Không tìm thấy người dùng nào.
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Phân trang (Pagination) */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+            <span className="text-sm text-gray-600">
+              Hiển thị <span className="font-semibold text-gray-900">{indexOfFirstUser + 1}</span> đến <span className="font-semibold text-gray-900">{Math.min(indexOfLastUser, filteredUsers.length)}</span> trong tổng số <span className="font-semibold text-gray-900">{filteredUsers.length}</span> người dùng
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-1 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              {/* Hiển thị các số trang */}
+              {[...Array(totalPages)].map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => paginate(index + 1)}
+                  className={`w-8 h-8 rounded-md text-sm font-medium transition ${
+                    currentPage === index + 1
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-700 hover:bg-gray-100 border border-transparent"
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+
+              <button
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-1 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* --- MODALS --- */}
+      {/* --- MODALS (Bên dưới giữ nguyên) --- */}
       {modalType && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl relative shadow-xl max-h-[90vh] overflow-y-auto">

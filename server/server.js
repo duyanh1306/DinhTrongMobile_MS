@@ -15,9 +15,14 @@ const userRoute = require("./routes/userRoute");
 const storeRoute = require("./routes/storeRoute");
 const roleRoute = require("./routes/roleRoutes");
 const item_typeRoute = require("./routes/item_typeRoute");
+const itemRoute = require("./routes/itemRoute");
 const phone_modelRoute = require("./routes/phone_modelRoute");
 const repair_serviceRoute = require("./routes/repair_serviceRoute");
-
+const purchase_orderRoutes = require("./routes/purchase_orderRoutes");
+const repair_orderRoutes = require("./routes/repair_orderRoutes");
+const inventoryTransactionRoutes = require("./routes/inventory_transactionRoutes");
+const transferRequestRoutes = require("./routes/transfer_requestRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 connectDB();
 
 app.use(
@@ -31,9 +36,14 @@ app.use("/api/users", userRoute);
 app.use("/api/stores", storeRoute);
 app.use("/api/roles", roleRoute);
 app.use("/api/item_types", item_typeRoute);
+app.use("/api/items", itemRoute);
 app.use("/api/phone_models", phone_modelRoute);
 app.use("/api/repair_services", repair_serviceRoute);
-
+app.use("/api/purchase-orders", purchase_orderRoutes);
+app.use("/api/repair-orders", repair_orderRoutes);
+app.use("/api/inventory-transactions", inventoryTransactionRoutes);
+app.use("/api/transfer-requests", transferRequestRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
