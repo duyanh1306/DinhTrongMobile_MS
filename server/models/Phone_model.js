@@ -3,64 +3,22 @@ const { Schema } = mongoose;
 
 const phone_modelSchema = new Schema(
     {
-        name: {
-            type: String,
-            required: true,
-            minLength: [2, "Name must have at least 2 characters"],
-            maxLength: 100,
-            validate: {
-                // Đã sửa Regex để cho phép tiếng Việt, dấu ngoặc, dấu %,...
-                validator: function(v) {
-                    return /^[\p{L}0-9\s\-_().%,]+$/u.test(v);
-                },
-                message: 'Name contains invalid characters'
-            }
-        },
-        brand: {
-            type: String,
-            required: true,
-            minLength: [2, "Brand must have at least 2 characters"],
-            maxLength: 100,
-            validate: {
-                validator: function(v) {
-                    return /^[\p{L}0-9\s\-_]+$/u.test(v);
-                },
-                message: 'Brand contains invalid characters'
-            }
-        },
-        // Khai báo thêm các trường để API GET nhả ra dữ liệu cho trang Home
-        price: {
-            type: Number,
-            default: 0
-        },
-        image: {
-            type: String,
-            default: ""
-        },
-        condition: {
-            type: Number,
-            default: 1
-        },
+        name: { type: String, required: true, minLength: 2, maxLength: 100 },
+        brand: { type: String, required: true, minLength: 2, maxLength: 100 },
+        image: { type: String, default: "" }, // <-- THÊM TRƯỜNG NÀY LÀM ẢNH ĐẠI DIỆN TRANG CHỦ
+        condition: { type: Number, default: 1, min: 0, max: 1 },
         specifications: {
-            screenSize: { type: String },
-            screenTechnology: { type: String },
-            rearCamera: { type: String },
-            frontCamera: { type: String },
-            chipset: { type: String },
-            nfc: { type: String },
-            internalStorage: { type: String },
-            sim: { type: String },
-            os: { type: String },
-            screenResolution: { type: String },
-            screenFeatures: { type: String },
-            cpu: { type: String }
-        }
+            screenSize: { type: String }, screenTechnology: { type: String },
+            rearCamera: { type: String }, frontCamera: { type: String },
+            chipset: { type: String }, nfc: { type: String },
+            internalStorage: { type: String }, sim: { type: String },
+            os: { type: String }, screenResolution: { type: String },
+            screenFeatures: { type: String }, cpu: { type: String }
+        },
+        compatibleItemTypes: [{ type: Schema.Types.ObjectId, ref: 'Item_type' }]
     },
-    {
-        timestamps: true,
-    }
+    { timestamps: true }
 );
 
 phone_modelSchema.index({name: 1}, {unique: true});
-
 module.exports = mongoose.model("Phone_model", phone_modelSchema);

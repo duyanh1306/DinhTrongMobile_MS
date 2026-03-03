@@ -1,66 +1,40 @@
 const Phone_model = require("../models/Phone_model");
 
-//  GET /api/phone_models/all
+// GET /api/phone_models/all
 const getAllPhoneModels = async (req, res) => {
-    try{
-        const phone_models = await Phone_model.find()
-        res.status(200).json({
-            success: true,
-            message: "Phone models retrieved successfully",
-            data: phone_models,
-        })
-    }catch(error){
-        console.error("Error getting all phone models:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        })
+    try {
+        const phone_models = await Phone_model.find();
+        res.status(200).json({ success: true, data: phone_models });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
-}
+};
 
 // POST /api/phone_models/create
 const createPhoneModel = async (req, res) => {
     try {
-        const {
-            name,
-            brand
-        } = req.body;
+        let { name, brand, condition, specifications, compatibleItemTypes } = req.body;
+        
+        let image = "";
+        // Nếu có file ảnh gửi lên, lấy đường dẫn từ Cloudinary
+        if (req.file) {
+            image = req.file.path; 
+        }
 
         const newPhoneModel = new Phone_model({
-            name,
-            brand
+            name, 
+            brand, 
+            image, // Lưu ảnh vào DB
+            condition: condition !== undefined ? condition : 1, 
+            specifications: typeof specifications === 'string' ? JSON.parse(specifications) : (specifications || {}),
+            compatibleItemTypes: typeof compatibleItemTypes === 'string' ? JSON.parse(compatibleItemTypes) : (compatibleItemTypes || [])
         });
 
         const savedPhoneModel = await newPhoneModel.save();
-
-        res.status(201).json({
-            success: true,
-            message: "Phone model created successfully",
-            data: savedPhoneModel,
-        });
+        res.status(201).json({ success: true, message: "Tạo thành công", data: savedPhoneModel });
     } catch (error) {
-        console.error("Error creating  phone model:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                message: "Item with this name already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                message: error.message
-            });
-        }
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
-
-
+        if (error.code === 11000) return res.status(400).json({ message: "Tên máy đã tồn tại" });
+        return res.status(500).json({ success: false, error: error.message });
     }
 };
 
@@ -68,47 +42,34 @@ const createPhoneModel = async (req, res) => {
 const updatePhoneModel = async (req, res) => {
     try {
         const { id } = req.params;
+        let updateData = { ...req.body };
 
-        const updated = await Phone_model.findByIdAndUpdate(id, req.body, {
-            new: true,
-            runValidators: true,
-        })
-        if (!updated)
-            return res
-                .status(404)
-                .json({ success: false, message: "Phone model not found" });
+        // QUAN TRỌNG: Ghi đè link ảnh mới nếu người dùng có up ảnh
+        if (req.file) {
+            updateData.image = req.file.path; 
+        }
+        
+        if (updateData.specifications && typeof updateData.specifications === 'string') {
+            updateData.specifications = JSON.parse(updateData.specifications);
+        }
+        if (updateData.compatibleItemTypes && typeof updateData.compatibleItemTypes === 'string') {
+            updateData.compatibleItemTypes = JSON.parse(updateData.compatibleItemTypes);
+        }
 
-        res.status(200).json({
-            success: true,
-            message: "Phone model updated successfully",
-            data: updated,
-        });
+        const updated = await Phone_model.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+        if (!updated) return res.status(404).json({ success: false, message: "Không tìm thấy máy" });
+        
+        res.status(200).json({ success: true, message: "Cập nhật thành công", data: updated });
     } catch (error) {
-        console.error("Error updating phone model:", error);
-        if (error.code === 11000) {
-            return res.status(400).json({
-                message: "Item with this name already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                message: error.message
-            });
-        }
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ message: "Tên máy đã tồn tại" });
+        return res.status(500).json({ success: false, error: error.message });
     }
 };
 
 // GET /api/phone_models
 const getPhoneModelPaginatedAndSearch = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', sortBy = 'modelName', sortOrder = 'asc' } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy = 'name', sortOrder = 'asc' } = req.query;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
@@ -119,8 +80,7 @@ const getPhoneModelPaginatedAndSearch = async (req, res) => {
             searchQuery = {
                 $or: [
                     { name: { $regex: search, $options: 'i' } },
-                    { brand: { $regex: search, $options: 'i' } },
-                    { description: { $regex: search, $options: 'i' } }
+                    { brand: { $regex: search, $options: 'i' } }
                 ]
             };
         }
@@ -135,38 +95,19 @@ const getPhoneModelPaginatedAndSearch = async (req, res) => {
             .limit(limitNum);
         
         const totalCount = await Phone_model.countDocuments(searchQuery);
-        
         const totalPages = Math.ceil(totalCount / limitNum);
-        const hasNextPage = pageNum < totalPages;
-        const hasPrevPage = pageNum > 1;
         
         res.status(200).json({
             success: true,
-            message: "Phone models retrieved successfully",
             data: phoneModels,
             pagination: {
-                currentPage: pageNum,
-                totalPages,
-                totalCount,
-                limit: limitNum,
-                hasNextPage,
-                hasPrevPage,
-                nextPage: hasNextPage ? pageNum + 1 : null,
-                prevPage: hasPrevPage ? pageNum - 1 : null
+                currentPage: pageNum, totalPages, totalCount, limit: limitNum,
+                hasNextPage: pageNum < totalPages, hasPrevPage: pageNum > 1
             },
-            filters: {
-                search,
-                sortBy,
-                sortOrder
-            }
+            filters: { search, sortBy, sortOrder }
         });
     } catch (error) {
-        console.error("Error getting paginated phone models:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 };
 
