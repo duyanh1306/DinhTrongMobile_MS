@@ -7,7 +7,7 @@ const initialFormState = {
     imei: '',
     phoneModelId: '',
     colorName: '',
-    capacity: '', // Đã bổ sung
+    capacity: '', 
     storeId: '',
     status: 'in_stock',
     importPrice: '',
@@ -49,12 +49,14 @@ export default function AdminPhone() {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
             const [modelsRes, storesRes] = await Promise.all([
-                axios.get(`http://localhost:9999/api/phone_models?limit=1000`, { headers }),
+                axios.get(`http://localhost:9999/api/phone_models/all`, { headers }),
                 axios.get(`http://localhost:9999/api/stores`, { headers }) 
             ]);
-            setPhoneModels(modelsRes.data.data || []);
             
-            const storeData = storesRes.data.data || storesRes.data;
+            const modelsData = modelsRes.data.data || modelsRes.data || [];
+            setPhoneModels(Array.isArray(modelsData) ? modelsData : []);
+            
+            const storeData = storesRes.data.data || storesRes.data || [];
             setStores(Array.isArray(storeData) ? storeData : []);
         } catch (error) {
             console.error("Failed to fetch dropdown data");
@@ -86,6 +88,15 @@ export default function AdminPhone() {
         }
     };
 
+    // LOGIC LỌC DÒNG MÁY THEO NGUỒN GỐC
+    const filteredPhoneModels = phoneModels.filter(pm => {
+        if (formData.source === 'supplier') {
+            return pm.condition === 1; 
+        } else {
+            return pm.condition < 1; 
+        }
+    });
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -108,12 +119,20 @@ export default function AdminPhone() {
     const handleEditPhone = (phone) => {
         setIsEditing(true); 
         setEditingId(phone._id);
+
+        let extractedModelId = '';
+        if (phone.phoneModelId && typeof phone.phoneModelId === 'object') {
+            extractedModelId = phone.phoneModelId._id || phone.phoneModelId.id || '';
+        } else {
+            extractedModelId = phone.phoneModelId || '';
+        }
+
         setFormData({
             imei: phone.imei,
-            phoneModelId: phone.phoneModelId?._id || phone.phoneModelId,
+            phoneModelId: extractedModelId,
             colorName: phone.colorName,
-            capacity: phone.capacity || '', // Đã kéo dữ liệu Dung lượng cũ ra
-            storeId: phone.storeId?._id || phone.storeId,
+            capacity: phone.capacity || '',
+            storeId: phone.storeId?._id || phone.storeId?.id || phone.storeId,
             status: phone.status,
             importPrice: phone.importPrice,
             sellingPrice: phone.sellingPrice || '',
@@ -121,6 +140,7 @@ export default function AdminPhone() {
             notes: phone.notes || '',
             images: []
         });
+        
         setRetainedImages(phone.specificImages || []);
         setPreviewImages([]);
         setShowModal(true);
@@ -128,9 +148,14 @@ export default function AdminPhone() {
 
     const handleCloseModal = () => { setShowModal(false); };
 
+    // FIX CHÍNH: Xử lý reset dòng máy ở đây, chỉ khi người dùng TỰ TAY đổi nguồn gốc
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        if (name === 'source') {
+            setFormData(prev => ({ ...prev, [name]: value, phoneModelId: '' }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleFileChange = (e) => {
@@ -160,6 +185,15 @@ export default function AdminPhone() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!formData.phoneModelId || formData.phoneModelId === "undefined") {
+            return toast.warning("Vui lòng chọn hợp lệ Dòng Máy!");
+        }
+
+        if (!formData.storeId || formData.storeId === "undefined") {
+            return toast.warning("Vui lòng chọn Chi Nhánh!");
+        }
+
         try {
             const token = localStorage.getItem("token");
             const submitData = new FormData();
@@ -167,7 +201,7 @@ export default function AdminPhone() {
             submitData.append("imei", formData.imei);
             submitData.append("phoneModelId", formData.phoneModelId);
             submitData.append("colorName", formData.colorName);
-            submitData.append("capacity", formData.capacity); // Đã gửi Dung lượng lên Server
+            submitData.append("capacity", formData.capacity);
             submitData.append("storeId", formData.storeId);
             submitData.append("status", formData.status);
             submitData.append("importPrice", formData.importPrice);
@@ -238,7 +272,7 @@ export default function AdminPhone() {
                     </select>
                     <select name="storeId" value={filters.storeId} onChange={handleFilterChange} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                         <option value="">Tất cả Chi nhánh</option>
-                        {stores.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+                        {stores.map(st => <option key={st._id || st.id} value={st._id || st.id}>{st.name || st.address}</option>)}
                     </select>
                 </div>
             </div>
@@ -251,7 +285,6 @@ export default function AdminPhone() {
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Mã IMEI</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Tên Dòng Máy</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Màu sắc</th>
-                                {/* Đã bổ sung cột Dung lượng */}
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase text-blue-600">Dung lượng</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Trạng thái</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Chi nhánh</th>
@@ -264,7 +297,6 @@ export default function AdminPhone() {
                                     <td className="px-6 py-4 font-bold text-gray-800">{phone.imei}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{phone.phoneModelId?.name || 'N/A'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{phone.colorName}</td>
-                                    {/* Đã bổ sung dữ liệu Dung lượng */}
                                     <td className="px-6 py-4 text-sm font-semibold text-blue-600">{phone.capacity || 'N/A'}</td>
                                     <td className="px-6 py-4">{renderStatus(phone.status)}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{phone.storeId?.name || 'N/A'}</td>
@@ -301,12 +333,30 @@ export default function AdminPhone() {
                         
                         <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-semibold mb-1">Mã IMEI <span className="text-red-500">*</span></label><input type="text" name="imei" value={formData.imei} onChange={handleInputChange} required className="w-full border p-2 rounded focus:ring-2 outline-none" /></div>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-1">Mã IMEI <span className="text-red-500">*</span></label>
+                                    <input type="text" name="imei" value={formData.imei} onChange={handleInputChange} required disabled={isEditing} className="w-full border p-2 rounded focus:ring-2 outline-none disabled:bg-gray-100 disabled:text-gray-500" />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-semibold mb-1">Nguồn gốc <span className="text-red-500">*</span></label>
+                                    <select name="source" value={formData.source} onChange={handleInputChange} className="w-full border p-2 rounded bg-white focus:ring-2 outline-none">
+                                        <option value="supplier">Nhập hãng (Mới 100%)</option>
+                                        <option value="customer_trade_in">Khách Thu cũ đổi mới</option>
+                                        <option value="assembled">Máy Dựng (Ráp linh kiện)</option>
+                                    </select>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-semibold mb-1">Dòng máy <span className="text-red-500">*</span></label>
-                                    <select name="phoneModelId" value={formData.phoneModelId} onChange={handleInputChange} required className="w-full border p-2 rounded bg-white focus:ring-2 outline-none">
+                                    <select name="phoneModelId" value={formData.phoneModelId} onChange={handleInputChange} required className="w-full border p-2 rounded bg-white focus:ring-2 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed">
                                         <option value="">-- Chọn Dòng Máy --</option>
-                                        {phoneModels.map(pm => <option key={pm._id} value={pm._id}>{pm.name}</option>)}
+                                        {filteredPhoneModels.length === 0 && <option disabled>Không có dòng máy phù hợp</option>}
+                                        {filteredPhoneModels.map(pm => (
+                                            <option key={pm._id || pm.id} value={pm._id || pm.id}>
+                                                {pm.name} - {pm.condition === 1 ? 'Mới 100%' : `Cũ ${Math.round(pm.condition * 100)}%`}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 
@@ -328,15 +378,6 @@ export default function AdminPhone() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold mb-1">Nguồn gốc <span className="text-red-500">*</span></label>
-                                    <select name="source" value={formData.source} onChange={handleInputChange} className="w-full border p-2 rounded bg-white focus:ring-2 outline-none">
-                                        <option value="supplier">Nhập hãng (Mới 100%)</option>
-                                        <option value="customer_trade_in">Khách Thu cũ đổi mới</option>
-                                        <option value="assembled">Máy Dựng (Ráp linh kiện)</option>
-                                    </select>
-                                </div>
-
-                                <div>
                                     <label className="block text-sm font-semibold mb-1">Giá vốn (VND) <span className="text-red-500">*</span></label>
                                     <input type="number" name="importPrice" value={formData.importPrice} onChange={handleInputChange} required className="w-full border p-2 rounded focus:ring-2 outline-none" />
                                 </div>
@@ -350,7 +391,7 @@ export default function AdminPhone() {
                                     <label className="block text-sm font-semibold mb-1">Vị trí Cửa hàng <span className="text-red-500">*</span></label>
                                     <select name="storeId" value={formData.storeId} onChange={handleInputChange} required className="w-full border p-2 rounded bg-white focus:ring-2 outline-none">
                                         <option value="">-- Chọn Chi nhánh --</option>
-                                        {stores.map(st => <option key={st._id} value={st._id}>{st.name || st.address}</option>)}
+                                        {stores.map(st => <option key={st._id || st.id} value={st._id || st.id}>{st.name || st.address}</option>)}
                                     </select>
                                 </div>
                                 

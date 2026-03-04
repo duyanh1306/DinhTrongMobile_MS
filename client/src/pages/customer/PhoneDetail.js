@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ShoppingCart, ShieldCheck, Truck, RotateCcw, Cpu, Smartphone, Battery, HardDrive, Camera } from "lucide-react";
+import {ChevronLeft, ChevronRight, ShoppingCart, ShieldCheck, Truck, RotateCcw, Cpu, Smartphone, Battery, HardDrive, Camera } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast } from "react-toastify";
@@ -23,7 +23,6 @@ export default function PhoneDetail() {
     useEffect(() => {
         const fetchProductData = async () => {
             try {
-                // Lấy song song Danh mục máy và Kho máy vật lý
                 const [modelsRes, phonesRes] = await Promise.all([
                     axiosClient.get('/phone_models/all'),
                     axiosClient.get('/phones/all')
@@ -32,7 +31,6 @@ export default function PhoneDetail() {
                 const allModels = modelsRes.data.data || [];
                 const allPhones = phonesRes.data.data || [];
 
-                // 1. Tìm bản thiết kế (Thông số) của chiếc máy này
                 const currentModel = allModels.find(m => m._id === id);
                 if (!currentModel) {
                     toast.error("Không tìm thấy sản phẩm!");
@@ -40,18 +38,32 @@ export default function PhoneDetail() {
                     return;
                 }
                 setModel(currentModel);
-                setDisplayImage(currentModel.image);
 
-                // 2. Lọc ra những chiếc máy thực tế thuộc dòng này và đang CÒN HÀNG
+                // --- LOGIC LỌC TRÙNG & ƯU TIÊN MÁY NHIỀU ẢNH ---
                 const phonesInStock = allPhones.filter(p => 
                     (p.phoneModelId?._id === id || p.phoneModelId === id) && 
                     p.status === 'in_stock'
                 );
-                setAvailablePhones(phonesInStock);
 
-                // 3. Tự động bôi đen cấu hình rẻ nhất lúc khách vừa vào trang
-                if (phonesInStock.length > 0) {
-                    const lowestPricePhone = phonesInStock.reduce((prev, curr) => {
+                // Dùng Object để nhóm: Key sẽ là "Dung lượng-Màu sắc" (VD: "128GB-Tím")
+                const groupedMap = {};
+
+                phonesInStock.forEach(phone => {
+                    const key = `${phone.capacity}-${phone.colorName}`;
+                    
+                    // Nếu chưa có trong map HOẶC máy hiện tại có nhiều ảnh hơn máy đã lưu trong map
+                    if (!groupedMap[key] || (phone.specificImages?.length > groupedMap[key].specificImages?.length)) {
+                        groupedMap[key] = phone;
+                    }
+                });
+
+                // Chuyển kết quả từ Object Map quay lại thành Mảng
+                const finalAvailablePhones = Object.values(groupedMap);
+                setAvailablePhones(finalAvailablePhones);
+
+                // Tự động chọn cấu hình đại diện (Ưu tiên giá thấp nhất trong danh sách đã lọc)
+                if (finalAvailablePhones.length > 0) {
+                    const lowestPricePhone = finalAvailablePhones.reduce((prev, curr) => {
                         const prevPrice = prev.sellingPrice || (prev.importPrice * 1.15);
                         const currPrice = curr.sellingPrice || (curr.importPrice * 1.15);
                         return prevPrice < currPrice ? prev : curr;
@@ -60,9 +72,11 @@ export default function PhoneDetail() {
                     setSelectedCapacity(lowestPricePhone.capacity);
                     setSelectedColor(lowestPricePhone.colorName);
                     
-                    // Ưu tiên hiển thị ảnh chụp thực tế (nếu là máy cũ có ảnh)
+                    // Cập nhật ảnh hiển thị ban đầu
                     if (lowestPricePhone.specificImages && lowestPricePhone.specificImages.length > 0) {
                         setDisplayImage(lowestPricePhone.specificImages[0]);
+                    } else {
+                        setDisplayImage(currentModel.image);
                     }
                 }
 
@@ -102,7 +116,58 @@ export default function PhoneDetail() {
         .filter(p => p.capacity === selectedCapacity)
         .map(p => p.colorName)
         .filter((value, index, self) => self.indexOf(value) === index);
-
+        const selectedPhone = availablePhones.find(
+            p => p.capacity === selectedCapacity && p.colorName === selectedColor
+        );
+        const images = selectedPhone?.specificImages || [];
+        
+        // Hàm chuyển ảnh sang phải
+        const nextImage = () => {
+            if (images.length === 0) return;
+            const currentIndex = images.indexOf(displayImage);
+            const nextIndex = (currentIndex + 1) % images.length;
+            setDisplayImage(images[nextIndex]);
+        };
+        
+        // Hàm chuyển ảnh sang trái
+        const prevImage = () => {
+            if (images.length === 0) return;
+            const currentIndex = images.indexOf(displayImage);
+            const prevIndex = (currentIndex - 1 + images.length) % images.length;
+            setDisplayImage(images[prevIndex]);
+        };
+        const handleAddToCart = () => {
+            if (isOutOfStock) return;
+    
+            // Tạo một ID định danh cho món hàng dựa trên Model + Dung lượng + Màu
+            const cartItemId = `${model._id}-${selectedCapacity}-${selectedColor}`;
+    
+            const newItem = {
+                cartItemId,
+                modelId: model._id,
+                name: model.name,
+                capacity: selectedCapacity,
+                color: selectedColor,
+                price: currentPrice,
+                image: displayImage,
+                quantity: 1
+            };
+    
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const existingItemIndex = cart.findIndex(item => item.cartItemId === cartItemId);
+    
+            if (existingItemIndex > -1) {
+                cart[existingItemIndex].quantity += 1; // Đã có thì tăng số lượng
+            } else {
+                cart.push(newItem); // Chưa có thì thêm mới
+            }
+    
+            localStorage.setItem('cart', JSON.stringify(cart));
+            window.dispatchEvent(new Event('cartUpdated')); // Báo cho Layout cập nhật số màu vàng
+            toast.success("Đã thêm sản phẩm vào giỏ hàng!");
+            
+            
+        };
     if (loading) {
         return (
             <CustomerLayout>
@@ -135,34 +200,58 @@ export default function PhoneDetail() {
                 <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 flex flex-col md:flex-row gap-10">
                     
                     {/* BÊN TRÁI: ẢNH SẢN PHẨM */}
-                    <div className="md:w-5/12 flex flex-col items-center">
-                        <div className="w-full h-96 border border-gray-100 rounded-2xl p-4 flex items-center justify-center relative bg-gray-50">
-                            {model.condition < 1 && (
-                                <span className="absolute top-4 left-4 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-md shadow-sm">
-                                    Máy cũ {Math.round(model.condition * 100)}%
-                                </span>
-                            )}
-                            <img 
-                                src={displayImage || "https://via.placeholder.com/400?text=No+Image"} 
-                                alt={model.name} 
-                                className="max-h-full max-w-full object-contain drop-shadow-md"
-                            />
+                        <div className="md:w-5/12 flex flex-col items-center">
+                            <div className="group w-full h-96 border border-gray-100 rounded-2xl p-4 flex items-center justify-center relative bg-gray-50 overflow-hidden">
+                                
+                                {/* Nút mũi tên TRÁI */}
+                                {images.length > 1 && (
+                                    <button 
+                                        onClick={prevImage}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-600 hover:text-white p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronLeft size={24} />
+                                    </button>
+                                )}
+
+                                <img 
+                                    src={displayImage || "https://via.placeholder.com/400?text=No+Image"} 
+                                    alt={model.name} 
+                                    className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-300"
+                                />
+
+                                {/* Nút mũi tên PHẢI */}
+                                {images.length > 1 && (
+                                    <button 
+                                        onClick={nextImage}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-600 hover:text-white p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronRight size={24} />
+                                    </button>
+                                )}
+
+                                {/* Chỉ số ảnh (VD: 1/3) */}
+                                {images.length > 1 && (
+                                    <div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded-lg">
+                                        {images.indexOf(displayImage) + 1} / {images.length}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* List ảnh nhỏ bên dưới (Thumbnail) */}
+                            <div className="flex gap-3 mt-4 w-full overflow-x-auto pb-2 scrollbar-hide">
+                                {images.map((img, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => setDisplayImage(img)} 
+                                        className={`flex-shrink-0 w-16 h-16 border-2 rounded-lg p-1 cursor-pointer transition-all ${
+                                            displayImage === img ? 'border-blue-600 scale-105 shadow-sm' : 'border-gray-100 hover:border-blue-300'
+                                        }`}
+                                    >
+                                        <img src={img} className="w-full h-full object-cover rounded" alt={`specific-${idx}`} />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        
-                        {/* List ảnh nhỏ bên dưới (Thumbnail) */}
-                        <div className="flex gap-3 mt-4 w-full overflow-x-auto pb-2">
-                            {model.image && (
-                                <div onClick={() => setDisplayImage(model.image)} className={`flex-shrink-0 w-16 h-16 border-2 rounded-lg p-1 cursor-pointer hover:border-blue-400 transition ${displayImage === model.image ? 'border-blue-600' : 'border-gray-100'}`}>
-                                    <img src={model.image} className="w-full h-full object-contain" alt="default" />
-                                </div>
-                            )}
-                            {availablePhones.find(p => p.capacity === selectedCapacity && p.colorName === selectedColor)?.specificImages?.map((img, idx) => (
-                                <div key={idx} onClick={() => setDisplayImage(img)} className={`flex-shrink-0 w-16 h-16 border-2 rounded-lg p-1 cursor-pointer hover:border-blue-400 transition ${displayImage === img ? 'border-blue-600' : 'border-gray-100'}`}>
-                                    <img src={img} className="w-full h-full object-cover rounded" alt={`specific-${idx}`} />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
 
                     {/* BÊN PHẢI: GIÁ & MUA HÀNG */}
                     <div className="md:w-7/12 flex flex-col">
@@ -239,19 +328,38 @@ export default function PhoneDetail() {
                         </div>
 
                         {/* NÚT ĐẶT HÀNG */}
-                        <div className="mt-auto">
-                            <button 
-                                disabled={isOutOfStock}
-                                className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all ${
-                                    isOutOfStock 
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:-translate-y-0.5'
-                                }`}
-                            >
-                                <ShoppingCart size={22} />
-                                {isOutOfStock ? 'SẢN PHẨM TẠM HẾT HÀNG' : 'MUA NGAY'}
-                            </button>
-                        </div>
+                            <div className="mt-auto flex flex-col sm:flex-row gap-3">
+                                {/* Nút MUA NGAY (Hành động chính) */}
+                                <button 
+                                    onClick={() => {
+                                        handleAddToCart();
+                                        navigate('/cart'); // Sau khi thêm vào giỏ thì bay thẳng vào trang thanh toán
+                                    }}
+                                    disabled={isOutOfStock}
+                                    className={`flex-1 py-4 rounded-xl font-bold text-lg flex flex-col items-center justify-center leading-tight transition-all ${
+                                        isOutOfStock 
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                            : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 hover:-translate-y-0.5'
+                                    }`}
+                                >
+                                    <span className="uppercase">Mua ngay</span>
+                                    <span className="text-[11px] font-normal">(Giao tận nơi hoặc nhận tại cửa hàng)</span>
+                                </button>
+
+                                {/* Nút THÊM VÀO GIỎ (Hành động phụ) */}
+                                <button 
+                                    onClick={handleAddToCart}
+                                    disabled={isOutOfStock}
+                                    className={`w-full sm:w-20 py-4 rounded-xl font-bold flex flex-col items-center justify-center transition-all border-2 ${
+                                        isOutOfStock 
+                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed' 
+                                            : 'border-blue-600 text-blue-600 hover:bg-blue-50'
+                                    }`}
+                                >
+                                    <ShoppingCart size={24} />
+                                    <span className="text-[10px] mt-1 uppercase whitespace-nowrap">Thêm giỏ hàng</span>
+                                </button>
+                            </div>
                     </div>
                 </div>
 

@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { 
-  ChevronDown, 
-  User, 
-  Package, 
-  Wrench, 
-  MapPin, 
-  Heart, 
-  LogOut,
-  Search,
-  Loader2
-} from "lucide-react";
+import { ChevronDown, User, Package, Wrench, MapPin, Heart, LogOut, Search, Loader2, ShoppingCart } from "lucide-react";
 import axiosClient from "../api/axiosClient";
 
 export default function CustomerLayout({ children }) {
+    
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user'));
     
@@ -25,6 +16,22 @@ export default function CustomerLayout({ children }) {
     const [isSearching, setIsSearching] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const searchRef = useRef(null);
+    const [cartCount, setCartCount] = useState(0);
+
+    useEffect(() => {
+        const updateCartCount = () => {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            // Cộng dồn tổng số lượng các món hàng
+            const totalCount = cart.reduce((total, item) => total + item.quantity, 0);
+            setCartCount(totalCount);
+        };
+        
+        updateCartCount(); // Gọi lần đầu
+        
+        // Lắng nghe sự kiện khi có ai đó bấm "Thêm vào giỏ"
+        window.addEventListener('cartUpdated', updateCartCount);
+        return () => window.removeEventListener('cartUpdated', updateCartCount);
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -33,30 +40,61 @@ export default function CustomerLayout({ children }) {
         navigate('/login');
     };
 
-    // Hàm gọi API tìm kiếm khi người dùng gõ phím (Debounce)
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(async () => {
-            if (searchQuery.trim()) {
-                setIsSearching(true);
-                try {
-                    const res = await axiosClient.get('/phone_models', {
-                        params: { search: searchQuery.trim(), limit: 5 }
-                    });
-                    setSearchResults(res.data.data || []);
-                    setShowSuggestions(true);
-                } catch (error) {
-                    console.error("Lỗi tìm kiếm:", error);
-                } finally {
-                    setIsSearching(false);
-                }
-            } else {
-                setSearchResults([]);
-                setShowSuggestions(false);
-            }
-        }, 500);
+   // Hàm gọi API tìm kiếm khi người dùng gõ phím (Debounce)
+   useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+        if (searchQuery.trim()) {
+            setIsSearching(true);
+            try {
+                // SỬA LỖI: Gọi API public (/all) thay vì API private của Admin
+                const [modelsRes, phonesRes] = await Promise.all([
+                    axiosClient.get('/phone_models/all'),
+                    axiosClient.get('/phones/all')
+                ]);
 
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchQuery]);
+                const allModels = modelsRes.data.data || [];
+                const allPhones = phonesRes.data.data || [];
+
+                // 1. Tự động lọc kết quả chứa từ khóa
+                const keyword = searchQuery.trim().toLowerCase();
+                const filteredModels = allModels.filter(m => 
+                    m.name.toLowerCase().includes(keyword) || 
+                    m.brand.toLowerCase().includes(keyword)
+                ).slice(0, 5); // Chỉ lấy 5 dòng máy gợi ý đầu tiên cho Dropdown đỡ dài
+
+                if (filteredModels.length > 0) {
+                    // 2. Đối chiếu kho để lấy giá rẻ nhất
+                    const combinedResults = filteredModels.map(model => {
+                        const availablePhones = allPhones.filter(p => 
+                            (p.phoneModelId?._id === model._id || p.phoneModelId === model._id) && 
+                            p.status === 'in_stock'
+                        );
+
+                        let lowestPrice = 0;
+                        if (availablePhones.length > 0) {
+                            lowestPrice = Math.min(...availablePhones.map(p => p.sellingPrice || (p.importPrice * 1.15)));
+                        }
+
+                        return { ...model, price: lowestPrice };
+                    });
+                    setSearchResults(combinedResults);
+                } else {
+                    setSearchResults([]);
+                }
+                setShowSuggestions(true);
+            } catch (error) {
+                console.error("Lỗi tìm kiếm:", error);
+            } finally {
+                setIsSearching(false);
+            }
+        } else {
+            setSearchResults([]);
+            setShowSuggestions(false);
+        }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+}, [searchQuery]);
 
     // Đóng popup tìm kiếm khi click ra ngoài
     useEffect(() => {
@@ -161,7 +199,18 @@ export default function CustomerLayout({ children }) {
                     </div>
 
                     {/* 3. Cột phải: Menu User */}
-                    <div className="flex-shrink-0 flex justify-end items-center gap-4">
+                    <div className="flex-shrink-0 flex justify-end items-center gap-2 md:gap-4">
+                        
+                        {/* NÚT GIỎ HÀNG THÊM VÀO ĐÂY */}
+                        <Link to="/cart" className="relative flex items-center justify-center p-2 text-white hover:bg-blue-700 rounded-lg transition mr-2">
+                            <ShoppingCart size={24} />
+                            {cartCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-yellow-400 text-blue-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white">
+                                    {cartCount > 99 ? '99+' : cartCount}
+                                </span>
+                            )}
+                            <span className="hidden md:block ml-2 text-sm font-medium">Giỏ hàng</span>
+                        </Link>
                         {user ? (
                         <div className="relative">
                             <button 
@@ -182,7 +231,7 @@ export default function CustomerLayout({ children }) {
                                         <Link to="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
                                             <User size={18} /> <span className="text-sm font-medium">Thông tin tài khoản</span>
                                         </Link>
-                                        <Link to="/my-orders" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
+                                        <Link to="/order-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
                                             <Package size={18} /> <span className="text-sm font-medium">Đơn hàng của tôi</span>
                                         </Link>
                                         <Link to="/repair-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">

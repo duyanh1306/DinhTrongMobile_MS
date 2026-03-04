@@ -30,6 +30,9 @@ import InventoryTransactionList from "./pages/admin/InventoryTransactionList";
 import TransferRequestList from "./pages/admin/TransferRequestList";
 import AdminPhone from "./pages/admin/AdminPhone";
 import PhoneDetail from "./pages/customer/PhoneDetail";
+import SearchResults from "./pages/customer/SearchResults";
+import Cart from "./pages/customer/Cart";
+import OrderHistory from "./pages/customer/OrderHistory";
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -81,6 +84,9 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/home" element={<Home />} />
         <Route path="/product/:id" element={<PhoneDetail />} />
+        <Route path="/search" element={<SearchResults />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />

@@ -92,25 +92,27 @@ const updatePhone = async (req, res) => {
     try {
         const { id } = req.params;
         let updateData = { ...req.body };
+        delete updateData.imei; 
 
-        // Xử lý up thêm ảnh thực tế
+        let specificImages = [];
+        
+        if (req.body.retainedImages) {
+            specificImages = JSON.parse(req.body.retainedImages);
+        }
+        
         if (req.files && req.files.length > 0) {
             const newImages = req.files.map(file => file.path);
-            
-            // Xử lý giữ lại ảnh cũ nếu Frontend có truyền mảng retainedImages lên
-            if (req.body.retainedImages) {
-                let retained = JSON.parse(req.body.retainedImages);
-                updateData.specificImages = [...retained, ...newImages];
-            } else {
-                updateData.specificImages = newImages; // Đè ảnh mới
-            }
+            specificImages = [...specificImages, ...newImages];
         }
+
+        updateData.specificImages = specificImages;
 
         const updatedPhone = await Phone.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
         if (!updatedPhone) return res.status(404).json({ success: false, message: "Không tìm thấy máy" });
 
         res.status(200).json({ success: true, message: "Cập nhật máy thành công", data: updatedPhone });
     } catch (error) {
+        console.error(error);
         if (error.code === 11000) return res.status(400).json({ message: "Số IMEI này đã tồn tại trong hệ thống!" });
         res.status(500).json({ success: false, message: error.message });
     }

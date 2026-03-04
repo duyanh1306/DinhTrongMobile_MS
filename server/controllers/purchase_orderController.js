@@ -67,9 +67,24 @@ const createPurchaseOrder = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+const getOrdersByCustomer = async (req, res) => {
+  try {
+    const { identifier } = req.params; // identifier có thể là số điện thoại hoặc ID
+    
+    // Tìm các đơn hàng khớp với số điện thoại khách hàng
+    const orders = await PurchaseOrder.find({ customerPhone: identifier })
+      .populate("storeId", "name code")
+      .sort({ purchaseOrderDate: -1 });
+
+    res.status(200).json({ success: true, data: orders });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
 
 module.exports = {
   getAllPurchaseOrders,
   getOrderDetailsById,
-  createPurchaseOrder
+  createPurchaseOrder,
+  getOrdersByCustomer
 };
