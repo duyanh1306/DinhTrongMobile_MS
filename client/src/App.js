@@ -30,6 +30,8 @@ import InventoryTransactionList from "./pages/admin/InventoryTransactionList";
 import TransferRequestList from "./pages/admin/TransferRequestList";
 import AdminPhone from "./pages/admin/AdminPhone";
 import PhoneDetail from "./pages/customer/PhoneDetail";
+import AssemblePhone from "./pages/technician/AssemblePhone"
+
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -247,7 +249,16 @@ function App() {
             </PrivateRoute>
           }
         />
-
+        <Route
+            path="/tech/assemble"
+            element={
+                <PrivateRoute>
+                    <RoleBasedLayout>
+                        <AssemblePhone/>
+                    </RoleBasedLayout>
+                </PrivateRoute>
+            }
+        />
         {/* ================= 404 NOT FOUND ================= */}
         <Route
           path="*"

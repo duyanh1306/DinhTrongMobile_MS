@@ -21,6 +21,10 @@ const phoneSchema = new Schema(
             default: 'supplier' 
         }, 
         notes: { type: String },
+        items: [{
+            type: Schema.Types.ObjectId,
+            ref: "Item",
+        }],
         specificImages: [{ type: String }] 
     },
     { timestamps: true }

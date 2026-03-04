@@ -5,7 +5,6 @@ const getAllItems = async (req, res) => {
     try {
         const items = await Item.find()
             .populate('item_type', 'name code')
-            .populate('phoneModelId', 'name brand compatibleItemTypes')
             .populate('storeId', 'name address');
         
         const mappedItems = items.map(item => ({
@@ -13,7 +12,6 @@ const getAllItems = async (req, res) => {
             name: item.name || item.serialCode,
             item_type: item.item_type,
             store: item.storeId,
-            phoneModel: item.phoneModelId
         }));
 
         console.log(`Fetched ${items.length} items (all items)`);

@@ -10,9 +10,18 @@ export default function AdminItem() {
     const [itemTypes, setItemTypes] = useState([]);
     const [stores, setStores] = useState([]);
     const [phoneModels, setPhoneModels] = useState([]);
+    const [phones, setPhones] = useState([]); // New state for phones
     const [loading, setLoading] = useState(true);
     const [expandedTypes, setExpandedTypes] = useState(new Set());
     const [pagination, setPagination] = useState({
+        currentPage: 1,
+        totalPages: 1,
+        totalCount: 0,
+        limit: 10,
+        hasNextPage: false,
+        hasPrevPage: false
+    });
+    const [phonePagination, setPhonePagination] = useState({ // Separate pagination for phones
         currentPage: 1,
         totalPages: 1,
         totalCount: 0,
@@ -46,6 +55,7 @@ export default function AdminItem() {
         fetchStores();
         fetchPhoneModels();
         fetchItems(true);
+        fetchPhones(true); // Fetch phones on initial load
 
         return () => {
             if (searchTimeout) {
@@ -64,103 +74,80 @@ export default function AdminItem() {
         if (!loading && pagination.currentPage) {
             fetchItems(false);
         }
-    }, [pagination.currentPage, filters.sortBy, filters.sortOrder, filters.status, filters.store]);
-
-    const groupedItemsByType = useMemo(() => {
-        // Start with all item types
-        const allTypes = {};
-
-        // Initialize all item types from the itemTypes array
-        itemTypes.forEach(type => {
-            allTypes[type._id] = {
-                typeName: type.name,
-                items: []
-            };
-        });
-
-
-        // Group items by type (only items with item_type)
-        items.forEach(item => {
-            if (!item.item_type) return; // Only include items with item_type
-
-            const typeId = item.item_type._id;
-            const typeName = item.item_type.name;
-
-            if (filters.search && !typeName.toLowerCase().includes(filters.search.toLowerCase())) {
-                return;
-            }
-
-            if (!allTypes[typeId]) {
-                allTypes[typeId] = {
-                    typeName,
-                    items: []
-                };
-            }
-            allTypes[typeId].items.push(item);
-        });
-
-        // Filter out types that don't match search if search is active
-        if (filters.search) {
-            const filtered = {};
-            Object.entries(allTypes).forEach(([typeId, typeData]) => {
-                if (typeData.typeName.toLowerCase().includes(filters.search.toLowerCase())) {
-                    filtered[typeId] = typeData;
-                }
-            });
-            return filtered;
+        if (!loading && phonePagination.currentPage && activeTab === 'phoneModel') {
+            fetchPhones(false);
         }
+    }, [pagination.currentPage, phonePagination.currentPage, filters.sortBy, filters.sortOrder, filters.status, filters.store, filters.search, activeTab]);
 
-        return allTypes;
-    }, [items, itemTypes, filters.search]);
+    const itemsByType = useMemo(() => {
+        // Filter items that have item_type (linh kiện)
+        return items.filter(item => {
+            if (!item.item_type) return false;
+            
+            // Apply search filter if active
+            if (filters.search) {
+                const searchLower = filters.search.toLowerCase();
+                return (
+                    item.serialCode.toLowerCase().includes(searchLower) ||
+                    item.item_type.name.toLowerCase().includes(searchLower)
+                );
+            }
+            
+            return true;
+        });
+    }, [items, filters.search]);
 
     const groupedItemsByPhoneModel = useMemo(() => {
-        // Start with all phone models
-        const allModels = {};
+        const allBrands = {};
 
-        // Initialize all phone models from the phoneModels array
         phoneModels.forEach(model => {
-            allModels[model._id.toString()] = {
-                typeName: model.name,
-                items: []
-            };
-        });
-
-
-        // Group items by phone model (only items with phoneModel)
-        items.forEach(item => {
-            if (!item.phoneModelId) return; // Only include items with phoneModel
-
-            const modelId = item.phoneModelId._id ? item.phoneModelId._id.toString() : item.phoneModelId.toString();
-            const modelName = item.phoneModelId.name || item.phoneModelId.brand || `Phone Model ${modelId}`;
-
-            if (filters.search && !modelName.toLowerCase().includes(filters.search.toLowerCase())) {
-                return;
-            }
-
-            if (!allModels[modelId]) {
-                allModels[modelId] = {
-                    typeName: modelName,
+            const brand = model.brand || 'Unknown Brand';
+            if (!allBrands[brand]) {
+                allBrands[brand] = {
+                    brandName: brand,
                     items: []
                 };
             }
-            allModels[modelId].items.push(item);
         });
 
-        // Filter out models that don't match search if search is active
+        phones.forEach(phone => {
+            if (!phone.phoneModelId) return;
+
+            const modelId = phone.phoneModelId?._id || phone.phoneModelId;
+            const model = phoneModels.find(m => 
+                (m._id && m._id.toString() === modelId) || 
+                (m._id && m._id.toString() === phone.phoneModelId?._id?.toString())
+            );
+            
+            const brand = model?.brand || phone.phoneModelId?.brand || 'Unknown Brand';
+
+            if (filters.search && !brand.toLowerCase().includes(filters.search.toLowerCase())) {
+                return;
+            }
+
+            if (!allBrands[brand]) {
+                allBrands[brand] = {
+                    brandName: brand,
+                    items: []
+                };
+            }
+            allBrands[brand].items.push(phone);
+        });
+
         if (filters.search) {
             const filtered = {};
-            Object.entries(allModels).forEach(([modelId, modelData]) => {
-                if (modelData.typeName.toLowerCase().includes(filters.search.toLowerCase())) {
-                    filtered[modelId] = modelData;
+            Object.entries(allBrands).forEach(([brand, brandData]) => {
+                if (brandData.brandName.toLowerCase().includes(filters.search.toLowerCase())) {
+                    filtered[brand] = brandData;
                 }
             });
             return filtered;
         }
 
-        return allModels;
-    }, [items, phoneModels, filters.search]);
+        return allBrands;
+    }, [phones, phoneModels, filters.search]);
 
-    const groupedItems = activeTab === 'itemType' ? groupedItemsByType : groupedItemsByPhoneModel;
+    const groupedItems = activeTab === 'itemType' ? itemsByType : groupedItemsByPhoneModel;
 
     const fetchItemTypes = async () => {
         try {
@@ -199,6 +186,37 @@ export default function AdminItem() {
         }
     };
 
+    const fetchPhones = async (isInitialLoad = false) => {
+        try {
+            if (isInitialLoad) {
+                setLoading(true);
+            }
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams({
+                page: phonePagination?.currentPage || 1,
+                limit: phonePagination?.limit || 10,
+                ...(filters.status && {status: filters.status}),
+                ...(filters.store && {storeId: filters.store}),
+                ...(filters.search && {search: filters.search})
+            });
+
+            const {data} = await axios.get(`http://localhost:9999/api/phones?${params}`, {
+                headers: {Authorization: `Bearer ${token}`},
+            });
+
+            setPhones(data.data || []);
+            setPhonePagination(data.pagination);
+            console.log(`Fetched ${data.data?.length || 0} phones`);
+        } catch (error) {
+            console.error("Fetch phones failed", error);
+            toast.error(error.response?.data?.message || "Failed to fetch phones");
+        } finally {
+            if (isInitialLoad) {
+                setLoading(false);
+            }
+        }
+    };
+
     const fetchItems = async (isInitialLoad = false) => {
         try {
             if (isInitialLoad) {
@@ -229,6 +247,27 @@ export default function AdminItem() {
                 setLoading(false);
             }
         }
+    };
+
+    const handleDeletePhone = async (id) => {
+        if (window.confirm("Are you sure you want to delete this phone?")) {
+            try {
+                const token = localStorage.getItem("token");
+                await axios.delete(`http://localhost:9999/api/phones/${id}`, {
+                    headers: {Authorization: `Bearer ${token}`},
+                });
+                toast.success("Phone deleted successfully");
+                fetchPhones(false);
+            } catch (error) {
+                console.error("Delete failed", error);
+                toast.error(error.response?.data?.message || "Failed to delete phone");
+            }
+        }
+    };
+
+    const handleEditPhone = (phone) => {
+        console.log("Edit phone:", phone);
+        toast.info("Phone editing functionality to be implemented");
     };
 
     const handleDelete = async (id) => {
@@ -327,7 +366,7 @@ export default function AdminItem() {
             available: 0,
             in_stock: 0,
             sold: 0,
-            installed: 0
+            consumed: 0
         };
 
         items.forEach(item => {
@@ -356,9 +395,9 @@ export default function AdminItem() {
                 color: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200'
             },
             {
-                status: 'installed',
-                count: statusCounts.installed,
-                label: 'Đã lắp',
+                status: 'consumed',
+                count: statusCounts.consumed,
+                label: 'Đã dùng',
                 color: 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200'
             }
         ].filter(item => item.count > 0);
@@ -387,7 +426,6 @@ export default function AdminItem() {
             serialCode: item.serialCode,
             status: item.status,
             item_type: item.item_type?._id || item.item_type,
-            phoneModel: item.phoneModelId?._id || item.phoneModelId,
             storeId: item.store?._id || item.store
         });
         setEditingId(item._id);
@@ -471,7 +509,7 @@ export default function AdminItem() {
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                         }`}
                     >
-                        Loại linh kiện
+                        Linh kiện
                     </button>
                     <button
                         onClick={() => setActiveTab('phoneModel')}
@@ -481,7 +519,7 @@ export default function AdminItem() {
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                         }`}
                     >
-                        Mẫu Điện thoại
+                        Điện thoại
                     </button>
                 </div>
             </div>
@@ -494,7 +532,7 @@ export default function AdminItem() {
                                     size={20}/>
                             <input
                                 type="text"
-                                placeholder={activeTab === 'itemType' ? 'Tìm kiếm loại đồ vật...' : 'Tìm kiếm mẫu điện thoại...'}
+                                placeholder={activeTab === 'itemType' ? 'Tìm kiếm đồ theo tên hoặc serial Code...' : 'Tìm kiếm theo hãng điện thoại...'}
                                 value={searchInput}
                                 onChange={handleSearchInputChange}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -508,10 +546,9 @@ export default function AdminItem() {
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="">Tất cả trạng thái</option>
-                            <option value="available">Có sẵn</option>
                             <option value="in_stock">Trong kho</option>
                             <option value="sold">Đã bán</option>
-                            <option value="installed">Đã lắp</option>
+                            <option value="consumed">Đã dùng</option>
                         </select>
                         <select
                             value={filters.store}
@@ -525,7 +562,7 @@ export default function AdminItem() {
                         </select>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Tổng: {Object.values(groupedItems).reduce((total, group) => total + group.items.length, 0)} {activeTab === 'itemType' ? 'đồ vật' : 'mẫu điện thoại'}</span>
+                        <span>Tổng: {activeTab === 'itemType' ? groupedItems.length : Object.values(groupedItems).reduce((total, group) => total + group.items.length, 0)} {activeTab === 'itemType' ? 'linh kiện' : 'điện thoại'}</span>
                     </div>
                 </div>
             </div>
@@ -533,117 +570,166 @@ export default function AdminItem() {
             <div className="flex-1 flex flex-col min-h-0">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
                     <div className="overflow-y-auto flex-1">
-                        {Object.keys(groupedItems).length === 0 ? (
-                            <div className="px-6 py-12 text-center text-gray-500">
-                                <div className="flex flex-col items-center space-y-2">
-                                    <Package size={48} className="text-gray-300"/>
-                                    <span>Không tìm thấy đồ</span>
+                        {activeTab === 'itemType' ? (
+                            // Direct list for linh kiện
+                            groupedItems.length === 0 ? (
+                                <div className="px-6 py-12 text-center text-gray-500">
+                                    <div className="flex flex-col items-center space-y-2">
+                                        <Package size={48} className="text-gray-300"/>
+                                        <span>Không tìm thấy linh kiện</span>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-gray-200">
-                                {Object.entries(groupedItems).map(([typeId, typeData]) => (
-                                    <div key={typeId} className="border-b border-gray-200">
-                                        <button
-                                            onClick={() => toggleTypeExpansion(typeId)}
-                                            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                                        >
-                                            <div className="flex items-center space-x-3">
-                                                {expandedTypes.has(typeId) ? (
-                                                    <ChevronDown size={20} className="text-gray-400"/>
-                                                ) : (
-                                                    <ChevronRight size={20} className="text-gray-400"/>
-                                                )}
-                                                <h3 className="text-lg font-medium text-gray-900">
-                                                    {typeData.typeName}
-                                                </h3>
-                                                <span
-                                                    className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                                    {typeData.items.length} items
-                                                </span>
-                                            </div>
-                                        </button>
-
-                                        {expandedTypes.has(typeId) && (
-                                            <div className="border-t border-gray-200">
-                                                <div className="p-4">
-                                                    {/* Filter controls for this specific type */}
-                                                    <div className="flex flex-wrap gap-2 mb-4">
-                                                        <select
-                                                            value={typeFilters[typeId]?.status || ''}
-                                                            onChange={(e) => handleTypeFilterChange(typeId, 'status', e.target.value)}
-                                                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        >
-                                                            <option value="">Tất cả trạng thái</option>
-                                                            <option value="available">Có sẵn</option>
-                                                            <option value="in_stock">Trong kho</option>
-                                                            <option value="sold">Đã bán</option>
-                                                            <option value="installed">Đã lắp</option>
-                                                        </select>
-                                                        <select
-                                                            value={typeFilters[typeId]?.store || ''}
-                                                            onChange={(e) => handleTypeFilterChange(typeId, 'store', e.target.value)}
-                                                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        >
-                                                            <option value="">Tất cả cửa hàng</option>
-                                                            {stores.map(store => (
-                                                                <option key={store._id}
-                                                                        value={store._id}>{store.name}</option>
-                                                            ))}
-                                                        </select>
-                                                        <button
-                                                            onClick={() => {
-                                                                handleTypeFilterChange(typeId, 'status', '');
-                                                                handleTypeFilterChange(typeId, 'store', '');
-                                                            }}
-                                                            className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-                                                        >
-                                                            Xóa bộ lọc
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        {typeData.items
-                                                            .filter(item => {
-                                                                const statusFilter = typeFilters[typeId]?.status;
-                                                                const storeFilter = typeFilters[typeId]?.store;
-                                                                return (!statusFilter || item.status === statusFilter) &&
-                                                                    (!storeFilter || item.store?._id === storeFilter);
-                                                            })
-                                                            .map((item) => (
-                                                                <div key={item._id}
-                                                                     className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border-b border-gray-100">
-                                                                    <div className="flex-1">
-                                                                        <div
-                                                                            className="text-sm font-medium text-gray-900">{item.serialCode}</div>
-                                                                        <div
-                                                                            className="text-xs text-gray-500">{item.store?.name || 'No store'}</div>
-                                                                    </div>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <button
-                                                                            onClick={() => handleEditItem(item)}
-                                                                            className="text-blue-600 hover:text-blue-900 transition"
-                                                                            title="Edit"
-                                                                        >
-                                                                            <Edit size={16}/>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleDelete(item._id)}
-                                                                            className="text-red-600 hover:text-red-900 transition"
-                                                                            title="Delete"
-                                                                        >
-                                                                            <Trash2 size={16}/>
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
+                            ) : (
+                                <div className="divide-y divide-gray-200">
+                                    {groupedItems
+                                        .filter(item => {
+                                            const statusFilter = filters.status;
+                                            const storeFilter = filters.store;
+                                            return (!statusFilter || item.status === statusFilter) &&
+                                                (!storeFilter || item.store?._id === storeFilter);
+                                        })
+                                        .map((item) => (
+                                            <div key={item._id} className="flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100">
+                                                <div className="flex-1">
+                                                    <div className="text-sm font-medium text-gray-900">{item.item_type?.name}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {item.serialCode} • {item.store?.name || 'No store'}
                                                     </div>
                                                 </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <button
+                                                        onClick={() => handleEditItem(item)}
+                                                        className="text-blue-600 hover:text-blue-900 transition"
+                                                        title="Edit"
+                                                    >
+                                                        <Edit size={16}/>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(item._id)}
+                                                        className="text-red-600 hover:text-red-900 transition"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
                                             </div>
-                                        )}
+                                        ))}
+                                </div>
+                            )
+                        ) : (
+                            // Original grouped view for phone models
+                            Object.keys(groupedItems).length === 0 ? (
+                                <div className="px-6 py-12 text-center text-gray-500">
+                                    <div className="flex flex-col items-center space-y-2">
+                                        <Package size={48} className="text-gray-300"/>
+                                        <span>Không tìm thấy đồ</span>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-200">
+                                    {Object.entries(groupedItems).map(([brand, brandData]) => (
+                                        <div key={brand} className="border-b border-gray-200">
+                                            <button
+                                                onClick={() => toggleTypeExpansion(brand)}
+                                                className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    {expandedTypes.has(brand) ? (
+                                                        <ChevronDown size={20} className="text-gray-400"/>
+                                                    ) : (
+                                                        <ChevronRight size={20} className="text-gray-400"/>
+                                                    )}
+                                                    <h3 className="text-lg font-medium text-gray-900">
+                                                        {brandData.brandName}
+                                                    </h3>
+                                                    <span
+                                                        className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                    {brandData.items.length} items
+                                                </span>
+                                                </div>
+                                            </button>
+
+                                            {expandedTypes.has(brand) && (
+                                                <div className="border-t border-gray-200">
+                                                    <div className="p-4">
+                                                        {/* Filter controls for this specific brand */}
+                                                        <div className="flex flex-wrap gap-2 mb-4">
+                                                            <select
+                                                                value={typeFilters[brand]?.status || ''}
+                                                                onChange={(e) => handleTypeFilterChange(brand, 'status', e.target.value)}
+                                                                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            >
+                                                                <option value="">Tất cả trạng thái</option>
+                                                                <option value="in_stock">Trong kho</option>
+                                                                <option value="sold">Đã bán</option>
+                                                                <option value="repairing">Đang sửa chữa</option>
+                                                                <option value="defective">Lỗi</option>
+                                                            </select>
+                                                            <select
+                                                                value={typeFilters[brand]?.store || ''}
+                                                                onChange={(e) => handleTypeFilterChange(brand, 'store', e.target.value)}
+                                                                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            >
+                                                                <option value="">Tất cả cửa hàng</option>
+                                                                {stores.map(store => (
+                                                                    <option key={store._id}
+                                                                            value={store._id}>{store.name}</option>
+                                                                ))}
+                                                            </select>
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleTypeFilterChange(brand, 'status', '');
+                                                                    handleTypeFilterChange(brand, 'store', '');
+                                                                }}
+                                                                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                                                            >
+                                                                Xóa bộ lọc
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            {brandData.items
+                                                                .filter(phone => {
+                                                                    const statusFilter = typeFilters[brand]?.status;
+                                                                    const storeFilter = typeFilters[brand]?.store;
+                                                                    return (!statusFilter || phone.status === statusFilter) &&
+                                                                        (!storeFilter || phone.storeId?._id === storeFilter);
+                                                                })
+                                                                .map((phone) => (
+                                                                    <div key={phone._id}
+                                                                         className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border-b border-gray-100">
+                                                                        <div className="flex-1">
+                                                                            <div
+                                                                                className="text-sm font-medium text-gray-900">{phone.phoneModelId?.name || phone.phoneModelId?.brand}</div>
+                                                                            <div
+                                                                                className="text-xs text-gray-500">{phone.imei} • {phone.storeId?.name || 'No store'}</div>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <button
+                                                                                onClick={() => handleEditPhone(phone)}
+                                                                                className="text-blue-600 hover:text-blue-900 transition"
+                                                                                title="Edit"
+                                                                            >
+                                                                                <Edit size={16}/>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDeletePhone(phone._id)}
+                                                                                className="text-red-600 hover:text-red-900 transition"
+                                                                                title="Delete"
+                                                                            >
+                                                                                <Trash2 size={16}/>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )
                         )}
                     </div>
                 </div>
