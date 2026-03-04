@@ -32,4 +32,4 @@ const repairOrderDetailSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Repair_order_detail", repairOrderDetailSchema, "repair_order_detail");
+module.exports = mongoose.model("Repair_order_detail", repairOrderDetailSchema);

@@ -30,4 +30,4 @@ const purchaseOrderDetailSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Purchase_order_detail", purchaseOrderDetailSchema, "purchase_order_detail");
+module.exports = mongoose.model("Purchase_order_detail", purchaseOrderDetailSchema);

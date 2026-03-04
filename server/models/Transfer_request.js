@@ -46,4 +46,4 @@ const transferRequestSchema = new Schema(
   }
 );
 
-module.exports = mongoose.model("Transfer_request", transferRequestSchema, "transfer_request");
+module.exports = mongoose.model("Transfer_request", transferRequestSchema);
