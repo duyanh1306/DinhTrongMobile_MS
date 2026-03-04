@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Eye, X, Hammer, Calendar } from "lucide-react";
+import { Search, Eye, X, Hammer, Calendar, Tool, Package } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -7,15 +7,12 @@ export default function RepairHistory() {
   const [orders, setOrders] = useState([]);
   const [orderDetails, setOrderDetails] = useState([]);
   
-  // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 10;
 
-  // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -24,7 +21,6 @@ export default function RepairHistory() {
     fetchOrders();
   }, []);
 
-  // Reset trang 1 khi filter
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
@@ -34,10 +30,27 @@ export default function RepairHistory() {
       const res = await fetch("http://localhost:9999/api/repair-orders");
       if (res.ok) {
         const data = await res.json();
-        setOrders(data);
+        
+        // ĐỒNG BỘ GIÁ: Tính toán lại tổng tiền dựa trên chi tiết của từng đơn sửa chữa
+        const updatedOrders = await Promise.all(data.map(async (order) => {
+          const detailRes = await fetch(`http://localhost:9999/api/repair-orders/${order._id}/details`);
+          if (detailRes.ok) {
+            const details = await detailRes.json();
+            // Tổng = (Giá dịch vụ) + (Giá linh kiện từ item_type)
+            const total = details.reduce((sum, d) => {
+              const servicePrice = d.repairServiceId?.price || 0;
+              const itemPrice = d.itemId?.item_type?.price || d.itemId?.itemTypeId?.price || 0;
+              return sum + servicePrice + itemPrice;
+            }, 0);
+            return { ...order, totalPrice: total };
+          }
+          return order;
+        }));
+
+        setOrders(updatedOrders);
       }
     } catch (error) {
-      toast.error("Lỗi khi tải lịch sử sửa chữa: " + error.message);
+      toast.error("Lỗi khi đồng bộ giá sửa chữa: " + error.message);
     }
   };
 
@@ -68,6 +81,14 @@ export default function RepairHistory() {
     setIsModalOpen(false);
     setSelectedOrder(null);
     setOrderDetails([]);
+  };
+
+  const calculateGrandTotal = () => {
+    return orderDetails.reduce((total, detail) => {
+      const servicePrice = detail.repairServiceId?.price || 0;
+      const itemPrice = detail.itemId?.item_type?.price || detail.itemId?.itemTypeId?.price || 0;
+      return total + servicePrice + itemPrice;
+    }, 0);
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -103,6 +124,16 @@ export default function RepairHistory() {
       case "Pending": return "bg-yellow-100 text-yellow-800";
       case "Cancelled": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Completed": return "Đã hoàn thành";
+      case "In Progress": return "Đang sửa chữa";
+      case "Pending": return "Chờ xử lý";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
     }
   };
 
@@ -171,35 +202,27 @@ export default function RepairHistory() {
                   </td>
                   <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
-                      {order.status}
+                      {getStatusText(order.status)}
                     </span>
                   </td>
                   <td className="p-3 flex justify-center">
                     <button
                       onClick={() => handleOpenDetailModal(order)}
                       className="text-orange-500 hover:text-orange-700 transition bg-orange-50 p-2 rounded-full hover:bg-orange-100"
-                      title="Xem chi tiết"
                     >
                       <Eye size={18} />
                     </button>
                   </td>
                 </tr>
               ))}
-              {currentOrders.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="p-6 text-center text-gray-500">
-                    Không tìm thấy đơn sửa chữa nào.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
 
         {totalPages > 1 && (
           <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
-            <span className="text-sm text-gray-600">
-              Hiển thị <span className="font-semibold text-gray-900">{indexOfFirstOrder + 1}</span> - <span className="font-semibold text-gray-900">{Math.min(indexOfLastOrder, filteredOrders.length)}</span> trên tổng số <span className="font-semibold text-gray-900">{filteredOrders.length}</span> đơn
+             <span className="text-sm text-gray-600">
+              Trang {currentPage} / {totalPages}
             </span>
             <div className="flex items-center gap-1">
               {[...Array(totalPages)].map((_, index) => (
@@ -207,9 +230,7 @@ export default function RepairHistory() {
                   key={index}
                   onClick={() => paginate(index + 1)}
                   className={`w-8 h-8 rounded-md text-sm font-medium transition ${
-                    currentPage === index + 1
-                      ? "bg-orange-500 text-white"
-                      : "text-gray-700 hover:bg-gray-100 border border-transparent"
+                    currentPage === index + 1 ? "bg-orange-500 text-white" : "text-gray-700 hover:bg-gray-100 border border-transparent"
                   }`}
                 >
                   {index + 1}
@@ -246,14 +267,13 @@ export default function RepairHistory() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-700 mb-2 border-b pb-1">Thông tin đơn hàng</h4>
+                  <p className="text-sm mb-1"><span className="text-gray-500">Người tạo đơn:</span> <span className="font-medium">{selectedOrder.createdBy?.fullName || "N/A"}</span></p>
+                  <p className="text-sm mb-1"><span className="text-gray-500">Cửa hàng:</span> <span className="font-medium">{selectedOrder.storeId?.name || "N/A"}</span></p>
                   <p className="text-sm mb-1">
-                    <span className="text-gray-500">Người tạo đơn:</span> <span className="font-medium">{selectedOrder.createdBy?.fullName || "N/A"}</span>
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="text-gray-500">Cửa hàng:</span> <span className="font-medium">{selectedOrder.storeId?.name || "N/A"}</span>
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="text-gray-500">Tổng thanh toán:</span> <span className="font-bold text-red-600">{formatCurrency(selectedOrder.totalPrice)}</span>
+                    <span className="text-gray-500">Tổng thanh toán:</span> 
+                    <span className="font-bold text-red-600 ml-2">
+                      {formatCurrency(calculateGrandTotal())}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -266,51 +286,67 @@ export default function RepairHistory() {
                   <table className="w-full text-left">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="p-3 text-sm font-semibold text-gray-700">Tên dịch vụ / Linh kiện</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Dịch vụ & Linh kiện thay thế</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Giá</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Bảo hành</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Ghi chú</th>
                       </tr>
                     </thead>
-                   <tbody>
+                    <tbody>
                       {orderDetails.map((detail, idx) => {
+                        let subItems = [];
+                        
+                        // 1. Nếu có dịch vụ sửa chữa
+                        if (detail.repairServiceId) {
+                          subItems.push({
+                            name: detail.repairServiceId.name,
+                            identifier: "Dịch vụ hệ thống",
+                            price: detail.repairServiceId.price || 0,
+                            isService: true
+                          });
+                        }
+                        
+                        // 2. Nếu có linh kiện thay thế
+                        if (detail.itemId) {
+                          subItems.push({
+                            name: detail.itemId.item_type?.name || detail.itemId.name || "Linh kiện",
+                            identifier: `SN: ${detail.itemId.serialCode || "N/A"}`,
+                            price: detail.itemId.item_type?.price || 0,
+                            isService: false
+                          });
+                        }
 
-                        const displayName = detail.repairServiceId?.name 
-                                         || detail.itemId?.name 
-                                         || detail.itemId?.item_type?.name 
-                                         || detail.itemId?.itemTypeId?.name 
-                                         || "Dịch vụ không xác định";
-
-                        const displayPrice = detail.repairServiceId?.price 
-                                          || detail.itemId?.item_type?.price 
-                                          || detail.itemId?.itemTypeId?.price 
-                                          || 0;
-
-                        return (
-                          <tr key={detail._id || idx} className="border-t border-gray-200 hover:bg-gray-50">
+                        return subItems.map((item, sIdx) => (
+                          <tr key={`${detail._id}-${sIdx}`} className="border-t border-gray-200 hover:bg-gray-50 transition-colors">
                             <td className="p-3 text-sm text-gray-800">
-                              <div className="font-medium">{displayName}</div>
-                              {detail.itemId?.serialCode && (
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  SN: {detail.itemId.serialCode}
+                              <div className="flex items-center gap-2">
+                                {item.isService ? <Hammer size={16} className="text-blue-500"/> : <Package size={16} className="text-orange-500"/>}
+                                <div className="font-semibold">{item.name}</div>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                <span className="bg-gray-100 px-1 py-0.5 rounded font-mono">{item.identifier}</span>
+                              </div>
+                            </td>
+                            <td className="p-3 text-sm font-semibold text-gray-700">
+                              {formatCurrency(item.price)}
+                            </td>
+                            <td className="p-3 text-sm text-center">
+                               {/* Hiển thị bảo hành nếu là linh kiện hoặc dịch vụ có BH */}
+                              {detail.warranty ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">CÓ BH</span>
+                                  {detail.warrantyExpireDate && (
+                                    <span className="text-[10px] text-gray-400 mt-1">{formatDate(detail.warrantyExpireDate)}</span>
+                                  )}
                                 </div>
-                              )}
+                              ) : "Không"}
                             </td>
-                            <td className="p-3 text-sm text-red-600 font-medium">
-                              {formatCurrency(displayPrice)}
-                            </td>
-                            <td className="p-3 text-sm text-gray-500 max-w-[200px] truncate" title={detail.note}>
+                            <td className="p-3 text-sm text-gray-500 italic max-w-[150px] truncate" title={detail.note}>
                               {detail.note || "-"}
                             </td>
                           </tr>
-                        );
+                        ));
                       })}
-                      {orderDetails.length === 0 && (
-                        <tr>
-                          <td colSpan="3" className="p-4 text-center text-sm text-gray-500">
-                            Không có dữ liệu chi tiết sửa chữa.
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
@@ -318,10 +354,7 @@ export default function RepairHistory() {
             </div>
 
             <div className="p-4 border-t border-gray-200 flex justify-end bg-gray-50 rounded-b-lg">
-              <button
-                onClick={handleCloseModal}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition font-medium text-sm"
-              >
+              <button onClick={handleCloseModal} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition font-medium text-sm">
                 Đóng
               </button>
             </div>
