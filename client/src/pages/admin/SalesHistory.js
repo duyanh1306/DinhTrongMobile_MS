@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Eye, X, FileText, Calendar } from "lucide-react";
+import { Search, Eye, X, FileText, Calendar, Smartphone, Package } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -7,15 +7,12 @@ export default function SalesHistory() {
   const [orders, setOrders] = useState([]);
   const [orderDetails, setOrderDetails] = useState([]);
   
-  // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 10;
 
-  // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -24,7 +21,6 @@ export default function SalesHistory() {
     fetchOrders();
   }, []);
 
-  // Reset trang 1 khi filter
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
@@ -34,12 +30,28 @@ export default function SalesHistory() {
       const res = await fetch("http://localhost:9999/api/purchase-orders");
       if (res.ok) {
         const data = await res.json();
-        // CHỈ LẤY ĐƠN HÀNG SALE
-        const salesOrders = data.filter(order => order.orderType === "SALE");
+        
+        // ĐỒNG BỘ GIÁ: Tính toán lại tổng tiền dựa trên chi tiết của từng đơn hàng
+        const updatedOrders = await Promise.all(data.map(async (order) => {
+          const detailRes = await fetch(`http://localhost:9999/api/purchase-orders/${order._id}/details`);
+          if (detailRes.ok) {
+            const details = await detailRes.json();
+            // Cộng dồn: sellingPrice của Phone + price của ItemType (Giá bán)
+            const total = details.reduce((sum, d) => {
+              const pPrice = d.phoneId?.sellingPrice || 0;
+              const iPrice = d.itemId?.item_type?.price || 0;
+              return sum + pPrice + iPrice;
+            }, 0);
+            return { ...order, totalPrice: total };
+          }
+          return order;
+        }));
+
+        const salesOrders = updatedOrders.filter(order => order.orderType === "SALE");
         setOrders(salesOrders);
       }
     } catch (error) {
-      toast.error("Lỗi khi tải lịch sử bán hàng: " + error.message);
+      toast.error("Lỗi khi đồng bộ giá bán hàng: " + error.message);
     }
   };
 
@@ -72,6 +84,14 @@ export default function SalesHistory() {
     setOrderDetails([]);
   };
 
+  const calculateGrandTotal = () => {
+    return orderDetails.reduce((total, detail) => {
+      const phonePrice = detail.phoneId?.sellingPrice || 0;
+      const itemPrice = detail.itemId?.item_type?.price || 0;
+      return total + phonePrice + itemPrice;
+    }, 0);
+  };
+
   const filteredOrders = orders.filter((order) => {
     const matchSearch = order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         order.customerPhone?.includes(searchQuery);
@@ -98,7 +118,6 @@ export default function SalesHistory() {
     });
   };
 
-  // Hàm tạo màu cho trạng thái
   const getStatusBadge = (status) => {
     switch (status) {
       case "Completed": return "bg-green-100 text-green-800";
@@ -108,7 +127,6 @@ export default function SalesHistory() {
     }
   };
 
-  // Hàm chuyển đổi Text cho Trạng thái
   const getStatusText = (status) => {
     switch (status) {
       case "Completed": return "Đã hoàn thành";
@@ -118,7 +136,6 @@ export default function SalesHistory() {
     }
   };
 
-  // Hàm chuyển đổi Text cho Loại Đơn
   const getOrderTypeText = (type) => {
     switch (type) {
       case "PURCHASE": return "Thu mua";
@@ -186,6 +203,7 @@ export default function SalesHistory() {
                     <div className="text-sm text-gray-500">{order.customerPhone}</div>
                   </td>
                   <td className="p-3 font-semibold text-red-600">
+                    {/* Hiển thị tổng tiền đã được tính toán lại */}
                     {formatCurrency(order.totalPrice)}
                   </td>
                   <td className="p-3 text-gray-600">
@@ -193,13 +211,11 @@ export default function SalesHistory() {
                   </td>
                   <td className="p-3">
                     <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded border border-blue-200 font-medium">
-                      {/* Đã chuyển đổi Text sang Tiếng Việt */}
                       {getOrderTypeText(order.orderType)}
                     </span>
                   </td>
                   <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
-                      {/* Đã chuyển đổi Text sang Tiếng Việt */}
                       {getStatusText(order.status)}
                     </span>
                   </td>
@@ -207,28 +223,20 @@ export default function SalesHistory() {
                     <button
                       onClick={() => handleOpenDetailModal(order)}
                       className="text-blue-500 hover:text-blue-700 transition bg-blue-50 p-2 rounded-full hover:bg-blue-100"
-                      title="Xem chi tiết"
                     >
                       <Eye size={18} />
                     </button>
                   </td>
                 </tr>
               ))}
-              {currentOrders.length === 0 && (
-                <tr>
-                  <td colSpan="7" className="p-6 text-center text-gray-500">
-                    Không tìm thấy đơn hàng nào.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
 
         {totalPages > 1 && (
           <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
-            <span className="text-sm text-gray-600">
-              Hiển thị <span className="font-semibold text-gray-900">{indexOfFirstOrder + 1}</span> - <span className="font-semibold text-gray-900">{Math.min(indexOfLastOrder, filteredOrders.length)}</span> trên tổng số <span className="font-semibold text-gray-900">{filteredOrders.length}</span> đơn hàng
+             <span className="text-sm text-gray-600">
+              Trang {currentPage} / {totalPages}
             </span>
             <div className="flex items-center gap-1">
               {[...Array(totalPages)].map((_, index) => (
@@ -275,14 +283,13 @@ export default function SalesHistory() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-700 mb-2 border-b pb-1">Thông tin đơn hàng</h4>
+                  <p className="text-sm mb-1"><span className="text-gray-500">Nhân viên bán:</span> <span className="font-medium">{selectedOrder.createdBy?.fullName || "N/A"}</span></p>
+                  <p className="text-sm mb-1"><span className="text-gray-500">Cửa hàng:</span> <span className="font-medium">{selectedOrder.storeId?.name || "N/A"}</span></p>
                   <p className="text-sm mb-1">
-                    <span className="text-gray-500">Nhân viên bán:</span> <span className="font-medium">{selectedOrder.createdBy?.fullName || "N/A"}</span>
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="text-gray-500">Cửa hàng:</span> <span className="font-medium">{selectedOrder.storeId?.name || "N/A"}</span>
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="text-gray-500">Tổng thanh toán:</span> <span className="font-bold text-red-600">{formatCurrency(selectedOrder.totalPrice)}</span>
+                    <span className="text-gray-500">Tổng thanh toán:</span> 
+                    <span className="font-bold text-red-600 ml-2">
+                      {formatCurrency(calculateGrandTotal())}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -295,7 +302,8 @@ export default function SalesHistory() {
                   <table className="w-full text-left">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="p-3 text-sm font-semibold text-gray-700">Tên sản phẩm/Serial Code</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Sản phẩm / Định danh</th>
+                        <th className="p-3 text-sm font-semibold text-gray-700">Giá</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Bảo hành</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Hạn bảo hành</th>
                         <th className="p-3 text-sm font-semibold text-gray-700">Ghi chú</th>
@@ -303,41 +311,55 @@ export default function SalesHistory() {
                     </thead>
                     <tbody>
                       {orderDetails.map((detail, idx) => {
-                        const displayName = detail.itemId?.item_type?.name 
-                                         || detail.itemId?.itemTypeId?.name 
-                                         || "Sản phẩm không xác định";
+                        let subItems = [];
+                        if (detail.phoneId) {
+                          subItems.push({
+                            name: detail.phoneId?.phoneModelId?.name || "Điện thoại",
+                            identifier: `IMEI: ${detail.phoneId?.imei || "N/A"}`,
+                            extraInfo: `${detail.phoneId?.colorName || ""} - ${detail.phoneId?.capacity || ""}`,
+                            price: detail.phoneId?.sellingPrice || 0,
+                            isPhone: true
+                          });
+                        }
+                        if (detail.itemId) {
+                          subItems.push({
+                            name: detail.itemId?.item_type?.name || detail.itemId?.name || "Linh kiện",
+                            identifier: `SN: ${detail.itemId?.serialCode || "N/A"}`,
+                            extraInfo: "",
+                            price: detail.itemId?.item_type?.price || 0,
+                            isPhone: false
+                          });
+                        }
 
-                        return (
-                          <tr key={detail._id || idx} className="border-t border-gray-200 hover:bg-gray-50">
+                        return subItems.map((item, sIdx) => (
+                          <tr key={`${detail._id}-${sIdx}`} className="border-t border-gray-200 hover:bg-gray-50 transition-colors">
                             <td className="p-3 text-sm text-gray-800">
-                              <div className="font-medium">{displayName}</div>
-                              {detail.itemId?.serialCode && (
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  SN: {detail.itemId.serialCode}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {item.isPhone ? <Smartphone size={16} className="text-blue-500"/> : <Package size={16} className="text-orange-500"/>}
+                                <div className="font-semibold">{item.name}</div>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                <span className="bg-gray-100 px-1 py-0.5 rounded font-mono">{item.identifier}</span>
+                                {item.extraInfo && <span className="ml-2 text-blue-600">{item.extraInfo}</span>}
+                              </div>
                             </td>
-                            <td className="p-3 text-sm">
+                            <td className="p-3 text-sm font-semibold text-gray-700">
+                              {formatCurrency(item.price)}
+                            </td>
+                            <td className="p-3 text-sm text-center">
                               {detail.warranty ? (
                                 <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Có</span>
-                              ) : (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">Không</span>
-                              )}
+                              ) : "Không"}
                             </td>
-                            <td className="p-3 text-sm text-gray-600">
+                            <td className="p-3 text-sm text-gray-600 text-center">
                               {detail.warranty && detail.warrantyExpireDate ? formatDate(detail.warrantyExpireDate) : "-"}
                             </td>
-                            <td className="p-3 text-sm text-gray-500 max-w-[200px] truncate" title={detail.note}>
+                            <td className="p-3 text-sm text-gray-500 italic">
                               {detail.note || "-"}
                             </td>
                           </tr>
-                        );
+                        ));
                       })}
-                      {orderDetails.length === 0 && (
-                        <tr>
-                          <td colSpan="4" className="p-4 text-center text-sm text-gray-500">Không có dữ liệu chi tiết sản phẩm.</td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
