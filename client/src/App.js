@@ -33,6 +33,7 @@ import PhoneDetail from "./pages/customer/PhoneDetail";
 import SearchResults from "./pages/customer/SearchResults";
 import Cart from "./pages/customer/Cart";
 import OrderHistory from "./pages/customer/OrderHistory";
+import AssemblePhone from "./pages/technician/AssemblePhone"
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -253,7 +254,16 @@ function App() {
             </PrivateRoute>
           }
         />
-
+        <Route
+            path="/tech/assemble"
+            element={
+                <PrivateRoute>
+                    <RoleBasedLayout>
+                        <AssemblePhone/>
+                    </RoleBasedLayout>
+                </PrivateRoute>
+            }
+        />
         {/* ================= 404 NOT FOUND ================= */}
         <Route
           path="*"

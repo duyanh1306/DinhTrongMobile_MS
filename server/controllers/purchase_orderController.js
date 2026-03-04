@@ -14,21 +14,18 @@ const getAllPurchaseOrders = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 const getOrderDetailsById = async (req, res) => {
   try {
     const { id } = req.params;
-    
     const details = await PurchaseOrderDetail.find({ purchaseOrderId: id })
       .populate({
         path: "itemId",
-        select: "name serialCode item_type itemTypeId", 
-        populate: [
-          { path: "item_type", select: "name" },   
-          { path: "itemTypeId", select: "name" }   
-        ]
+        populate: { path: "item_type", select: "name price" } 
+      })
+      .populate({
+        path: "phoneId", 
+        populate: { path: "phoneModelId", select: "name" } 
       });
-
     res.status(200).json(details);
   } catch (error) {
     res.status(500).json({ error: error.message });

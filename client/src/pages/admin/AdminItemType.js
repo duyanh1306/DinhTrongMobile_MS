@@ -99,6 +99,13 @@ export default function AdminItemType() {
         }));
     };
 
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(price);
+    };
+
     const handlePageChange = (page) => {
         setPagination(prev => ({ ...prev, currentPage: page }));
     };
@@ -301,12 +308,12 @@ export default function AdminItemType() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                ${itemType.price?.toFixed(2) || '0.00'}
+                                                {formatPrice(itemType.price)}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                ${itemType.baseCost?.toFixed(2) || '0.00'}
+                                                {formatPrice(itemType.baseCost)}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -11,7 +11,7 @@ const {
 } = require("../controllers/itemController");
 
 router.get("/", authAdmin, getItemsPaginatedAndSearch);
-router.get("/all", authAdmin, getAllItems);
+router.get("/all",  getAllItems);
 router.get("/:id", authAdmin, getItemById);
 router.post("/create", authAdmin, createItem);
 router.put("/update/:id", authAdmin, updateItem);

@@ -36,4 +36,4 @@ const inventoryTransactionSchema = new Schema(
   }
 );
 
-module.exports = mongoose.model("Inventory_transaction", inventoryTransactionSchema, "inventory_transaction");
+module.exports = mongoose.model("Inventory_transaction", inventoryTransactionSchema);

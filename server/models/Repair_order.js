@@ -39,4 +39,4 @@ const repairOrderSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Repair_order", repairOrderSchema, "repair_order");
+module.exports = mongoose.model("Repair_order", repairOrderSchema);

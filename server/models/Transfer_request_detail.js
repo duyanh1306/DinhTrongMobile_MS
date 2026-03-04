@@ -27,4 +27,4 @@ const transferRequestDetailSchema = new Schema(
   }
 );
 
-module.exports = mongoose.model("Transfer_request_detail", transferRequestDetailSchema, "transfer_request_detail");
+module.exports = mongoose.model("Transfer_request_detail", transferRequestDetailSchema);
