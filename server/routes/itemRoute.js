@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {authAdmin} = require("../middlewares/auth");
+const {authInternal} = require("../middlewares/auth");
 const {
     createItem, 
     updateItem, 
@@ -10,11 +10,11 @@ const {
     deleteItem
 } = require("../controllers/itemController");
 
-router.get("/", authAdmin, getItemsPaginatedAndSearch);
+router.get("/", authInternal, getItemsPaginatedAndSearch);
 router.get("/all",  getAllItems);
-router.get("/:id", authAdmin, getItemById);
-router.post("/create", authAdmin, createItem);
-router.put("/update/:id", authAdmin, updateItem);
-router.delete("/:id", authAdmin, deleteItem);
+router.get("/:id", authInternal, getItemById);
+router.post("/create", authInternal, createItem);
+router.put("/update/:id", authInternal, updateItem);
+router.delete("/:id", authInternal, deleteItem);
 
 module.exports = router;

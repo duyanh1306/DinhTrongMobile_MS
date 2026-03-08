@@ -31,4 +31,4 @@ const phoneSchema = new Schema(
 );
 
 phoneSchema.index({ imei: 1 });
-module.exports = mongoose.model("Phone", phoneSchema);
+module.exports = mongoose.models.Phone || mongoose.model("Phone", phoneSchema);

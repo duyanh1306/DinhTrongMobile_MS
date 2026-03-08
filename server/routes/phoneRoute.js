@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authAdmin, authTechnician } = require("../middlewares/auth");
+const { authInternal, authTechnician } = require("../middlewares/auth");
 const uploadCloud = require("../config/cloudinary");
 
 const {
@@ -16,11 +16,11 @@ const {
 router.get("/all", getAllPhones);
 
 // PRIVATE ROUTES (Chỉ Admin/Nhân viên)
-router.get("/", authAdmin, getPhonesPaginatedAndSearch);
+router.get("/", authInternal, getPhonesPaginatedAndSearch);
 
 // Dùng .array("images", 5) để nhận tối đa 5 file ảnh chụp thực tế
-router.post("/create", authAdmin, uploadCloud.array("images", 5), createPhone);
-router.put("/update/:id", authAdmin, uploadCloud.array("images", 5), updatePhone);
-router.delete("/:id", authAdmin, deletePhone);
+router.post("/create", authInternal, uploadCloud.array("images", 5), createPhone);
+router.put("/update/:id", authInternal, uploadCloud.array("images", 5), updatePhone);
+router.delete("/:id", authInternal, deletePhone);
 router.post('/assemble', authTechnician, createAssembledPhone);
 module.exports = router;

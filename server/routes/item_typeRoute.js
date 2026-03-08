@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {authAdmin} = require("../middlewares/auth");
+const {authInternal} = require("../middlewares/auth");
 const {
     createItemType, 
     updateItemType, 
@@ -11,8 +11,8 @@ const {
 // PUBLIC ROUTES
 router.get("/all", getAllItemTypes);
 // PRIVATE ROUTES
-router.get("/", authAdmin, getItemTypePaginatedAndSearch);
-router.post("/create",authAdmin ,createItemType);
-router.put("/update/:id",authAdmin, updateItemType);
+router.get("/", authInternal, getItemTypePaginatedAndSearch);
+router.post("/create",authInternal ,createItemType);
+router.put("/update/:id",authInternal, updateItemType);
 
 module.exports = router;

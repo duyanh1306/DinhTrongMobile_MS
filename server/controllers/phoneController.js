@@ -1,4 +1,4 @@
-const Phone = require("../models/phone");
+const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 
 // GET /api/phones (Phân trang & Tìm kiếm)
