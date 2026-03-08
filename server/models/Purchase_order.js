@@ -22,4 +22,4 @@ const purchaseOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Purchase_order", purchaseOrderSchema);
+module.exports =mongoose.models.Purchase_order || mongoose.model("Purchase_order", purchaseOrderSchema);

@@ -19,20 +19,26 @@ const getRepairOrderDetailsById = async (req, res) => {
     const { id } = req.params;
 
     const details = await RepairOrderDetail.find({ repairOrderId: id })
-      // 1. Lấy thông tin dịch vụ sửa chữa (Tên và Giá dịch vụ)
-      .populate("repairServiceId", "name price")
-      // 2. Lấy thông tin linh kiện thay thế (SerialCode và Tên/Giá từ ItemType)
+      // 1. Cập nhật: Sử dụng "serviceId" thay vì "repairServiceId" theo Schema mới
+      .populate("serviceId", "name price")
+      
+      // 2. Cập nhật: Populate cho mảng "itemIds" và "targetPhoneId"
       .populate({
-        path: "itemId",
-        select: "name serialCode item_type",
+        path: "itemIds",
+        select: "name serialCode item_type price",
         populate: { 
           path: "item_type", 
           select: "name price" 
         }
+      })
+      .populate({
+        path: "targetPhoneId",
+        select: "imei colorName capacity",
+        populate: { path: "phoneModelId", select: "name" }
       });
 
-    if (!details) {
-      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn" });
+    if (!details || details.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
     }
 
     res.status(200).json(details);
@@ -40,6 +46,7 @@ const getRepairOrderDetailsById = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 module.exports = {
   getAllRepairOrders,
   getRepairOrderDetailsById,

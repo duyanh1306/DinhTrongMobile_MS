@@ -19,4 +19,4 @@ const itemSchema = new Schema(
 );
 
 itemSchema.index({name: 1, serialCode: 1}, {unique: true});
-module.exports = mongoose.model("Item", itemSchema);
+module.exports =mongoose.models.Item || mongoose.model("Item", itemSchema);

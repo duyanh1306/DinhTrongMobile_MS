@@ -33,7 +33,9 @@ import PhoneDetail from "./pages/customer/PhoneDetail";
 import SearchResults from "./pages/customer/SearchResults";
 import Cart from "./pages/customer/Cart";
 import OrderHistory from "./pages/customer/OrderHistory";
-import AssemblePhone from "./pages/technician/AssemblePhone"
+import AssemblePhone from "./pages/technician/AssemblePhone";
+import SaleOrders from "./pages/saleStaff/SaleOrders";
+import SalePOS from "./pages/saleStaff/SalePOS";
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -231,7 +233,26 @@ function App() {
             </PrivateRoute>
           }
         />
-
+<Route
+  path="/sale/orders"
+  element={
+    <PrivateRoute allowedRoles={["SALE_STAFF"]}>
+      <SaleLayout>
+        <SaleOrders />
+      </SaleLayout>
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/sale/pos"
+  element={
+    <PrivateRoute allowedRoles={["SALE_STAFF"]}>
+      <SaleLayout>
+        <SalePOS />
+      </SaleLayout>
+    </PrivateRoute>
+  }
+/>
         {/* ================= TECHNICIAN ROUTES ================= */}
         <Route
           path="/tech/dashboard"

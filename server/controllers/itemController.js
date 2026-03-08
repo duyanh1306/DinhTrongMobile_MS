@@ -42,13 +42,9 @@ const getItemsPaginatedAndSearch = async (req, res) => {
         
         let andConditions = [];
         
+        // SỬA Ở ĐÂY: Chỉ dùng item_type
         if (item_type) {
-            andConditions.push({
-                $or: [
-                    { item_type: item_type },
-                    { itemTypeId: item_type }
-                ]
-            });
+            andConditions.push({ item_type: item_type }); 
         }
         
         if (status) {
@@ -82,17 +78,17 @@ const getItemsPaginatedAndSearch = async (req, res) => {
         
         const items = await Item
             .find(searchQuery)
-            .populate('item_type', 'name code')
-            .populate('itemTypeId', 'name code')
+            .populate('item_type', 'name code') // Đã xóa dòng .populate('itemTypeId')
             .populate('storeId', 'name address')
             .sort(sortQuery)
             .skip(skip)
             .limit(limitNum);
         
+        // SỬA Ở ĐÂY: Lấy giá trị từ trường đúng
         const mappedItems = items.map(item => ({
             ...item.toObject(),
             name: item.name || item.serialCode,
-            item_type: item.item_type || item.itemTypeId,
+            item_type: item.item_type, 
             store: item.storeId
         }));
         
@@ -117,14 +113,7 @@ const getItemsPaginatedAndSearch = async (req, res) => {
                 nextPage: hasNextPage ? pageNum + 1 : null,
                 prevPage: hasPrevPage ? pageNum - 1 : null
             },
-            filters: {
-                search,
-                sortBy,
-                sortOrder,
-                status,
-                item_type,
-                store
-            }
+            filters: { search, sortBy, sortOrder, status, item_type, store }
         });
     } catch (error) {
         console.error("Error getting paginated items:", error);
@@ -135,48 +124,35 @@ const getItemsPaginatedAndSearch = async (req, res) => {
         });
     }
 };
-
 // GET /api/items/:id
 const getItemById = async (req, res) => {
     try {
         const { id } = req.params;
         
         const item = await Item.findById(id)
-            .populate('item_type', 'name code')
-            .populate('itemTypeId', 'name code')
+            .populate('item_type', 'name code') // Đã xóa dòng .populate('itemTypeId')
             .populate('storeId', 'name address');
         
         if (!item) {
-            return res.status(404).json({
-                success: false,
-                message: "Item not found"
-            });
+            return res.status(404).json({ success: false, message: "Item not found" });
         }
         
+        // SỬA Ở ĐÂY
         const mappedItem = {
             ...item.toObject(),
             name: item.name || item.serialCode,
-            item_type: item.item_type || item.itemTypeId,
+            item_type: item.item_type,
             store: item.storeId
         };
         
         console.log(`Fetched item: ${item.serialCode}`);
 
-        res.status(200).json({
-            success: true,
-            message: "Item retrieved successfully",
-            data: mappedItem
-        });
+        res.status(200).json({ success: true, message: "Item retrieved successfully", data: mappedItem });
     } catch (error) {
         console.error("Error getting item by ID:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: "Internal server error", error: error.message });
     }
 };
-
 // POST /api/items/create
 const createItem = async (req, res) => {
     try {

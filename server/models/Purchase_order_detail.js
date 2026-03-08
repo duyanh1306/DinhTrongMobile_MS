@@ -20,4 +20,4 @@ const purchaseOrderDetailSchema = new mongoose.Schema({
     note: { type: String, default: "" },
 }, { timestamps: true });
 
-module.exports = mongoose.model("Purchase_order_detail", purchaseOrderDetailSchema);
+module.exports =mongoose.models.Purchase_order_detail || mongoose.model("Purchase_order_detail", purchaseOrderDetailSchema);

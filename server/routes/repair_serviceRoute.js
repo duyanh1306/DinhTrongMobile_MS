@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {authAdmin} = require("../middlewares/auth");
+const {authInternal} = require("../middlewares/auth");
 const {
     getRepairServices,
     getAllRepairServices,
@@ -9,8 +9,8 @@ const {
 } = require("../controllers/repair_serviceController");
 
 router.get("/",  getRepairServices);
-router.get("/all", authAdmin, getAllRepairServices);
-router.post("/create", authAdmin, createRepairService);
-router.put("/update/:id", authAdmin, updateRepairService);
+router.get("/all", authInternal, getAllRepairServices);
+router.post("/create", authInternal, createRepairService);
+router.put("/update/:id", authInternal, updateRepairService);
 
 module.exports = router;
