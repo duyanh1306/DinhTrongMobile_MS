@@ -7,6 +7,7 @@ import {
   History,
   User,
   Smartphone,
+  List,
 } from "lucide-react";
 
 export default function TechSidebar() {
@@ -16,6 +17,7 @@ export default function TechSidebar() {
   const items = [
     { text: "Dashboard", link: "/tech/dashboard", icon: <LayoutDashboard size={20} /> },
     { text: "Profile", link: "/profile", icon: <User size={20} /> },
+    { text: "Đơn sửa chữa", link: "/tech/repair-orders", icon: <List size={20} /> },
     { text: "Công việc", link: "/tech/tasks", icon: <Wrench size={20} /> },
     { text: "Yêu cầu linh kện", link: "/tech/components", icon: <Cpu size={20} /> },
     { text: "Lịch sử sửa chữa", link: "/tech/history", icon: <History size={20} /> },
