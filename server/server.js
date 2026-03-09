@@ -24,6 +24,9 @@ const inventoryTransactionRoutes = require("./routes/inventory_transactionRoutes
 const transferRequestRoutes = require("./routes/transfer_requestRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const phoneRoute = require("./routes/phoneRoute");
+const recipeRoute = require("./routes/recipeRoute");
+const cartRoute = require("./routes/cartRoute");
+const orderRoute = require("./routes/orderRoute");
 connectDB();
 
 app.use(
@@ -46,6 +49,9 @@ app.use("/api/inventory-transactions", inventoryTransactionRoutes);
 app.use("/api/transfer-requests", transferRequestRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/phones", phoneRoute);
+app.use("/api/recipes", recipeRoute);
+app.use("/api/cart", cartRoute);
+app.use("/api/orders", orderRoute);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });

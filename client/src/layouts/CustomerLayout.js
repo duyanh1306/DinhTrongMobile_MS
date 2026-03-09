@@ -19,20 +19,34 @@ export default function CustomerLayout({ children }) {
     const [cartCount, setCartCount] = useState(0);
 
     useEffect(() => {
-        const updateCartCount = () => {
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
-            // Cộng dồn tổng số lượng các món hàng
-            const totalCount = cart.reduce((total, item) => total + item.quantity, 0);
-            setCartCount(totalCount);
+        const fetchCartCount = async () => {
+            const currentUser = JSON.parse(localStorage.getItem('user'));
+            const currentUserId = currentUser ? (currentUser._id || currentUser.id) : null;
+            
+            if (!currentUserId) {
+                setCartCount(0);
+                return;
+            }
+
+            try {
+                const res = await axiosClient.get(`/cart/${currentUserId}`);
+                const cartData = res.data.data;
+                if (cartData && cartData.items) {
+                    const totalCount = cartData.items.reduce((total, item) => total + item.quantity, 0);
+                    setCartCount(totalCount);
+                } else {
+                    setCartCount(0);
+                }
+            } catch (error) {
+                console.error("Lỗi đếm số lượng giỏ hàng", error);
+            }
         };
         
-        updateCartCount(); // Gọi lần đầu
+        fetchCartCount(); 
         
-        // Lắng nghe sự kiện khi có ai đó bấm "Thêm vào giỏ"
-        window.addEventListener('cartUpdated', updateCartCount);
-        return () => window.removeEventListener('cartUpdated', updateCartCount);
+        window.addEventListener('cartUpdated', fetchCartCount);
+        return () => window.removeEventListener('cartUpdated', fetchCartCount);
     }, []);
-
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -126,6 +140,13 @@ export default function CustomerLayout({ children }) {
                     {/* 1. Logo */}
                     <Link to="/home" className="text-2xl font-bold tracking-wide flex-shrink-0">
                         DinhTrongMobile
+                    </Link>
+                    <Link 
+                        to="/build-phone" 
+                        className="hidden lg:flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2.5 rounded-xl text-white font-semibold transition mx-4 border border-white/30 shadow-sm"
+                    >
+                        <Wrench size={18} />
+                        <span>Xây dựng cấu hình</span>
                     </Link>
                     
                     {/* 2. Thanh Tìm Kiếm Cực Xịn (Trung tâm) */}

@@ -136,37 +136,43 @@ export default function PhoneDetail() {
             const prevIndex = (currentIndex - 1 + images.length) % images.length;
             setDisplayImage(images[prevIndex]);
         };
-        const handleAddToCart = () => {
+        const handleAddToCart = async () => {
             if (isOutOfStock) return;
     
-            // Tạo một ID định danh cho món hàng dựa trên Model + Dung lượng + Màu
-            const cartItemId = `${model._id}-${selectedCapacity}-${selectedColor}`;
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) {
+                toast.warning("Vui lòng đăng nhập để mua hàng!");
+                navigate('/login');
+                return;
+            }
+    
+            // SỬA DÒNG NÀY: Lấy ID an toàn
+            const currentUserId = user._id || user.id;
     
             const newItem = {
-                cartItemId,
-                modelId: model._id,
+                productType: 'PHONE',
+                phoneModelId: model._id,
                 name: model.name,
                 capacity: selectedCapacity,
-                color: selectedColor,
+                colorName: selectedColor,
                 price: currentPrice,
                 image: displayImage,
                 quantity: 1
             };
     
-            let cart = JSON.parse(localStorage.getItem('cart')) || [];
-            const existingItemIndex = cart.findIndex(item => item.cartItemId === cartItemId);
-    
-            if (existingItemIndex > -1) {
-                cart[existingItemIndex].quantity += 1; // Đã có thì tăng số lượng
-            } else {
-                cart.push(newItem); // Chưa có thì thêm mới
+            try {
+                await axiosClient.post('/cart/add', {
+                    userId: currentUserId, // Truyền ID chuẩn
+                    item: newItem
+                });
+                
+                window.dispatchEvent(new Event('cartUpdated')); 
+                toast.success("Đã thêm sản phẩm vào giỏ hàng!");
+                
+            } catch (error) {
+                console.error(error);
+                toast.error("Lỗi khi thêm vào giỏ hàng.");
             }
-    
-            localStorage.setItem('cart', JSON.stringify(cart));
-            window.dispatchEvent(new Event('cartUpdated')); // Báo cho Layout cập nhật số màu vàng
-            toast.success("Đã thêm sản phẩm vào giỏ hàng!");
-            
-            
         };
     if (loading) {
         return (

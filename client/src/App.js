@@ -36,6 +36,8 @@ import OrderHistory from "./pages/customer/OrderHistory";
 import AssemblePhone from "./pages/technician/AssemblePhone";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
+import BuildPhone from "./pages/customer/BuildPhone";
+import OrderDetail from "./pages/customer/OrderDetail";
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -89,7 +91,9 @@ function App() {
         <Route path="/product/:id" element={<PhoneDetail />} />
         <Route path="/search" element={<SearchResults />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/build-phone" element={<BuildPhone />} />
         <Route path="/order-history" element={<OrderHistory />} />
+        <Route path="/order-detail/:id" element={<OrderDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />

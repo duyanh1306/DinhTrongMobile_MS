@@ -1,502 +1,249 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Edit, Package, Search, X, Image as ImageIcon, UploadCloud } from "lucide-react";
 
 export default function AdminItemType() {
     const [itemTypes, setItemTypes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [pagination, setPagination] = useState({
-        currentPage: 1,
-        totalPages: 1,
-        totalCount: 0,
-        limit: 10,
-        hasNextPage: false,
-        hasPrevPage: false
-    });
-    const [filters, setFilters] = useState({
-        search: '',
-        sortBy: 'name',
-        sortOrder: 'asc'
-    });
+    const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalCount: 0, limit: 10, hasNextPage: false, hasPrevPage: false });
+    const [filters, setFilters] = useState({ search: '', sortBy: 'name', sortOrder: 'asc' });
+    
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        code: '',
-        price: '',
-        baseCost: ''
-    });
     const [editingId, setEditingId] = useState(null);
+    const [formData, setFormData] = useState({ name: '', code: '', image: '' });
+    
+    // STATE MỚI: Quản lý file ảnh được chọn
+    const [imageFile, setImageFile] = useState(null);
+    const fileInputRef = useRef(null);
 
-    useEffect(() => {
-        fetchItemType(true);
-    }, []); // Only run on initial mount
+    // Chuẩn hóa URL ảnh (để hiển thị đúng ảnh từ server localhost)
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http') || url.startsWith('blob:')) return url;
+        return `http://localhost:9999${url}`; // Đảm bảo gọi đúng server backend
+    };
 
-    useEffect(() => {
-        if (!loading && pagination.currentPage) { // Only fetch if not initial load and pagination exists
-            fetchItemType(false);
-        }
-    }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
-
+    useEffect(() => { fetchItemType(true); }, []);
+    useEffect(() => { if (!loading) fetchItemType(false); }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
 
     const fetchItemType = async (isInitialLoad = false) => {
         try {
-            if (isInitialLoad) {
-                setLoading(true);
-            }
+            if (isInitialLoad) setLoading(true);
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
-                page: pagination?.currentPage || 1,
-                limit: pagination?.limit || 10,
-                search: filters.search,
-                sortBy: filters.sortBy,
-                sortOrder: filters.sortOrder
+                page: pagination.currentPage, limit: pagination.limit,
+                search: filters.search, sortBy: filters.sortBy, sortOrder: filters.sortOrder
             });
-            
-            const { data } = await axios.get(`http://localhost:9999/api/item_types?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            
+            const { data } = await axios.get(`http://localhost:9999/api/item_types?${params}`, { headers: { Authorization: `Bearer ${token}` } });
             setItemTypes(data.data || []);
-            setPagination(data.pagination);
+            setPagination(data.pagination || { currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 });
         } catch (error) {
-            console.error("Fetch item types failed", error);
-            toast.error(error.response?.data?.message || "Failed to fetch item types");
+            toast.error("Lỗi tải dữ liệu");
         } finally {
-            if (isInitialLoad) {
-                setLoading(false);
-            }
+            if (isInitialLoad) setLoading(false);
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this item type?")) {
-            try {
-                const token = localStorage.getItem("token");
-                await axios.delete(`http://localhost:9999/api/item_types/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Item type deleted successfully");
-                fetchItemType(false);
-            } catch (error) {
-                console.error("Delete failed", error);
-                toast.error(error.response?.data?.message || "Failed to delete item type");
-            }
+    const handleSearchChange = (e) => { setFilters(prev => ({ ...prev, search: e.target.value })); setPagination(prev => ({ ...prev, currentPage: 1 })); };
+    const handleSortChange = (field) => { setFilters(prev => ({ ...prev, sortBy: field, sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc' })); };
+    const handlePageChange = (page) => { setPagination(prev => ({ ...prev, currentPage: page })); };
+
+    const handleOpenModal = (itemType = null) => {
+        setImageFile(null); // Reset file mỗi khi mở modal
+        if (itemType) {
+            setIsEditing(true);
+            setEditingId(itemType._id);
+            setFormData({ name: itemType.name, code: itemType.code, image: itemType.image || '' });
+        } else {
+            setIsEditing(false);
+            setEditingId(null);
+            setFormData({ name: '', code: '', image: '' });
+        }
+        setShowModal(true);
+    };
+
+    // Hàm xử lý khi người dùng chọn ảnh từ máy
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            // Tạo URL tạm thời để hiển thị Preview ngay lập tức
+            setFormData({ ...formData, image: URL.createObjectURL(file) });
         }
     };
-
-    const handleSearchChange = (e) => {
-        setFilters(prev => ({ ...prev, search: e.target.value }));
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-    };
-
-    const handleSortChange = (field) => {
-        setFilters(prev => ({
-            ...prev,
-            sortBy: field,
-            sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc'
-        }));
-    };
-
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND'
-        }).format(price);
-    };
-
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleAddItemType = () => {
-        setIsEditing(false);
-        setFormData({ 
-            name: '', 
-            code: '', 
-            price: '', 
-            baseCost: ''
-        });
-        setEditingId(null);
-        setShowModal(true);
-    };
-
-    const handleEditItemType = (itemType) => {
-        setIsEditing(true);
-        setFormData({ 
-            name: itemType.name, 
-            code: itemType.code, 
-            price: itemType.price,
-            baseCost: itemType.baseCost
-        });
-        setEditingId(itemType._id);
-        setShowModal(true);
-    };
-
-    const handleCloseModal = () => {
-        setShowModal(false);
-        setFormData({ 
-            name: '', 
-            code: '', 
-            price: '', 
-            baseCost: ''
-        });
-        setIsEditing(false);
-        setEditingId(null);
-    };
-
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
             
-            const submitData = {
-                ...formData,
-                price: parseFloat(formData.price),
-                baseCost: parseFloat(formData.baseCost)
-            };
+            // DÙNG FORMDATA THAY VÌ JSON ĐỂ GỬI KÈM FILE ẢNH
+            const submitData = new FormData();
+            submitData.append('name', formData.name);
+            submitData.append('code', formData.code);
             
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Item type updated successfully");
-            } else {
-                await axios.post("http://localhost:9999/api/item_types/create", submitData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Item type created successfully");
+            if (imageFile) {
+                submitData.append('image', imageFile); // File thực tế
+            } else if (formData.image && !formData.image.startsWith('blob:')) {
+                submitData.append('image', formData.image); // URL cũ
             }
-            
-            handleCloseModal();
-            fetchItemType(false);
+
+            const config = { 
+                headers: { 
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data' // Bắt buộc cho FormData
+                } 
+            };
+
+            if (isEditing) {
+                await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, config);
+                toast.success("Cập nhật thành công");
+            } else {
+                await axios.post("http://localhost:9999/api/item_types/create", submitData, config);
+                toast.success("Thêm mới thành công");
+            }
+            setShowModal(false);
+            fetchItemType();
         } catch (error) {
-            console.error("Save failed", error);
-            toast.error(error.response?.data?.message || "Failed to save item type");
+            toast.error(error.response?.data?.message || "Lỗi lưu dữ liệu");
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-lg text-gray-600">Loading...</div>
-            </div>
-        );
-    }
+    if (loading) return <div className="flex justify-center h-64 items-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>;
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            <div className="flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Package className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý loại đồ</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Loại Linh Kiện</h1>
                 </div>
-                <button 
-                    onClick={handleAddItemType}
-                    className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                    <Plus size={20} />
-                    <span>Thêm loại đồ</span>
+                <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md">
+                    <Plus size={20} /> <span>Thêm loại linh kiện</span>
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6 flex-shrink-0">
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                            <input
-                                type="text"
-                                placeholder="Tìm theo tên loại đồ hoặc mã ..."
-                                value={filters.search}
-                                onChange={handleSearchChange}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Tổng: {pagination.totalCount} loại đồ</span>
-                    </div>
+            <div className="bg-white rounded-xl shadow-sm p-6 flex items-center justify-between">
+                <div className="relative w-1/2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input type="text" placeholder="Tìm theo tên hoặc mã..." value={filters.search} onChange={handleSearchChange} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-0">
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-                    <div className="overflow-x-auto flex-1">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
+                <div className="overflow-x-auto flex-1">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b">
                             <tr>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('name')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Tên</span>
-                                        {filters.sortBy === 'name' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
+                                <th className="px-6 py-4 text-left font-medium text-gray-500 uppercase">Hình ảnh</th>
+                                <th className="px-6 py-4 text-left font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSortChange('name')}>
+                                    Tên loại {filters.sortBy === 'name' && (filters.sortOrder === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('code')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Mã</span>
-                                        {filters.sortBy === 'code' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
+                                <th className="px-6 py-4 text-left font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSortChange('code')}>
+                                    Mã Code {filters.sortBy === 'code' && (filters.sortOrder === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('price')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Giá</span>
-                                        {filters.sortBy === 'price' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
-                                </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('baseCost')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Giá nhập</span>
-                                        {filters.sortBy === 'baseCost' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Hành động
-                                </th>
+                                <th className="px-6 py-4 text-right font-medium text-gray-500 uppercase">Hành động</th>
                             </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
                             {itemTypes.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                                        <div className="flex flex-col items-center space-y-2">
-                                            <Package size={48} className="text-gray-300" />
-                                            <span>Không tìm thấy loại đồ</span>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <tr><td colSpan="4" className="py-10 text-center text-gray-500">Không có dữ liệu</td></tr>
                             ) : (
-                                itemTypes.map((itemType) => (
-                                    <tr key={itemType._id} className="hover:bg-gray-50 transition">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">
-                                                {itemType.name}
-                                            </div>
+                                itemTypes.map((item) => (
+                                    <tr key={item._id} className="hover:bg-gray-50 transition">
+                                        <td className="px-6 py-3">
+                                            {item.image ? (
+                                                <img src={getImageUrl(item.image)} alt={item.name} className="w-12 h-12 object-contain bg-white border rounded-lg p-1 shadow-sm" />
+                                            ) : (
+                                                <div className="w-12 h-12 bg-gray-100 flex items-center justify-center rounded-lg border border-dashed"><ImageIcon size={20} className="text-gray-400"/></div>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {itemType.code}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {formatPrice(itemType.price)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {formatPrice(itemType.baseCost)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end space-x-2">
-                                                <button
-                                                    onClick={() => handleEditItemType(itemType)}
-                                                    className="text-blue-600 hover:text-blue-900 transition"
-                                                    title="Edit"
-                                                >
-                                                    <Edit size={16} />
-                                                </button>
-                                                {/*<button*/}
-                                                {/*    onClick={() => handleDelete(itemType._id)}*/}
-                                                {/*    className="text-red-600 hover:text-red-900 transition"*/}
-                                                {/*    title="Delete"*/}
-                                                {/*>*/}
-                                                {/*    <Trash2 size={16} />*/}
-                                                {/*</button>*/}
-                                            </div>
+                                        <td className="px-6 py-3 font-semibold text-gray-800">{item.name}</td>
+                                        <td className="px-6 py-3 text-gray-600"><span className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">{item.code}</span></td>
+                                        <td className="px-6 py-3 text-right">
+                                            <button onClick={() => handleOpenModal(item)} className="text-blue-600 hover:bg-blue-50 p-2 rounded transition"><Edit size={18} /></button>
                                         </td>
                                     </tr>
                                 ))
                             )}
-                            </tbody>
-                        </table>
+                        </tbody>
+                    </table>
+                </div>
+                
+                {/* PHÂN TRANG */}
+                <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4">
+                    <span className="text-sm text-gray-600">
+                        Hiển thị trang <span className="font-bold text-gray-800">{pagination.currentPage}</span> / <span className="font-bold text-gray-800">{pagination.totalPages || 1}</span> 
+                        <span className="mx-2">|</span>
+                        Tổng cộng: <span className="font-bold text-gray-800">{pagination.totalCount}</span> loại linh kiện
+                    </span>
+                    <div className="flex gap-2">
+                        <button disabled={!pagination.hasPrevPage} onClick={() => handlePageChange(pagination.currentPage - 1)} className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition font-medium text-sm">Trang trước</button>
+                        <button disabled={!pagination.hasNextPage} onClick={() => handlePageChange(pagination.currentPage + 1)} className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition font-medium text-sm">Trang sau</button>
                     </div>
-
-                    {pagination.totalPages > 1 && (
-                        <div className="border-t border-gray-200 p-6 bg-gray-50">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-600">
-                                    Thông tin {((pagination.currentPage - 1) * pagination.limit) + 1} đến {' '}
-                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} trong{' '}
-                                    {pagination.totalCount} kết quả
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                        disabled={!pagination.hasPrevPage}
-                                        className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <ChevronLeft size={16} />
-                                        <span>Trước</span>
-                                    </button>
-                                    
-                                    <div className="flex items-center space-x-1">
-                                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                                            let pageNum;
-                                            if (pagination.totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.currentPage <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.currentPage >= pagination.totalPages - 2) {
-                                                pageNum = pagination.totalPages - 4 + i;
-                                            } else {
-                                                pageNum = pagination.currentPage - 2 + i;
-                                            }
-                                            
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={`px-3 py-2 text-sm border rounded-md ${
-                                                        pagination.currentPage === pageNum
-                                                            ? 'bg-blue-600 text-white border-blue-600'
-                                                            : 'border-gray-300 hover:bg-gray-50'
-                                                    }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    
-                                    <button
-                                        onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                        disabled={!pagination.hasNextPage}
-                                        className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <span>Tiếp</span>
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
+            {/* Modal Thêm/Sửa */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-semibold text-gray-800">
-                                {isEditing ? 'Chỉnh sửa loại đồ' : 'Thêm loại đồ'}
-                            </h2>
-                            <button
-                                onClick={handleCloseModal}
-                                className="text-gray-400 hover:text-gray-600 transition"
-                            >
-                                <X size={24} />
-                            </button>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex justify-between items-center mb-4 border-b pb-3">
+                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Sửa Loại Linh Kiện' : 'Thêm Loại Linh Kiện'}</h2>
+                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24}/></button>
                         </div>
-                        
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Tên
-                                </label>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Nhập tên"
-                                />
+                                <label className="block text-sm font-medium mb-1 text-gray-700">Tên loại linh kiện</label>
+                                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="VD: Màn hình, Pin..." />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700">Mã Code (Viết tắt)</label>
+                                <input required type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="VD: SCR, BAT..." />
                             </div>
                             
+                            {/* KHU VỰC UPLOAD ẢNH MỚI */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Mã
-                                </label>
-                                <input
-                                    type="text"
-                                    name="code"
-                                    value={formData.code}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Nhập mã"
-                                />
+                                <label className="block text-sm font-medium mb-2 text-gray-700">Ảnh đại diện</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden relative group">
+                                        {formData.image ? (
+                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" />
+                                        ) : (
+                                            <ImageIcon size={24} className="text-gray-300" />
+                                        )}
+                                        
+                                        {/* Nút Overlay khi hover vào ảnh */}
+                                        <div onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                                            <UploadCloud size={20} className="text-white" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-1">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            ref={fileInputRef}
+                                            onChange={handleImageChange}
+                                            className="hidden" 
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => fileInputRef.current.click()} 
+                                            className="px-4 py-2 border border-blue-500 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition w-full flex items-center justify-center gap-2"
+                                        >
+                                            <UploadCloud size={18} /> Chọn ảnh từ máy tính
+                                        </button>
+                                        <p className="text-xs text-gray-500 mt-2 text-center">Hỗ trợ JPG, PNG, WEBP...</p>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Giá
-                                </label>
-                                <input
-                                    type="number"
-                                    name="price"
-                                    value={formData.price}
-                                    onChange={handleInputChange}
-                                    required
-                                    step="0.01"
-                                    min="0"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Nhập giá"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Giá nhập
-                                </label>
-                                <input
-                                    type="number"
-                                    name="baseCost"
-                                    value={formData.baseCost}
-                                    onChange={handleInputChange}
-                                    required
-                                    step="0.01"
-                                    min="0"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Nhập giá nhập"
-                                />
-                            </div>
-                            
-                            <div className="flex justify-end space-x-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseModal}
-                                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                                >
-                                    {isEditing ? 'Cập nhật' : 'Tạo'}
-                                </button>
+
+                            <div className="flex justify-end gap-3 pt-6 border-t mt-6">
+                                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition">Hủy</button>
+                                <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-md transition">{isEditing ? 'Lưu cập nhật' : 'Thêm mới'}</button>
                             </div>
                         </form>
                     </div>

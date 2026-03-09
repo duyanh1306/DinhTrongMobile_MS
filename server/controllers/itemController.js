@@ -157,62 +157,46 @@ const getItemById = async (req, res) => {
 const createItem = async (req, res) => {
     try {
         const {
-            serialCode,
-            status,
-            item_type,
-            phoneModelId,
-            storeId
+            name, serialCode, status, item_type, storeId,
+            origin, sourceDevice, quality, baseCost, price, warrantyPeriod,
+            ram, capacity, color // <-- Bắt thêm 3 biến thể này
         } = req.body;
 
-        if (!serialCode || !item_type) {
+        if (!serialCode || !item_type || !name) {
             return res.status(400).json({
                 success: false,
-                message: "Missing required fields: serialCode and item_type are required",
+                message: "Thiếu các trường bắt buộc: Tên, Serial Code và Loại linh kiện",
             });
         }
 
         const newItem = new Item({
-            name: serialCode,
+            name,
             serialCode,
             status: status || "in_stock",
             item_type,
-            phoneModelId,
-            storeId
+            storeId,
+            origin: origin || 'new',
+            sourceDevice,
+            quality,
+            baseCost,
+            price,
+            warrantyPeriod,
+            ram,         
+            capacity,    
+            color       
         });
 
         const savedItem = await newItem.save();
-        const populatedItem = await Item.findById(savedItem._id).populate('item_type', 'name code').populate('phoneModelId', 'name code').populate('storeId', 'name address');
+        const populatedItem = await Item.findById(savedItem._id)
+            .populate('item_type', 'name code')
+            .populate('storeId', 'name address');
 
-        res.status(201).json({
-            success: true,
-            message: "Item created successfully",
-            data: populatedItem,
-        });
+        res.status(201).json({ success: true, data: populatedItem });
     } catch (error) {
-        console.error("Error creating item:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                success: false,
-                message: "Item with this name and serialCode already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                success: false,
-                message: error.message
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ success: false, message: "Mã Serial đã tồn tại" });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
-
 // PUT /api/items/update/:id
 const updateItem = async (req, res) => {
     try {

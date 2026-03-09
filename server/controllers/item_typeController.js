@@ -3,20 +3,10 @@ const Item_types = require("../models/Item_type");
 // GET /api/item_types/all
 const getAllItemTypes = async (req, res) => {
     try {
-        const item_types = await Item_types.find()
-
-        res.status(200).json({
-            success: true,
-            message: "Item types retrieved successfully",
-            data: item_types,
-        });
+        const item_types = await Item_types.find();
+        res.status(200).json({ success: true, data: item_types });
     } catch (error) {
-        console.error("Error getting all item types:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -42,104 +32,41 @@ const getItemTypePaginatedAndSearch = async (req, res) => {
         const sortQuery = {};
         sortQuery[sortBy] = sortOrder === 'desc' ? -1 : 1;
         
-        const itemTypes = await Item_types
-            .find(searchQuery)
-            .sort(sortQuery)
-            .skip(skip)
-            .limit(limitNum);
-        
+        const itemTypes = await Item_types.find(searchQuery).sort(sortQuery).skip(skip).limit(limitNum);
         const totalCount = await Item_types.countDocuments(searchQuery);
-        
         const totalPages = Math.ceil(totalCount / limitNum);
-        const hasNextPage = pageNum < totalPages;
-        const hasPrevPage = pageNum > 1;
         
         res.status(200).json({
             success: true,
-            message: "Item types retrieved successfully",
             data: itemTypes,
             pagination: {
-                currentPage: pageNum,
-                totalPages,
-                totalCount,
-                limit: limitNum,
-                hasNextPage,
-                hasPrevPage,
-                nextPage: hasNextPage ? pageNum + 1 : null,
-                prevPage: hasPrevPage ? pageNum - 1 : null
-            },
-            filters: {
-                search,
-                sortBy,
-                sortOrder
+                currentPage: pageNum, totalPages, totalCount, limit: limitNum,
+                hasNextPage: pageNum < totalPages, hasPrevPage: pageNum > 1,
             }
         });
     } catch (error) {
-        console.error("Error getting paginated item types:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 // POST /api/item_types/create
 const createItemType = async (req, res) => {
     try {
-        const {
-            name,
-            code,
-            price,
-            baseCost
-        } = req.body;
-
-        if (
-            !name ||
-            !code ||
-            !price ||
-            !baseCost
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields",
-            });
+        const { name, code } = req.body;
+        if (!name || !code) {
+            return res.status(400).json({ success: false, message: "Thiếu các trường bắt buộc" });
         }
 
-        const newItemType = new Item_types({
-            name,
-            code,
-            price,
-            baseCost
-        });
+        // Lấy đường dẫn ảnh nếu có upload
+        const imagePath = req.file ? `/uploads/item_types/${req.file.filename}` : "";
 
+        const newItemType = new Item_types({ name, code, image: imagePath });
         const savedItemType = await newItemType.save();
 
-        res.status(201).json({
-            success: true,
-            message: "Item type created successfully",
-            data: savedItemType,
-        });
+        res.status(201).json({ success: true, data: savedItemType });
     } catch (error) {
-        console.error("Error creating item type:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                message: "Item_type with this name and code already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                message: error.message
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ message: "Loại linh kiện hoặc Mã đã tồn tại" });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -147,48 +74,26 @@ const createItemType = async (req, res) => {
 const updateItemType = async (req, res) => {
     try {
         const { id } = req.params;
+        const { name, code } = req.body;
 
-        const updated = await Item_types.findByIdAndUpdate(id, req.body, {
-            new: true,
-            runValidators: true,
-        })
-        if (!updated)
-            return res
-                .status(404)
-                .json({ success: false, message: "Item type not found" });
+        let updateData = { name, code };
 
-        res.status(200).json({
-            success: true,
-            message: "Item types updated successfully",
-            data: updated,
-        });
+        // Nếu người dùng có chọn ảnh mới thì cập nhật, không thì giữ nguyên ảnh cũ
+        if (req.file) {
+            updateData.image = `/uploads/item_types/${req.file.filename}`;
+        } else if (req.body.image) {
+            updateData.image = req.body.image;
+        }
+
+        const updated = await Item_types.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+        
+        if (!updated) return res.status(404).json({ success: false, message: "Không tìm thấy Loại linh kiện" });
+
+        res.status(200).json({ success: true, data: updated });
     } catch (error) {
-        console.error("Error updating item tpye:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                message: "Item_type with this name and code already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                message: error.message
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ message: "Loại linh kiện hoặc Mã đã tồn tại" });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-
-module.exports = {
-    getAllItemTypes,
-    getItemTypePaginatedAndSearch,
-    createItemType,
-    updateItemType
-};
+module.exports = { getAllItemTypes, getItemTypePaginatedAndSearch, createItemType, updateItemType };
