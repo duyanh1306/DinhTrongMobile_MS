@@ -1,9 +1,11 @@
 const Phone_model = require("../models/Phone_model");
+const Phone_brand = require("../models/PhoneBrand");
 
 // GET /api/phone_models/all
 const getAllPhoneModels = async (req, res) => {
     try {
-        const phone_models = await Phone_model.find();
+        const phone_models = await Phone_model.find()
+            .populate("brand", "name")
         res.status(200).json({ success: true, data: phone_models });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
