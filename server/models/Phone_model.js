@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 const phone_modelSchema = new Schema(
     {
         name: { type: String, required: true, minLength: 2, maxLength: 100 },
-        brand: { type: Schema.Types.ObjectId, ref: 'Brand', required: true }, // Mới: Tham chiếu đến Brand
+        brand: { type: Schema.Types.ObjectId, ref: "Phone_brand", required: true },
         image: { type: String, default: "" }, 
         condition: { type: Number, default: 1, min: 0, max: 1 },
         price: { type: Number, default: 0 }, // Mới: Thêm giá mặc định theo DB

@@ -4,6 +4,7 @@ import {ChevronLeft, ChevronRight, ShoppingCart, ShieldCheck, Truck, RotateCcw, 
 import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast } from "react-toastify";
+import ReviewSection from '../../pages/customer/ReviewSection';
 
 export default function PhoneDetail() {
     const { id } = useParams(); // Lấy ID của dòng máy từ thanh URL
@@ -197,7 +198,7 @@ export default function PhoneDetail() {
                 <div className="text-sm text-gray-500 mb-6">
                     <span className="hover:text-blue-600 cursor-pointer transition" onClick={() => navigate('/home')}>Trang chủ</span> 
                     <span className="mx-2">/</span> 
-                    <span className="hover:text-blue-600 cursor-pointer transition">{model.brand}</span>
+                    <span className="hover:text-blue-600 cursor-pointer transition">{model.brand?.name || model.brand}</span>
                     <span className="mx-2">/</span> 
                     <span className="text-gray-800 font-semibold">{model.name}</span>
                 </div>
@@ -263,7 +264,7 @@ export default function PhoneDetail() {
                     <div className="md:w-7/12 flex flex-col">
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">{model.name}</h1>
                         <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
-                            <span className="text-sm text-gray-500">Hãng: <span className="font-semibold text-blue-600">{model.brand}</span></span>
+                            <span className="text-sm text-gray-500">Hãng: <span className="font-semibold text-blue-600">{model.brand?.name || model.brand}</span></span>
                             <span className="text-sm text-gray-500">Tình trạng: <span className="font-semibold text-green-600">{model.condition === 1 ? 'Mới 100%' : `Cũ ${Math.round(model.condition * 100)}%`}</span></span>
                         </div>
 
@@ -369,39 +370,54 @@ export default function PhoneDetail() {
                     </div>
                 </div>
 
-                {/* BẢNG THÔNG SỐ KỸ THUẬT (DƯỚI CÙNG) */}
-                <div className="mt-8 bg-white rounded-2xl shadow-sm p-6 md:p-8 border border-gray-100">
-                    <h2 className="text-xl font-bold text-gray-800 mb-6 uppercase flex items-center gap-2">
-                        <span className="w-1.5 h-6 bg-blue-600 rounded-full inline-block"></span>
-                        Cấu hình chi tiết {model.name}
-                    </h2>
+                {/* =========================================
+                    PHẦN CHỨA BẢNG THÔNG SỐ VÀ ĐÁNH GIÁ 
+                    ========================================= */}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 bg-gray-50/50 rounded-xl p-4 border border-gray-100">
-                        {[
-                            { label: "Màn hình", icon: <Smartphone size={16}/>, value: specs.screenSize },
-                            { label: "Công nghệ màn", icon: <Smartphone size={16}/>, value: specs.screenTechnology },
-                            { label: "Độ phân giải", icon: <Smartphone size={16}/>, value: specs.screenResolution },
-                            { label: "Tần số quét", icon: <Smartphone size={16}/>, value: specs.screenFeatures },
-                            { label: "Camera sau", icon: <Camera size={16}/>, value: specs.rearCamera },
-                            { label: "Camera trước", icon: <Camera size={16}/>, value: specs.frontCamera },
-                            { label: "Vi xử lý (CPU)", icon: <Cpu size={16}/>, value: specs.cpu },
-                            { label: "Chipset", icon: <Cpu size={16}/>, value: specs.chipset },
-                            { label: "Bộ nhớ trong", icon: <HardDrive size={16}/>, value: specs.internalStorage },
-                            { label: "Hệ điều hành", icon: <Cpu size={16}/>, value: specs.os },
-                            { label: "Pin & Sạc", icon: <Battery size={16}/>, value: specs.sim },
-                        ].map((item, idx) => item.value ? (
-                            <div key={idx} className="flex items-start py-3.5 border-b border-gray-200/60 last:border-0 hover:bg-gray-50 transition px-2">
-                                <div className="w-2/5 flex items-center gap-2 text-gray-500 text-sm font-medium">
-                                    <span className="text-blue-500">{item.icon}</span>
-                                    {item.label}
-                                </div>
-                                <div className="w-3/5 text-gray-800 text-sm font-semibold pl-2">
-                                    {item.value}
-                                </div>
+                    {/* CỘT TRÁI: ĐÁNH GIÁ (Chiếm 7/12 không gian) */}
+                    <div className="lg:col-span-7">
+                         {/* CHÈN COMPONENT ĐÁNH GIÁ VÀO ĐÂY */}
+                         <ReviewSection phoneModelId={model._id} />
+                    </div>
+
+                    {/* CỘT PHẢI: BẢNG THÔNG SỐ KỸ THUẬT (Chiếm 5/12 không gian) */}
+                    <div className="lg:col-span-5">
+                        <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 border border-gray-100 sticky top-24">
+                            <h2 className="text-xl font-bold text-gray-800 mb-6 uppercase flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+                                Cấu hình chi tiết
+                            </h2>
+                            
+                            <div className="flex flex-col bg-gray-50/50 rounded-xl p-2 border border-gray-100">
+                                {[
+                                    { label: "Màn hình", icon: <Smartphone size={16}/>, value: specs.screenSize },
+                                    { label: "Công nghệ", icon: <Smartphone size={16}/>, value: specs.screenTechnology },
+                                    { label: "Độ phân giải", icon: <Smartphone size={16}/>, value: specs.screenResolution },
+                                    { label: "Tần số quét", icon: <Smartphone size={16}/>, value: specs.screenFeatures },
+                                    { label: "Camera sau", icon: <Camera size={16}/>, value: specs.rearCamera },
+                                    { label: "Camera trước", icon: <Camera size={16}/>, value: specs.frontCamera },
+                                    { label: "Vi xử lý", icon: <Cpu size={16}/>, value: specs.cpu },
+                                    { label: "Chipset", icon: <Cpu size={16}/>, value: specs.chipset },
+                                    { label: "Lưu trữ", icon: <HardDrive size={16}/>, value: specs.internalStorage },
+                                    { label: "HĐH", icon: <Cpu size={16}/>, value: specs.os },
+                                    { label: "Pin & Sạc", icon: <Battery size={16}/>, value: specs.sim },
+                                ].map((item, idx) => item.value ? (
+                                    <div key={idx} className="flex items-start py-3 border-b border-gray-200/60 last:border-0 hover:bg-white transition px-3 rounded-lg">
+                                        <div className="w-2/5 flex items-center gap-2 text-gray-500 text-sm font-medium">
+                                            <span className="text-blue-500">{item.icon}</span>
+                                            {item.label}
+                                        </div>
+                                        <div className="w-3/5 text-gray-800 text-sm font-semibold pl-2">
+                                            {item.value}
+                                        </div>
+                                    </div>
+                                ) : null)}
                             </div>
-                        ) : null)}
+                        </div>
                     </div>
                 </div>
+
             </div>
         </CustomerLayout>
     );

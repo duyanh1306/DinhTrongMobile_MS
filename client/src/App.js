@@ -39,6 +39,8 @@ import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import BuildPhone from "./pages/customer/BuildPhone";
 import OrderDetail from "./pages/customer/OrderDetail";
+import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
+import CategoryPage from "./pages/customer/CategoryPage";
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -95,6 +97,7 @@ function App() {
         <Route path="/build-phone" element={<BuildPhone />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/order-detail/:id" element={<OrderDetail />} />
+        <Route path="/category/:type" element={<CategoryPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -113,6 +116,16 @@ function App() {
             </PrivateRoute>
           }
         />
+        <Route
+                    path="/admin/phone_brands"
+                    element={
+                        <PrivateRoute allowedRoles={['ADMIN']}>
+                            <AdminLayout>
+                                <AdminPhoneBrand/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
          <Route
                     path="/admin/phones"
                     element={

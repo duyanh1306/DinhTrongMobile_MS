@@ -12,7 +12,8 @@ export default function AdminItem() {
     const [pagination, setPagination] = useState({ 
         currentPage: 1, totalPages: 1, totalCount: 0, limit: 10, hasNextPage: false, hasPrevPage: false 
     });
-    const [filters, setFilters] = useState({ search: '', status: '', item_type: '', store: '' });
+    // Đổi store thành storeId
+    const [filters, setFilters] = useState({ search: '', status: '', item_type: '', storeId: '' }); 
     
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -32,7 +33,7 @@ export default function AdminItem() {
 
     useEffect(() => {
         fetchItems();
-    }, [pagination.currentPage, filters.status, filters.item_type, filters.store]);
+    }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
 
     useEffect(() => {
         const timeout = setTimeout(() => { 
@@ -44,25 +45,56 @@ export default function AdminItem() {
 
     const fetchItemTypes = async () => {
         try {
-            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`);
+            const token = localStorage.getItem("token");
+            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             setItemTypes(data.data || []);
-        } catch (error) { toast.error("Lỗi tải loại linh kiện"); }
+        } catch (error) { console.error("Lỗi tải loại linh kiện", error); }
     };
 
     const fetchStores = async () => {
         try {
-            const { data } = await axios.get(`http://localhost:9999/api/stores`);
-            setStores(data.data || []);
-        } catch (error) { toast.error("Lỗi tải cửa hàng"); }
+            const token = localStorage.getItem("token");
+            
+            // Gọi API lấy danh sách cửa hàng
+            const response = await axios.get(`http://localhost:9999/api/stores`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            // LƯU Ý Ở ĐÂY: Xử lý thông minh mọi cấu trúc API trả về
+            let storesData = [];
+            if (Array.isArray(response.data)) {
+                storesData = response.data; // Trường hợp API trả thẳng ra mảng
+            } else if (response.data && Array.isArray(response.data.data)) {
+                storesData = response.data.data; // Trường hợp API bọc trong object { data: [...] }
+            }
+            
+            setStores(storesData);
+            
+        } catch (error) { 
+            console.error("Lỗi tải cửa hàng:", error);
+            // Thử gọi đường dẫn dự phòng nếu đường dẫn trên bị lỗi 404
+            try {
+                const token = localStorage.getItem("token");
+                const response = await axios.get(`http://localhost:9999/api/stores/all`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const storesData = Array.isArray(response.data) ? response.data : (response.data.data || []);
+                setStores(storesData);
+            } catch (err) {
+                toast.error("Không thể tải danh sách kho/cửa hàng!");
+            }
+        }
     };
-
     const fetchItems = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
                 page: pagination.currentPage, limit: pagination.limit,
-                search: filters.search, status: filters.status, item_type: filters.item_type, store: filters.store
+                search: filters.search, status: filters.status, item_type: filters.item_type, 
+                storeId: filters.storeId // Truyền storeId chuẩn xác
             });
 
             const { data } = await axios.get(`http://localhost:9999/api/items?${params}`, {
@@ -99,7 +131,7 @@ export default function AdminItem() {
                 serialCode: item.serialCode || '', 
                 item_type: item.item_type?._id || '',
                 status: item.status || 'in_stock', 
-                storeId: item.store?._id || '', 
+                storeId: item.storeId?._id || item.storeId || '', 
                 origin: item.origin || 'new',
                 sourceDevice: item.sourceDevice || '', 
                 quality: item.quality || '', 
@@ -138,10 +170,8 @@ export default function AdminItem() {
 
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
-    // FIX LỖI: Tìm Tên Loại Linh Kiện đúng cách để hiển thị Form động
     const selectedItemTypeObj = itemTypes.find(t => t._id === formData.item_type);
     const selectedItemTypeName = selectedItemTypeObj ? selectedItemTypeObj.name.toLowerCase() : '';
-    
     const isMainboard = selectedItemTypeName.includes('main');
     const isColorPart = selectedItemTypeName.includes('vỏ') || selectedItemTypeName.includes('kính') || selectedItemTypeName.includes('màn') || selectedItemTypeName.includes('camera') || selectedItemTypeName.includes('khay sim');
 
@@ -164,16 +194,23 @@ export default function AdminItem() {
                     <input 
                         type="text" placeholder="Tìm theo tên, mã Serial..." 
                         value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                     />
                 </div>
-                <select value={filters.item_type} onChange={e => setFilters({...filters, item_type: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none">
+                <select value={filters.item_type} onChange={e => setFilters({...filters, item_type: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Tất cả phân loại</option>
                     {itemTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                 </select>
-                <select value={filters.store} onChange={e => setFilters({...filters, store: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none">
+                {/* LỌC THEO KHO CHUẨN XÁC */}
+                <select value={filters.storeId} onChange={e => setFilters({...filters, storeId: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Tất cả kho / cửa hàng</option>
                     {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                </select>
+                <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="in_stock">Đang tồn kho</option>
+                    <option value="sold">Đã bán</option>
+                    <option value="repairing">Đang lắp ráp</option>
                 </select>
             </div>
 
@@ -189,7 +226,7 @@ export default function AdminItem() {
                                     <th className="px-5 py-4 font-medium uppercase tracking-wider">Linh kiện / Serial</th>
                                     <th className="px-5 py-4 font-medium uppercase tracking-wider">Phân loại & Thuộc tính</th>
                                     <th className="px-5 py-4 font-medium uppercase tracking-wider">Giá vốn / Bán</th>
-                                    <th className="px-5 py-4 font-medium uppercase tracking-wider">Vị trí</th>
+                                    <th className="px-5 py-4 font-medium uppercase tracking-wider">Vị trí kho</th>
                                     <th className="px-5 py-4 font-medium uppercase tracking-wider text-right">Hành động</th>
                                 </tr>
                             </thead>
@@ -222,8 +259,9 @@ export default function AdminItem() {
                                                 <div className="font-bold text-red-600">{formatMoney(item.price)}</div>
                                             </td>
                                             <td className="px-5 py-4">
-                                                {item.store?.name ? (
-                                                    <span className="font-semibold text-blue-700">{item.store.name}</span>
+                                                {/* ĐỌC THẲNG TỪ STOREID DO MONGOOSE TRẢ VỀ */}
+                                                {item.storeId?.name ? (
+                                                    <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">{item.storeId.name}</span>
                                                 ) : (
                                                     <span className="italic text-gray-400">Chưa phân bổ kho</span>
                                                 )}
@@ -265,7 +303,7 @@ export default function AdminItem() {
                                     <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Thông tin cơ bản</h3>
                                     <div>
                                         <label className="block text-sm font-semibold mb-1">Tên linh kiện *</label>
-                                        <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="VD: Pin iPhone 14 Pro" />
+                                        <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold mb-1">Mã Serial *</label>
@@ -279,7 +317,6 @@ export default function AdminItem() {
                                         </select>
                                     </div>
 
-                                    {/* FORM ĐỘNG DÀNH CHO THUỘC TÍNH */}
                                     {(isMainboard || isColorPart) && (
                                         <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 shadow-inner mt-2">
                                             <h4 className="text-xs font-bold text-blue-800 mb-3 uppercase">Thông số kỹ thuật</h4>
@@ -299,19 +336,28 @@ export default function AdminItem() {
                                                 {isColorPart && (
                                                     <div className="col-span-2">
                                                         <label className="block text-xs font-semibold mb-1">Màu sắc</label>
-                                                        <input type="text" value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: Đen Midnight, Trắng Titan..." />
+                                                        <input type="text" value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: Đen Midnight..." />
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     )}
-                                    
-                                    {/* FIX: Đã di chuyển mục Chọn Kho ra ngoài vùng điều kiện, để nó luôn hiển thị */}
+
+                                    {/* MỞ LẠI CHỌN KHO ĐỂ BẠN TEST */}
                                     <div>
                                         <label className="block text-sm font-semibold mb-1">Cửa hàng / Kho chứa</label>
                                         <select value={formData.storeId} onChange={e => setFormData({...formData, storeId: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
                                             <option value="">-- Chưa phân bổ kho --</option>
                                             {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1">Trạng thái</label>
+                                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="in_stock">Trong kho (Sẵn sàng)</option>
+                                            <option value="sold">Đã bán / Đã ráp máy</option>
+                                            <option value="defective">Hàng lỗi</option>
                                         </select>
                                     </div>
                                 </div>
@@ -332,6 +378,10 @@ export default function AdminItem() {
                                             <div>
                                                 <label className="block text-sm font-semibold text-purple-900 mb-1">Bóc từ thiết bị nào?</label>
                                                 <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" placeholder="VD: iPhone 14 Pro vỡ màn" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-purple-900 mb-1">Chất lượng (Ngoại hình)</label>
+                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" placeholder="VD: 98% - Zin nguyên bản" />
                                             </div>
                                         </div>
                                     )}

@@ -5,36 +5,21 @@ const getAllItems = async (req, res) => {
     try {
         const items = await Item.find()
             .populate('item_type', 'name code')
-            .populate('storeId', 'name address');
+            .populate('storeId', 'name location'); // Chú ý: trong file stores.json bạn dùng trường "location" chứ ko phải "address"
         
-        const mappedItems = items.map(item => ({
-            ...item.toObject(),
-            name: item.name || item.serialCode,
-            item_type: item.item_type,
-            store: item.storeId,
-        }));
-
-        console.log(`Fetched ${items.length} items (all items)`);
-
         res.status(200).json({
             success: true,
-            message: "Items retrieved successfully",
-            data: mappedItems,
+            data: items, // Trả về thẳng dữ liệu gốc
         });
     } catch (error) {
-        console.error("Error getting all items:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 // GET /api/items
 const getItemsPaginatedAndSearch = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', sortBy = 'name', sortOrder = 'asc', status = '', item_type = '', store = '' } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy = 'name', sortOrder = 'asc', status = '', item_type = '', storeId = '' } = req.query; // Đổi biến nhận từ Frontend thành storeId
         
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
@@ -42,18 +27,9 @@ const getItemsPaginatedAndSearch = async (req, res) => {
         
         let andConditions = [];
         
-        // SỬA Ở ĐÂY: Chỉ dùng item_type
-        if (item_type) {
-            andConditions.push({ item_type: item_type }); 
-        }
-        
-        if (status) {
-            andConditions.push({ status: status });
-        }
-        if (store) {
-            andConditions.push({ storeId: store });
-        }
-        
+        if (item_type) andConditions.push({ item_type: item_type }); 
+        if (status) andConditions.push({ status: status });
+        if (storeId) andConditions.push({ storeId: storeId }); // Lọc theo storeId
         if (search) {
             andConditions.push({
                 $or: [
@@ -63,133 +39,73 @@ const getItemsPaginatedAndSearch = async (req, res) => {
             });
         }
         
-        // Build final query
         let searchQuery = {};
-        if (andConditions.length === 1) {
-            searchQuery = andConditions[0];
-        } else if (andConditions.length > 1) {
-            searchQuery = { $and: andConditions };
-        }
-        
-        console.log(`Fetching items with query: ${Object.keys(searchQuery).length} filter(s)`);
+        if (andConditions.length === 1) searchQuery = andConditions[0];
+        else if (andConditions.length > 1) searchQuery = { $and: andConditions };
         
         const sortQuery = {};
         sortQuery[sortBy] = sortOrder === 'desc' ? -1 : 1;
         
         const items = await Item
             .find(searchQuery)
-            .populate('item_type', 'name code') // Đã xóa dòng .populate('itemTypeId')
-            .populate('storeId', 'name address')
+            .populate('item_type', 'name code')
+            .populate('storeId', 'name location')
             .sort(sortQuery)
             .skip(skip)
             .limit(limitNum);
         
-        // SỬA Ở ĐÂY: Lấy giá trị từ trường đúng
-        const mappedItems = items.map(item => ({
-            ...item.toObject(),
-            name: item.name || item.serialCode,
-            item_type: item.item_type, 
-            store: item.storeId
-        }));
-        
         const totalCount = await Item.countDocuments(searchQuery);
-        console.log(`Fetched ${items.length} items (total: ${totalCount})`);
-        
         const totalPages = Math.ceil(totalCount / limitNum);
-        const hasNextPage = pageNum < totalPages;
-        const hasPrevPage = pageNum > 1;
         
         res.status(200).json({
             success: true,
-            message: "Items retrieved successfully",
-            data: mappedItems,
+            data: items, // Trả về thẳng dữ liệu gốc
             pagination: {
-                currentPage: pageNum,
-                totalPages,
-                totalCount,
-                limit: limitNum,
-                hasNextPage,
-                hasPrevPage,
-                nextPage: hasNextPage ? pageNum + 1 : null,
-                prevPage: hasPrevPage ? pageNum - 1 : null
+                currentPage: pageNum, totalPages, totalCount, limit: limitNum,
+                hasNextPage: pageNum < totalPages, hasPrevPage: pageNum > 1
             },
-            filters: { search, sortBy, sortOrder, status, item_type, store }
+            filters: { search, sortBy, sortOrder, status, item_type, storeId }
         });
     } catch (error) {
-        console.error("Error getting paginated items:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
+
 // GET /api/items/:id
 const getItemById = async (req, res) => {
     try {
         const { id } = req.params;
+        const item = await Item.findById(id).populate('item_type', 'name code').populate('storeId', 'name location');
+        if (!item) return res.status(404).json({ success: false, message: "Item not found" });
         
-        const item = await Item.findById(id)
-            .populate('item_type', 'name code') // Đã xóa dòng .populate('itemTypeId')
-            .populate('storeId', 'name address');
-        
-        if (!item) {
-            return res.status(404).json({ success: false, message: "Item not found" });
-        }
-        
-        // SỬA Ở ĐÂY
-        const mappedItem = {
-            ...item.toObject(),
-            name: item.name || item.serialCode,
-            item_type: item.item_type,
-            store: item.storeId
-        };
-        
-        console.log(`Fetched item: ${item.serialCode}`);
-
-        res.status(200).json({ success: true, message: "Item retrieved successfully", data: mappedItem });
+        res.status(200).json({ success: true, data: item });
     } catch (error) {
-        console.error("Error getting item by ID:", error);
-        res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
+
 // POST /api/items/create
 const createItem = async (req, res) => {
     try {
         const {
             name, serialCode, status, item_type, storeId,
             origin, sourceDevice, quality, baseCost, price, warrantyPeriod,
-            ram, capacity, color // <-- Bắt thêm 3 biến thể này
+            ram, capacity, color
         } = req.body;
 
         if (!serialCode || !item_type || !name) {
-            return res.status(400).json({
-                success: false,
-                message: "Thiếu các trường bắt buộc: Tên, Serial Code và Loại linh kiện",
-            });
+            return res.status(400).json({ success: false, message: "Thiếu các trường bắt buộc" });
         }
 
         const newItem = new Item({
-            name,
-            serialCode,
-            status: status || "in_stock",
-            item_type,
-            storeId,
-            origin: origin || 'new',
-            sourceDevice,
-            quality,
-            baseCost,
-            price,
-            warrantyPeriod,
-            ram,         
-            capacity,    
-            color       
+            name, serialCode, status: status || "in_stock", item_type,
+            storeId: storeId || null, // Nếu rỗng thì lưu là null
+            origin: origin || 'new', sourceDevice, quality, baseCost, price, warrantyPeriod,
+            ram, capacity, color       
         });
 
         const savedItem = await newItem.save();
-        const populatedItem = await Item.findById(savedItem._id)
-            .populate('item_type', 'name code')
-            .populate('storeId', 'name address');
+        const populatedItem = await Item.findById(savedItem._id).populate('item_type', 'name code').populate('storeId', 'name location');
 
         res.status(201).json({ success: true, data: populatedItem });
     } catch (error) {
@@ -197,62 +113,32 @@ const createItem = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
 // PUT /api/items/update/:id
 const updateItem = async (req, res) => {
     try {
         const { id } = req.params;
-        
         const updateData = { ...req.body };
-        if (updateData.serialCode) {
-            updateData.name = updateData.serialCode;
+        
+        // FIX: Xử lý chuỗi rỗng của storeId để Mongoose không bị lỗi
+        if (updateData.storeId === '') {
+            updateData.storeId = null;
         }
-                const updated = await Item.findByIdAndUpdate(id, updateData, {
+        
+        const updated = await Item.findByIdAndUpdate(id, updateData, {
             new: true,
             runValidators: true,
         }).populate('item_type', 'name code')
-          .populate('phoneModelId', 'name brand compatibleItemTypes')
-          .populate('storeId', 'name address');
-                if (!updated) {
-            return res
-                .status(404)
-                .json({ success: false, message: "Item not found" });
+          .populate('storeId', 'name location');
+          
+        if (!updated) {
+            return res.status(404).json({ success: false, message: "Item not found" });
         }
 
-        const mappedItem = {
-            ...updated.toObject(),
-            name: updated.name || updated.serialCode,
-            item_type: updated.item_type,
-            phoneModelId: updated.phoneModelId,
-            store: updated.storeId
-        };
-
-        res.status(200).json({
-            success: true,
-            message: "Item updated successfully",
-            data: mappedItem,
-        });
+        res.status(200).json({ success: true, message: "Cập nhật thành công", data: updated });
     } catch (error) {
-        console.error("Error updating item:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                success: false,
-                message: "Item with this name and serialCode already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                success: false,
-                message: error.message
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ success: false, message: "Mã Serial Code đã tồn tại" });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -260,35 +146,12 @@ const updateItem = async (req, res) => {
 const deleteItem = async (req, res) => {
     try {
         const { id } = req.params;
-
         const deleted = await Item.findByIdAndDelete(id);
-
-        if (!deleted) {
-            return res
-                .status(404)
-                .json({ success: false, message: "Item not found" });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Item deleted successfully",
-            data: deleted,
-        });
+        if (!deleted) return res.status(404).json({ success: false, message: "Item not found" });
+        res.status(200).json({ success: true, message: "Item deleted successfully", data: deleted });
     } catch (error) {
-        console.error("Error deleting item:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-module.exports = {
-    getAllItems,
-    getItemsPaginatedAndSearch,
-    getItemById,
-    createItem,
-    updateItem,
-    deleteItem
-};
+module.exports = { getAllItems, getItemsPaginatedAndSearch, getItemById, createItem, updateItem, deleteItem };

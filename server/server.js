@@ -27,6 +27,8 @@ const phoneRoute = require("./routes/phoneRoute");
 const recipeRoute = require("./routes/recipeRoute");
 const cartRoute = require("./routes/cartRoute");
 const orderRoute = require("./routes/orderRoute");
+const phoneBrand = require("./routes/phone_brandRoute");
+const review = require("./routes/reviewRoute");
 connectDB();
 
 app.use(
@@ -52,6 +54,8 @@ app.use("/api/phones", phoneRoute);
 app.use("/api/recipes", recipeRoute);
 app.use("/api/cart", cartRoute);
 app.use("/api/orders", orderRoute);
+app.use("/api/phone_brands", phoneBrand);
+app.use("/api/reviews", review);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
