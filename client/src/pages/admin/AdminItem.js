@@ -101,7 +101,7 @@ export default function AdminItem() {
         const allBrands = {};
 
         phoneModels.forEach(model => {
-            const brand = model.brand || 'Unknown Brand';
+            const brand = model.brand?.name || model.brand || 'Unknown Brand';
             if (!allBrands[brand]) {
                 allBrands[brand] = {
                     brandName: brand,
@@ -119,7 +119,7 @@ export default function AdminItem() {
                 (m._id && m._id.toString() === phone.phoneModelId?._id?.toString())
             );
             
-            const brand = model?.brand || phone.phoneModelId?.brand || 'Unknown Brand';
+            const brand = model?.brand?.name || model?.brand || phone.phoneModelId?.brand || 'Unknown Brand';
 
             if (filters.search && !brand.toLowerCase().includes(filters.search.toLowerCase())) {
                 return;
