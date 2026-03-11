@@ -28,7 +28,7 @@ const getTransferRequestDetailsById = async (req, res) => {
         select: "serialCode item_type itemTypeId",
         populate: [
           { path: "item_type", select: "name" },
-          { path: "itemTypeId", select: "name" }
+          // { path: "itemTypeId", select: "name" }
         ]
       });
 
