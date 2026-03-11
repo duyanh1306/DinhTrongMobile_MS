@@ -7,7 +7,8 @@ const phone_modelSchema = new Schema(
         brand: { type: Schema.Types.ObjectId, ref: 'Phone_brand', required: true }, // Mới: Tham chiếu đến Phone_brand
         image: { type: String, default: "" }, 
         condition: { type: Number, default: 1, min: 0, max: 1 },
-        price: { type: Number, default: 0 }, // Mới: Thêm giá mặc định theo DB
+        price: { type: Number, default: 0 }, 
+        tradeInPrice: { type: Number, default: 0 }, 
         specifications: {
             screenSize: { type: String }, screenTechnology: { type: String },
             rearCamera: { type: String }, frontCamera: { type: String },
