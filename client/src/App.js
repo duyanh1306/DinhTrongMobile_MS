@@ -37,6 +37,7 @@ import AssemblePhone from "./pages/technician/AssemblePhone";
 import RepairOrderList from "./pages/technician/RepairOrderList";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
+import TechTradeInList from "./pages/technician/TechTradeInList";
 const CustomerProfile = () => (
   <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -286,7 +287,16 @@ function App() {
             </PrivateRoute>
           }
         />
-
+<Route
+          path="/tech/trade-in-orders"
+          element={
+            <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+              <TechLayout>
+                <TechTradeInList />
+              </TechLayout>
+            </PrivateRoute>
+          }
+        />
         <Route
             path="/tech/assemble"
             element={
