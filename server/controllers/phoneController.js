@@ -47,7 +47,46 @@ const getPhonesPaginatedAndSearch = async (req, res) => {
         res.status(500).json({ success: false, message: "Lỗi Server" });
     }
 };
+const handleTechDecision = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { decision, sellingPrice, capacity, colorName, parts } = req.body;
 
+    const phone = await Phone.findById(id);
+    if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
+
+    if (decision === "SELL") {
+      phone.status = "in_stock";
+      phone.sellingPrice = Number(sellingPrice);
+      phone.capacity = capacity || phone.capacity;
+      phone.colorName = colorName || phone.colorName;
+      await phone.save();
+      return res.status(200).json({ message: "Đã chuyển máy vào kho bán", data: phone });
+    } 
+    
+    if (decision === "DISMANTLE") {
+      phone.status = "defective"; // Đánh dấu máy đã hỏng/rã xác
+      await phone.save();
+
+      if (parts && parts.length > 0) {
+        const itemsToCreate = parts.map((p) => ({
+          item_type: p.itemTypeId,
+          storeId: phone.storeId,
+          serialCode: p.serialCode || `SN-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          baseCost: Number(p.baseCost || 0),
+          price: Number(p.price || 0),
+          status: "in_stock"
+        }));
+        await Item.insertMany(itemsToCreate);
+      }
+      return res.status(200).json({ message: "Đã rã máy và nhập linh kiện vào kho" });
+    }
+
+    res.status(400).json({ message: "Quyết định không hợp lệ" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 // GET /api/phones/all (Lấy tất cả không phân trang - Dùng cho Dropdown nếu cần)
 const getAllPhones = async (req, res) => {
     try {
@@ -267,5 +306,6 @@ module.exports = {
     updatePhone,
     deletePhone,
     createAssembledPhone,
-    getPhonesGroupedByBrand
+    getPhonesGroupedByBrand,
+    handleTechDecision
 };

@@ -10,7 +10,7 @@ const phoneSchema = new Schema(
         storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true }, 
         status: { 
             type: String, 
-            enum: ['in_stock', 'sold', 'repairing', 'defective'], 
+            enum: ['in_stock', 'sold', 'repairing', 'defective','waiting_for_tech_decision'], 
             default: 'in_stock' 
         },
         importPrice: { type: Number, required: true }, 

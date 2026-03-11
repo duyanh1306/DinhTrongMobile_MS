@@ -1,3 +1,4 @@
+// 3. Backend - controllers/purchase_orderController.js
 const mongoose = require("mongoose");
 const Purchase_order = require("../models/Purchase_order");
 const Purchase_order_detail = require("../models/Purchase_order_detail");
@@ -147,7 +148,7 @@ const confirmPayment = async (req, res) => {
 
     for (const detail of details) {
       const isSale = updatedOrder.orderType === "SALE";
-      const newStatus = isSale ? "sold" : "in_stock";
+      const newStatus = isSale ? "sold" : "waiting_for_tech_decision";
 
       if (detail.phoneId) {
         await Phone.findByIdAndUpdate(detail.phoneId, { status: newStatus });
@@ -165,7 +166,7 @@ const confirmPayment = async (req, res) => {
         itemId: detail.itemId || undefined,
         note: isSale
           ? "Xuất bán máy cho khách hàng"
-          : "Nhập hàng từ khách/nhà cung cấp",
+          : "Nhập hàng từ khách/nhà cung cấp chờ Kỹ thuật duyệt",
       };
 
       const newTransaction = new InventoryTransaction(transactionData);
@@ -188,7 +189,7 @@ const confirmPayment = async (req, res) => {
 const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { totalPrice, status, note } = req.body;
+    const { totalPrice, status, note, tempPhoneData } = req.body;
 
     const order = await Purchase_order.findById(id);
     if (!order) {
@@ -219,6 +220,11 @@ const updatePurchaseOrder = async (req, res) => {
       totalPrice !== undefined ? Number(totalPrice) : order.totalPrice;
     order.status = status;
     order.note = note !== undefined ? note : order.note;
+    
+    if (tempPhoneData) {
+        order.tempPhoneData = tempPhoneData;
+    }
+
     await order.save();
 
     if (status === "Pending" || status === "Pending_Payment") {
@@ -233,7 +239,7 @@ const updatePurchaseOrder = async (req, res) => {
           storeId: order.storeId,
           importPrice: Number(totalPrice),
           sellingPrice: 0,
-          status: "in_stock",
+          status: "waiting_for_tech_decision",
           source: "customer_trade_in",
           capacity: "N/A",
           colorName: "Đang cập nhật",
