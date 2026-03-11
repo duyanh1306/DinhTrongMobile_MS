@@ -10,7 +10,6 @@ export default function CustomerLayout({ children }) {
     
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     
-    // State cho tính năng Search chuẩn CellphoneS
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -47,6 +46,7 @@ export default function CustomerLayout({ children }) {
         window.addEventListener('cartUpdated', fetchCartCount);
         return () => window.removeEventListener('cartUpdated', fetchCartCount);
     }, []);
+
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -54,63 +54,62 @@ export default function CustomerLayout({ children }) {
         navigate('/login');
     };
 
-   // Hàm gọi API tìm kiếm khi người dùng gõ phím (Debounce)
-   useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-        if (searchQuery.trim()) {
-            setIsSearching(true);
-            try {
-                // SỬA LỖI: Gọi API public (/all) thay vì API private của Admin
-                const [modelsRes, phonesRes] = await Promise.all([
-                    axiosClient.get('/phone_models/all'),
-                    axiosClient.get('/phones/all')
-                ]);
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (searchQuery.trim()) {
+                setIsSearching(true);
+                try {
+                    const [modelsRes, phonesRes] = await Promise.all([
+                        axiosClient.get('/phone_models/all'),
+                        axiosClient.get('/phones/all')
+                    ]);
 
-                const allModels = modelsRes.data.data || [];
-                const allPhones = phonesRes.data.data || [];
+                    const allModels = modelsRes.data.data || [];
+                    const allPhones = phonesRes.data.data || [];
 
-                // 1. Tự động lọc kết quả chứa từ khóa
-                const keyword = searchQuery.trim().toLowerCase();
-                const filteredModels = allModels.filter(m => 
-                    m.name.toLowerCase().includes(keyword) || 
-                    m.brand.toLowerCase().includes(keyword)
-                ).slice(0, 5); // Chỉ lấy 5 dòng máy gợi ý đầu tiên cho Dropdown đỡ dài
+                    const keyword = searchQuery.trim().toLowerCase();
+                    
+                    // SỬA LỖI Ở ĐÂY: Xử lý an toàn trường hợp m.brand là một Object
+                    const filteredModels = allModels.filter(m => {
+                        const matchName = m.name?.toLowerCase().includes(keyword);
+                        const brandName = m.brand?.name || m.brand || "";
+                        const matchBrand = brandName.toString().toLowerCase().includes(keyword);
+                        return matchName || matchBrand;
+                    }).slice(0, 5);
 
-                if (filteredModels.length > 0) {
-                    // 2. Đối chiếu kho để lấy giá rẻ nhất
-                    const combinedResults = filteredModels.map(model => {
-                        const availablePhones = allPhones.filter(p => 
-                            (p.phoneModelId?._id === model._id || p.phoneModelId === model._id) && 
-                            p.status === 'in_stock'
-                        );
+                    if (filteredModels.length > 0) {
+                        const combinedResults = filteredModels.map(model => {
+                            const availablePhones = allPhones.filter(p => 
+                                (p.phoneModelId?._id === model._id || p.phoneModelId === model._id) && 
+                                p.status === 'in_stock'
+                            );
 
-                        let lowestPrice = 0;
-                        if (availablePhones.length > 0) {
-                            lowestPrice = Math.min(...availablePhones.map(p => p.sellingPrice || (p.importPrice * 1.15)));
-                        }
+                            let lowestPrice = 0;
+                            if (availablePhones.length > 0) {
+                                lowestPrice = Math.min(...availablePhones.map(p => p.sellingPrice || (p.importPrice * 1.15)));
+                            }
 
-                        return { ...model, price: lowestPrice };
-                    });
-                    setSearchResults(combinedResults);
-                } else {
-                    setSearchResults([]);
+                            return { ...model, price: lowestPrice };
+                        });
+                        setSearchResults(combinedResults);
+                    } else {
+                        setSearchResults([]);
+                    }
+                    setShowSuggestions(true);
+                } catch (error) {
+                    console.error("Lỗi tìm kiếm:", error);
+                } finally {
+                    setIsSearching(false);
                 }
-                setShowSuggestions(true);
-            } catch (error) {
-                console.error("Lỗi tìm kiếm:", error);
-            } finally {
-                setIsSearching(false);
+            } else {
+                setSearchResults([]);
+                setShowSuggestions(false);
             }
-        } else {
-            setSearchResults([]);
-            setShowSuggestions(false);
-        }
-    }, 500);
+        }, 500);
 
-    return () => clearTimeout(delayDebounceFn);
-}, [searchQuery]);
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery]);
 
-    // Đóng popup tìm kiếm khi click ra ngoài
     useEffect(() => {
         function handleClickOutside(event) {
             if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -121,7 +120,6 @@ export default function CustomerLayout({ children }) {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [searchRef]);
 
-    // Xử lý khi bấm phím Enter hoặc nút Kính lúp
     const handleSearchSubmit = (e) => {
         e.preventDefault();
         if (searchQuery.trim()) {
@@ -132,12 +130,9 @@ export default function CustomerLayout({ children }) {
 
     return (
         <div className="bg-gray-50 min-h-screen flex flex-col">
-            
-            {/* ================= NAVBAR TMĐT CHUẨN CELLPHONES ================= */}
             <nav className="bg-[#007bff] text-white p-3 md:p-4 sticky top-0 z-50 shadow-md">
                 <div className="container mx-auto max-w-7xl flex flex-wrap justify-between items-center gap-4">
                     
-                    {/* 1. Logo */}
                     <Link to="/home" className="text-2xl font-bold tracking-wide flex-shrink-0">
                         DinhTrongMobile
                     </Link>
@@ -149,7 +144,6 @@ export default function CustomerLayout({ children }) {
                         <span>Xây dựng cấu hình</span>
                     </Link>
                     
-                    {/* 2. Thanh Tìm Kiếm Cực Xịn (Trung tâm) */}
                     <div className="flex-1 max-w-2xl hidden md:block mx-4 relative" ref={searchRef}>
                         <form onSubmit={handleSearchSubmit} className="relative w-full">
                             <input 
@@ -171,7 +165,6 @@ export default function CustomerLayout({ children }) {
                             </button>
                         </form>
 
-                        {/* Bảng Dropdown Gợi ý tìm kiếm */}
                         {showSuggestions && searchQuery.trim() !== "" && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
                                 {isSearching ? (
@@ -198,7 +191,7 @@ export default function CustomerLayout({ children }) {
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-semibold text-gray-800 line-clamp-1">{product.name}</span>
                                                     <span className="text-xs text-red-600 font-bold mt-0.5">
-                                                        {product.price ? product.price.toLocaleString() + '₫' : 'Liên hệ để biết giá'}
+                                                        {product.price ? product.price.toLocaleString() + '₫' : 'Đang cập nhật'}
                                                     </span>
                                                 </div>
                                             </Link>
@@ -219,10 +212,7 @@ export default function CustomerLayout({ children }) {
                         )}
                     </div>
 
-                    {/* 3. Cột phải: Menu User */}
                     <div className="flex-shrink-0 flex justify-end items-center gap-2 md:gap-4">
-                        
-                        {/* NÚT GIỎ HÀNG THÊM VÀO ĐÂY */}
                         <Link to="/cart" className="relative flex items-center justify-center p-2 text-white hover:bg-blue-700 rounded-lg transition mr-2">
                             <ShoppingCart size={24} />
                             {cartCount > 0 && (
@@ -285,7 +275,6 @@ export default function CustomerLayout({ children }) {
                         )}
                     </div>
 
-                    {/* Thanh tìm kiếm trên Mobile (Sẽ hiển thị dưới cùng khi ở màn hình nhỏ) */}
                     <div className="w-full md:hidden mt-2">
                         <form onSubmit={handleSearchSubmit} className="relative w-full">
                             <input 
@@ -304,7 +293,6 @@ export default function CustomerLayout({ children }) {
                 </div>
             </nav>
 
-            {/* ================= KHU VỰC NỘI DUNG CHÍNH (HOME) ================= */}
             <main className="flex-1 w-full max-w-7xl mx-auto py-6 md:py-8 px-4">
                 {children}
             </main>

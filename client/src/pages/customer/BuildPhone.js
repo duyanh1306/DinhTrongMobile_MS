@@ -22,6 +22,10 @@ export default function BuildPhone() {
     // State Bộ lọc trong Modal
     const [modalSearch, setModalSearch] = useState("");
     const [modalPriceFilter, setModalPriceFilter] = useState(""); // "under1", "1to3", "over3"...
+    const [modalCapacityFilter, setModalCapacityFilter] = useState("");
+    const [modalRamFilter, setModalRamFilter] = useState("");
+    const [modalColorFilter, setModalColorFilter] = useState("");
+    
     const [modalPage, setModalPage] = useState(1);
     const itemsPerPage = 5;
 
@@ -44,7 +48,6 @@ export default function BuildPhone() {
         fetchBuildData();
     }, []);
 
-    // Xử lý logic chọn Recipe
     const handleRecipeChange = (e) => {
         setSelectedRecipe(e.target.value);
         setSelectedParts({}); 
@@ -52,16 +55,18 @@ export default function BuildPhone() {
 
     const activeRecipe = recipes.find(r => r._id === selectedRecipe);
 
-    // Mở Modal chọn linh kiện
+    // Mở Modal chọn linh kiện và Reset bộ lọc
     const openSelectionModal = (typeId, typeName) => {
         setCurrentPartType({ id: typeId, name: typeName });
         setModalSearch("");
         setModalPriceFilter("");
+        setModalCapacityFilter("");
+        setModalRamFilter("");
+        setModalColorFilter("");
         setModalPage(1);
         setIsModalOpen(true);
     };
 
-    // Chọn linh kiện từ Modal
     const handleSelectItem = (item) => {
         setSelectedParts(prev => ({
             ...prev,
@@ -70,7 +75,6 @@ export default function BuildPhone() {
         setIsModalOpen(false);
     };
 
-    // Bỏ chọn linh kiện
     const handleRemoveItem = (typeId) => {
         setSelectedParts(prev => {
             const newState = { ...prev };
@@ -78,6 +82,25 @@ export default function BuildPhone() {
             return newState;
         });
     };
+
+    // --- TỰ ĐỘNG TRÍCH XUẤT CÁC THUỘC TÍNH CÓ SẴN CỦA LOẠI LINH KIỆN ĐANG XEM ---
+    const availableCapacities = useMemo(() => {
+        if (!currentPartType) return [];
+        const itemsOfType = allItems.filter(i => (i.item_type?._id || i.item_type) === currentPartType.id);
+        return [...new Set(itemsOfType.map(i => i.capacity).filter(Boolean))];
+    }, [currentPartType, allItems]);
+
+    const availableRams = useMemo(() => {
+        if (!currentPartType) return [];
+        const itemsOfType = allItems.filter(i => (i.item_type?._id || i.item_type) === currentPartType.id);
+        return [...new Set(itemsOfType.map(i => i.ram).filter(Boolean))];
+    }, [currentPartType, allItems]);
+
+    const availableColors = useMemo(() => {
+        if (!currentPartType) return [];
+        const itemsOfType = allItems.filter(i => (i.item_type?._id || i.item_type) === currentPartType.id);
+        return [...new Set(itemsOfType.map(i => i.color).filter(Boolean))];
+    }, [currentPartType, allItems]);
 
     // --- LOGIC LỌC DỮ LIỆU TRONG MODAL ---
     const modalFilteredItems = useMemo(() => {
@@ -94,14 +117,53 @@ export default function BuildPhone() {
             else if (modalPriceFilter === 'over3') filtered = filtered.filter(i => i.price > 3000000);
         }
 
+        if (modalCapacityFilter) {
+            filtered = filtered.filter(i => i.capacity === modalCapacityFilter);
+        }
+
+        if (modalRamFilter) {
+            filtered = filtered.filter(i => i.ram === modalRamFilter);
+        }
+
+        if (modalColorFilter) {
+            filtered = filtered.filter(i => i.color === modalColorFilter);
+        }
+
         return filtered;
-    }, [currentPartType, allItems, modalSearch, modalPriceFilter]);
+    }, [currentPartType, allItems, modalSearch, modalPriceFilter, modalCapacityFilter, modalRamFilter, modalColorFilter]);
 
     // Phân trang Modal
     const modalTotalPages = Math.ceil(modalFilteredItems.length / itemsPerPage);
     const modalCurrentItems = modalFilteredItems.slice((modalPage - 1) * itemsPerPage, modalPage * itemsPerPage);
 
-    // Tính tổng tiền
+    // Hàm tạo dải số trang (VD: 1 2 3 ... 10)
+    const getPaginationRange = (currentPage, totalPages) => {
+        const delta = 1; // Số trang hiển thị bên cạnh trang hiện tại
+        const range = [];
+        const rangeWithDots = [];
+        let l;
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+                range.push(i);
+            }
+        }
+
+        for (let i of range) {
+            if (l) {
+                if (i - l === 2) {
+                    rangeWithDots.push(l + 1);
+                } else if (i - l !== 1) {
+                    rangeWithDots.push('...');
+                }
+            }
+            rangeWithDots.push(i);
+            l = i;
+        }
+
+        return rangeWithDots;
+    };
+
     const totalPrice = Object.values(selectedParts).reduce((sum, item) => sum + (item.price || 0), 0);
 
     const isReadyToBuild = activeRecipe?.requiredParts?.every(part => {
@@ -174,7 +236,10 @@ export default function BuildPhone() {
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 {activeRecipe.requiredParts.map((part, index) => {
                                     const typeId = part.itemTypeId?._id || part.itemTypeId;
-                                    const partName = part.itemTypeId?.name || part.name;
+                                    
+                                    // SỬA Ở ĐÂY: Ưu tiên part.name (tên ngắn gọn trong recipe) thay vì itemTypeId.name (tên dài)
+                                    const partName = part.name || part.itemTypeId?.name || "Linh kiện";
+                                    
                                     const selectedItem = selectedParts[typeId];
 
                                     return (
@@ -189,12 +254,19 @@ export default function BuildPhone() {
                                                 {selectedItem ? (
                                                     <div className="flex items-center justify-between bg-blue-50/50 border border-blue-100 rounded-lg p-3">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 bg-white rounded border flex items-center justify-center overflow-hidden">
+                                                            <div className="w-12 h-12 bg-white rounded border flex items-center justify-center overflow-hidden flex-shrink-0">
                                                                 <img src={getImageUrl(selectedItem.item_type?.image)} alt="" className="max-w-full max-h-full object-contain p-1" />
                                                             </div>
                                                             <div>
-                                                                <p className="font-bold text-gray-800 text-sm">{selectedItem.name}</p>
-                                                                <p className="text-xs text-gray-500">Mã: {selectedItem.serialCode} | {selectedItem.origin === 'new' ? 'Hàng mới' : 'Bóc máy'}</p>
+                                                                <p className="font-bold text-gray-800 text-sm">
+                                                                    {selectedItem.name}
+                                                                    {selectedItem.capacity && ` - ${selectedItem.capacity}`}
+                                                                    {selectedItem.ram && ` - ${selectedItem.ram}`}
+                                                                    {selectedItem.color && ` - ${selectedItem.color}`}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 mt-1">
+                                                                    Mã: {selectedItem.serialCode} | {selectedItem.origin === 'new' ? 'Hàng mới' : 'Bóc máy'} | BH: {selectedItem.warrantyPeriod} tháng
+                                                                </p>
                                                                 <p className="font-bold text-red-600 text-sm mt-0.5">{selectedItem.price.toLocaleString()} đ</p>
                                                             </div>
                                                         </div>
@@ -268,8 +340,8 @@ export default function BuildPhone() {
                         {/* Body Modal */}
                         <div className="flex flex-1 overflow-hidden">
                             {/* Cột Lọc (Bên trái) */}
-                            <div className="w-64 bg-gray-50 border-r border-gray-200 p-5 overflow-y-auto hidden md:block flex-shrink-0">
-                                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Filter size={18}/> Lọc sản phẩm theo</h3>
+                            <div className="w-64 bg-gray-50 border-r border-gray-200 p-5 overflow-y-auto hidden md:block flex-shrink-0 custom-scrollbar">
+                                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Filter size={18}/> Lọc sản phẩm</h3>
                                 
                                 <div className="mb-6">
                                     <h4 className="text-sm font-semibold text-gray-700 mb-3">Khoảng giá</h4>
@@ -280,6 +352,57 @@ export default function BuildPhone() {
                                         <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600"><input type="radio" name="price" checked={modalPriceFilter === 'over3'} onChange={() => setModalPriceFilter('over3')} className="accent-blue-600"/> Trên 3 triệu</label>
                                     </div>
                                 </div>
+
+                                {/* BỘ LỌC DUNG LƯỢNG (ROM) TỰ ĐỘNG HIỂN THỊ */}
+                                {availableCapacities.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Dung lượng (ROM)</h4>
+                                        <div className="space-y-2 text-sm text-gray-600">
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                                                <input type="radio" name="capacity" checked={modalCapacityFilter === ''} onChange={() => setModalCapacityFilter('')} className="accent-blue-600"/> Tất cả
+                                            </label>
+                                            {availableCapacities.map(cap => (
+                                                <label key={cap} className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                                                    <input type="radio" name="capacity" checked={modalCapacityFilter === cap} onChange={() => setModalCapacityFilter(cap)} className="accent-blue-600"/> {cap}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* BỘ LỌC RAM TỰ ĐỘNG HIỂN THỊ */}
+                                {availableRams.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Dung lượng RAM</h4>
+                                        <div className="space-y-2 text-sm text-gray-600">
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                                                <input type="radio" name="ram" checked={modalRamFilter === ''} onChange={() => setModalRamFilter('')} className="accent-blue-600"/> Tất cả
+                                            </label>
+                                            {availableRams.map(ram => (
+                                                <label key={ram} className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                                                    <input type="radio" name="ram" checked={modalRamFilter === ram} onChange={() => setModalRamFilter(ram)} className="accent-blue-600"/> {ram}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* BỘ LỌC MÀU SẮC TỰ ĐỘNG HIỂN THỊ */}
+                                {availableColors.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Màu sắc</h4>
+                                        <div className="space-y-2 text-sm text-gray-600">
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                                                <input type="radio" name="color" checked={modalColorFilter === ''} onChange={() => setModalColorFilter('')} className="accent-blue-600"/> Tất cả
+                                            </label>
+                                            {availableColors.map(color => (
+                                                <label key={color} className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                                                    <input type="radio" name="color" checked={modalColorFilter === color} onChange={() => setModalColorFilter(color)} className="accent-blue-600"/> {color}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Cột Danh sách (Bên phải) */}
@@ -297,11 +420,35 @@ export default function BuildPhone() {
                                     
                                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between sm:justify-end">
                                         <span className="text-gray-500">Tìm thấy <strong className="text-gray-800">{modalFilteredItems.length}</strong> sản phẩm</span>
+                                        
+                                        {/* GIAO DIỆN PHÂN TRANG */}
                                         {modalTotalPages > 1 && (
-                                            <div className="flex bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                                                <button disabled={modalPage === 1} onClick={() => setModalPage(p => p - 1)} className="px-3 py-1.5 hover:bg-gray-200 disabled:opacity-50">&lt;</button>
-                                                <span className="px-4 py-1.5 bg-white font-bold text-blue-600">{modalPage}</span>
-                                                <button disabled={modalPage === modalTotalPages} onClick={() => setModalPage(p => p + 1)} className="px-3 py-1.5 hover:bg-gray-200 disabled:opacity-50">&gt;</button>
+                                            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
+                                                <button disabled={modalPage === 1} onClick={() => setModalPage(p => p - 1)} className="px-2 py-1 hover:bg-gray-200 disabled:opacity-50 rounded text-gray-600 transition">
+                                                    &lt;
+                                                </button>
+                                                
+                                                {getPaginationRange(modalPage, modalTotalPages).map((pageNum, idx) => (
+                                                    pageNum === '...' ? (
+                                                        <span key={idx} className="px-2 text-gray-500">...</span>
+                                                    ) : (
+                                                        <button 
+                                                            key={idx} 
+                                                            onClick={() => setModalPage(pageNum)}
+                                                            className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                                                                modalPage === pageNum 
+                                                                    ? 'bg-blue-600 text-white shadow-md' 
+                                                                    : 'text-gray-700 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            {pageNum}
+                                                        </button>
+                                                    )
+                                                ))}
+
+                                                <button disabled={modalPage === modalTotalPages} onClick={() => setModalPage(p => p + 1)} className="px-2 py-1 hover:bg-gray-200 disabled:opacity-50 rounded text-gray-600 transition">
+                                                    &gt;
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -320,9 +467,16 @@ export default function BuildPhone() {
                                                             <img src={getImageUrl(item.item_type?.image)} alt="" className="max-w-full max-h-full object-contain p-1 mix-blend-multiply" />
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-bold text-gray-800 text-sm md:text-base group-hover:text-blue-700 transition">{item.name}</h4>
-                                                            <p className="text-xs text-gray-500 mt-1">Mã SP: {item.serialCode} | Tình trạng: <span className="text-green-600 font-semibold">{item.origin === 'new' ? 'Mới' : 'Bóc máy'}</span></p>
-                                                            <p className="text-xs text-gray-500 mt-0.5">Bảo hành: {item.warrantyPeriod} Tháng</p>
+                                                            <h4 className="font-bold text-gray-800 text-sm md:text-base group-hover:text-blue-700 transition">
+                                                                {item.name}
+                                                                {item.capacity && ` - ${item.capacity}`}
+                                                                {item.ram && ` - ${item.ram}`}
+                                                                {item.color && ` - ${item.color}`}
+                                                            </h4>
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Mã SP: {item.serialCode} | Tình trạng: <span className="text-green-600 font-semibold">{item.origin === 'new' ? 'Mới' : 'Bóc máy'}</span>
+                                                            </p>
+                                                            <p className="text-xs text-blue-600 font-medium mt-0.5">Bảo hành: {item.warrantyPeriod} tháng</p>
                                                             <div className="font-bold text-red-600 mt-1 text-sm md:text-base">{item.price.toLocaleString()} đ</div>
                                                         </div>
                                                     </div>

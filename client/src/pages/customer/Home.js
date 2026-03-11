@@ -22,23 +22,33 @@ export default function Home() {
         const phones = phonesRes.data.data || [];
 
         const combinedData = phoneModels.map(model => {
-          // Lọc ra các máy vật lý (phones) có sẵn trong kho thuộc dòng model này
-          const availablePhones = phones.filter(p => 
-            (p.phoneModelId?._id === model._id || p.phoneModelId === model._id) && 
-            p.status === 'in_stock'
+          const allModelPhones = phones.filter(p => 
+            (p.phoneModelId?._id === model._id || p.phoneModelId === model._id)
           );
+          
+          const availablePhones = allModelPhones.filter(p => p.status === 'in_stock');
 
-          // Tính giá rẻ nhất
-          let startingPrice = 0;
-          if (availablePhones.length > 0) {
-            const prices = availablePhones.map(p => 
-              p.sellingPrice ? p.sellingPrice : (p.importPrice * 1.15)
-            );
-            startingPrice = Math.min(...prices);
+          // CƠ CHẾ LẤY GIÁ MỚI: Chống lỗi NaN và lấy giá dự phòng từ Model
+          let startingPrice = Number(model.price) || Number(model.sellingPrice) || 0;
+          
+          if (allModelPhones.length > 0) {
+            const validPrices = allModelPhones
+              .map(p => {
+                const sp = Number(p.sellingPrice);
+                if (sp > 0) return sp;
+                const ip = Number(p.importPrice);
+                if (ip > 0) return ip * 1.15;
+                return 0;
+              })
+              .filter(price => !isNaN(price) && price > 0);
+              
+            if (validPrices.length > 0) {
+              startingPrice = Math.min(...validPrices);
+            }
           }
 
           return {
-            ...model, // Gộp cả model.image vào đây
+            ...model,
             price: startingPrice,
             stockCount: availablePhones.length
           };
@@ -61,12 +71,11 @@ export default function Home() {
   }, []);
 
   const ProductCard = ({ product, isUsed }) => {
-    // Nếu sản phẩm ko có ảnh trong DB thì mới dùng ảnh mặc định
     const defaultImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png";
 
     const displayPrice = product.price > 0 
         ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price) 
-        : "Liên hệ";
+        : "Đang cập nhật";
     
     const specs = product.specifications || {};
 
@@ -80,17 +89,18 @@ export default function Home() {
           <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>
         )}
 
-        {/* ẢNH LẤY TỪ DB MODEL */}
-        <div className={`overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2 ${product.stockCount === 0 ? 'opacity-50 grayscale-[50%]' : ''}`}>
+        <Link to={`/product/${product._id}`} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
           <img 
             src={product.image || defaultImage} 
             alt={product.name} 
             className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" 
           />
-        </div>
+        </Link>
 
         <div className="flex-1 flex flex-col">
-          <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">{product.name}</h4>
+          <Link to={`/product/${product._id}`}>
+            <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">{product.name}</h4>
+          </Link>
           <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
 
           <div className="flex flex-wrap gap-2 mt-auto mb-4">
@@ -98,17 +108,6 @@ export default function Home() {
             <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><HardDrive size={12} className="text-gray-400" /> {specs.internalStorage || "N/A"}</div>
             <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md w-full truncate"><Cpu size={12} className="text-gray-400" /> <span className="truncate">{specs.chipset || "N/A"}</span></div>
           </div>
-
-          <Link 
-            to={`/product/${product._id}`} 
-            className={`mt-auto w-full text-center py-2.5 rounded-lg font-semibold transition-colors ${
-              product.stockCount > 0 
-                ? "bg-[#f0f7ff] text-[#007bff] border border-[#cce5ff] hover:bg-[#007bff] hover:text-white" 
-                : "bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none"
-            }`}
-          >
-            {product.stockCount > 0 ? "Xem chi tiết" : "Hết hàng"}
-          </Link>
         </div>
       </div>
     );

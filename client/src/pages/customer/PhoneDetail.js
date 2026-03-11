@@ -7,13 +7,12 @@ import { toast } from "react-toastify";
 import ReviewSection from '../../pages/customer/ReviewSection';
 
 export default function PhoneDetail() {
-    const { id } = useParams(); // Lấy ID của dòng máy từ thanh URL
+    const { id } = useParams();
     const navigate = useNavigate();
 
     const [model, setModel] = useState(null);
     const [availablePhones, setAvailablePhones] = useState([]);
     
-    // States quản lý thao tác của khách hàng
     const [selectedCapacity, setSelectedCapacity] = useState("");
     const [selectedColor, setSelectedColor] = useState("");
     const [currentPrice, setCurrentPrice] = useState(0);
@@ -40,29 +39,23 @@ export default function PhoneDetail() {
                 }
                 setModel(currentModel);
 
-                // --- LOGIC LỌC TRÙNG & ƯU TIÊN MÁY NHIỀU ẢNH ---
-                const phonesInStock = allPhones.filter(p => 
-                    (p.phoneModelId?._id === id || p.phoneModelId === id) && 
-                    p.status === 'in_stock'
+                // Lấy toàn bộ máy của model này (không phân biệt còn hàng hay hết hàng)
+                const modelPhones = allPhones.filter(p => 
+                    (p.phoneModelId?._id === id || p.phoneModelId === id)
                 );
 
-                // Dùng Object để nhóm: Key sẽ là "Dung lượng-Màu sắc" (VD: "128GB-Tím")
                 const groupedMap = {};
 
-                phonesInStock.forEach(phone => {
+                modelPhones.forEach(phone => {
                     const key = `${phone.capacity}-${phone.colorName}`;
-                    
-                    // Nếu chưa có trong map HOẶC máy hiện tại có nhiều ảnh hơn máy đã lưu trong map
                     if (!groupedMap[key] || (phone.specificImages?.length > groupedMap[key].specificImages?.length)) {
                         groupedMap[key] = phone;
                     }
                 });
 
-                // Chuyển kết quả từ Object Map quay lại thành Mảng
                 const finalAvailablePhones = Object.values(groupedMap);
                 setAvailablePhones(finalAvailablePhones);
 
-                // Tự động chọn cấu hình đại diện (Ưu tiên giá thấp nhất trong danh sách đã lọc)
                 if (finalAvailablePhones.length > 0) {
                     const lowestPricePhone = finalAvailablePhones.reduce((prev, curr) => {
                         const prevPrice = prev.sellingPrice || (prev.importPrice * 1.15);
@@ -73,7 +66,6 @@ export default function PhoneDetail() {
                     setSelectedCapacity(lowestPricePhone.capacity);
                     setSelectedColor(lowestPricePhone.colorName);
                     
-                    // Cập nhật ảnh hiển thị ban đầu
                     if (lowestPricePhone.specificImages && lowestPricePhone.specificImages.length > 0) {
                         setDisplayImage(lowestPricePhone.specificImages[0]);
                     } else {
@@ -91,7 +83,6 @@ export default function PhoneDetail() {
         fetchProductData();
     }, [id, navigate]);
 
-    // Lắng nghe sự kiện: Mỗi khi khách đổi Dung lượng hoặc Màu -> Tính lại giá ngay lập tức
     useEffect(() => {
         if (availablePhones.length > 0 && selectedCapacity && selectedColor) {
             const matchedPhone = availablePhones.find(p => p.capacity === selectedCapacity && p.colorName === selectedColor);
@@ -105,76 +96,76 @@ export default function PhoneDetail() {
                 } else if (model?.image) {
                     setDisplayImage(model.image);
                 }
-            } else {
-                setCurrentPrice(0); // Báo hiệu tuỳ chọn này đang tạm hết hàng
             }
         }
     }, [selectedCapacity, selectedColor, availablePhones, model]);
 
-    // Trích xuất tự động các nút bấm Dung Lượng và Màu Sắc từ kho
     const uniqueCapacities = [...new Set(availablePhones.map(p => p.capacity))].filter(Boolean);
     const availableColorsForCapacity = availablePhones
         .filter(p => p.capacity === selectedCapacity)
         .map(p => p.colorName)
         .filter((value, index, self) => self.indexOf(value) === index);
-        const selectedPhone = availablePhones.find(
-            p => p.capacity === selectedCapacity && p.colorName === selectedColor
-        );
-        const images = selectedPhone?.specificImages || [];
-        
-        // Hàm chuyển ảnh sang phải
-        const nextImage = () => {
-            if (images.length === 0) return;
-            const currentIndex = images.indexOf(displayImage);
-            const nextIndex = (currentIndex + 1) % images.length;
-            setDisplayImage(images[nextIndex]);
+    
+    const selectedPhone = availablePhones.find(
+        p => p.capacity === selectedCapacity && p.colorName === selectedColor
+    );
+    const images = selectedPhone?.specificImages || [];
+    
+    // Nếu status không phải là in_stock thì coi như hết hàng
+    const isOutOfStock = !selectedPhone || selectedPhone.status !== 'in_stock';
+    
+    const nextImage = () => {
+        if (images.length === 0) return;
+        const currentIndex = images.indexOf(displayImage);
+        const nextIndex = (currentIndex + 1) % images.length;
+        setDisplayImage(images[nextIndex]);
+    };
+    
+    const prevImage = () => {
+        if (images.length === 0) return;
+        const currentIndex = images.indexOf(displayImage);
+        const prevIndex = (currentIndex - 1 + images.length) % images.length;
+        setDisplayImage(images[prevIndex]);
+    };
+
+    const handleAddToCart = async () => {
+        if (isOutOfStock) return;
+
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            toast.warning("Vui lòng đăng nhập để mua hàng!");
+            navigate('/login');
+            return;
+        }
+
+        const currentUserId = user._id || user.id;
+
+        const newItem = {
+            productType: 'PHONE',
+            phoneModelId: model._id,
+            name: model.name,
+            capacity: selectedCapacity,
+            colorName: selectedColor,
+            price: currentPrice,
+            image: displayImage,
+            quantity: 1
         };
-        
-        // Hàm chuyển ảnh sang trái
-        const prevImage = () => {
-            if (images.length === 0) return;
-            const currentIndex = images.indexOf(displayImage);
-            const prevIndex = (currentIndex - 1 + images.length) % images.length;
-            setDisplayImage(images[prevIndex]);
-        };
-        const handleAddToCart = async () => {
-            if (isOutOfStock) return;
-    
-            const user = JSON.parse(localStorage.getItem('user'));
-            if (!user) {
-                toast.warning("Vui lòng đăng nhập để mua hàng!");
-                navigate('/login');
-                return;
-            }
-    
-            // SỬA DÒNG NÀY: Lấy ID an toàn
-            const currentUserId = user._id || user.id;
-    
-            const newItem = {
-                productType: 'PHONE',
-                phoneModelId: model._id,
-                name: model.name,
-                capacity: selectedCapacity,
-                colorName: selectedColor,
-                price: currentPrice,
-                image: displayImage,
-                quantity: 1
-            };
-    
-            try {
-                await axiosClient.post('/cart/add', {
-                    userId: currentUserId, // Truyền ID chuẩn
-                    item: newItem
-                });
-                
-                window.dispatchEvent(new Event('cartUpdated')); 
-                toast.success("Đã thêm sản phẩm vào giỏ hàng!");
-                
-            } catch (error) {
-                console.error(error);
-                toast.error("Lỗi khi thêm vào giỏ hàng.");
-            }
-        };
+
+        try {
+            await axiosClient.post('/cart/add', {
+                userId: currentUserId,
+                item: newItem
+            });
+            
+            window.dispatchEvent(new Event('cartUpdated')); 
+            toast.success("Đã thêm sản phẩm vào giỏ hàng!");
+            
+        } catch (error) {
+            console.error(error);
+            toast.error("Lỗi khi thêm vào giỏ hàng.");
+        }
+    };
+
     if (loading) {
         return (
             <CustomerLayout>
@@ -188,13 +179,10 @@ export default function PhoneDetail() {
     if (!model) return null;
 
     const specs = model.specifications || {};
-    const isOutOfStock = currentPrice === 0 || availablePhones.length === 0;
 
     return (
         <CustomerLayout>
             <div className="max-w-6xl mx-auto py-8 px-4">
-                
-                {/* THANH ĐIỀU HƯỚNG (BREADCRUMB) */}
                 <div className="text-sm text-gray-500 mb-6">
                     <span className="hover:text-blue-600 cursor-pointer transition" onClick={() => navigate('/home')}>Trang chủ</span> 
                     <span className="mx-2">/</span> 
@@ -203,64 +191,30 @@ export default function PhoneDetail() {
                     <span className="text-gray-800 font-semibold">{model.name}</span>
                 </div>
 
-                {/* KHUNG THÔNG TIN CHÍNH */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 flex flex-col md:flex-row gap-10">
-                    
-                    {/* BÊN TRÁI: ẢNH SẢN PHẨM */}
-                        <div className="md:w-5/12 flex flex-col items-center">
-                            <div className="group w-full h-96 border border-gray-100 rounded-2xl p-4 flex items-center justify-center relative bg-gray-50 overflow-hidden">
-                                
-                                {/* Nút mũi tên TRÁI */}
-                                {images.length > 1 && (
-                                    <button 
-                                        onClick={prevImage}
-                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-600 hover:text-white p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                        <ChevronLeft size={24} />
-                                    </button>
-                                )}
+                    <div className="md:w-5/12 flex flex-col items-center">
+                        <div className="group w-full h-96 border border-gray-100 rounded-2xl p-4 flex items-center justify-center relative bg-gray-50 overflow-hidden">
+                            {images.length > 1 && (
+                                <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-600 hover:text-white p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100"><ChevronLeft size={24} /></button>
+                            )}
 
-                                <img 
-                                    src={displayImage || "https://via.placeholder.com/400?text=No+Image"} 
-                                    alt={model.name} 
-                                    className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-300"
-                                />
+                            <img src={displayImage || "https://via.placeholder.com/400?text=No+Image"} alt={model.name} className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-300"/>
 
-                                {/* Nút mũi tên PHẢI */}
-                                {images.length > 1 && (
-                                    <button 
-                                        onClick={nextImage}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-600 hover:text-white p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                        <ChevronRight size={24} />
-                                    </button>
-                                )}
-
-                                {/* Chỉ số ảnh (VD: 1/3) */}
-                                {images.length > 1 && (
-                                    <div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded-lg">
-                                        {images.indexOf(displayImage) + 1} / {images.length}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* List ảnh nhỏ bên dưới (Thumbnail) */}
-                            <div className="flex gap-3 mt-4 w-full overflow-x-auto pb-2 scrollbar-hide">
-                                {images.map((img, idx) => (
-                                    <div 
-                                        key={idx} 
-                                        onClick={() => setDisplayImage(img)} 
-                                        className={`flex-shrink-0 w-16 h-16 border-2 rounded-lg p-1 cursor-pointer transition-all ${
-                                            displayImage === img ? 'border-blue-600 scale-105 shadow-sm' : 'border-gray-100 hover:border-blue-300'
-                                        }`}
-                                    >
-                                        <img src={img} className="w-full h-full object-cover rounded" alt={`specific-${idx}`} />
-                                    </div>
-                                ))}
-                            </div>
+                            {images.length > 1 && (
+                                <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-600 hover:text-white p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100"><ChevronRight size={24} /></button>
+                            )}
+                            {images.length > 1 && (<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded-lg">{images.indexOf(displayImage) + 1} / {images.length}</div>)}
                         </div>
+                        
+                        <div className="flex gap-3 mt-4 w-full overflow-x-auto pb-2 scrollbar-hide">
+                            {images.map((img, idx) => (
+                                <div key={idx} onClick={() => setDisplayImage(img)} className={`flex-shrink-0 w-16 h-16 border-2 rounded-lg p-1 cursor-pointer transition-all ${displayImage === img ? 'border-blue-600 scale-105 shadow-sm' : 'border-gray-100 hover:border-blue-300'}`}>
+                                    <img src={img} className="w-full h-full object-cover rounded" alt={`specific-${idx}`} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
-                    {/* BÊN PHẢI: GIÁ & MUA HÀNG */}
                     <div className="md:w-7/12 flex flex-col">
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">{model.name}</h1>
                         <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
@@ -270,11 +224,11 @@ export default function PhoneDetail() {
 
                         <div className="mb-6">
                             <div className="text-3xl md:text-4xl font-extrabold text-red-600">
-                                {isOutOfStock ? 'Hết mẫu này' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(currentPrice)}
+                                {currentPrice > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(currentPrice) : 'Đang cập nhật'}
                             </div>
+                            {isOutOfStock && <span className="inline-block mt-2 text-sm text-red-500 font-semibold bg-red-50 px-3 py-1 rounded-full">Tạm hết phiên bản này</span>}
                         </div>
 
-                        {/* NÚT CHỌN DUNG LƯỢNG */}
                         {uniqueCapacities.length > 0 && (
                             <div className="mb-5">
                                 <h3 className="text-sm font-semibold text-gray-800 mb-3">Chọn Dung Lượng:</h3>
@@ -287,11 +241,7 @@ export default function PhoneDetail() {
                                                 const colorsForNewCap = availablePhones.filter(p => p.capacity === cap).map(p => p.colorName);
                                                 if (!colorsForNewCap.includes(selectedColor)) setSelectedColor(colorsForNewCap[0]);
                                             }}
-                                            className={`px-5 py-2.5 rounded-xl border-2 font-semibold transition-all ${
-                                                selectedCapacity === cap 
-                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' 
-                                                    : 'border-gray-200 text-gray-600 hover:border-blue-300'
-                                            }`}
+                                            className={`px-5 py-2.5 rounded-xl border-2 font-semibold transition-all ${selectedCapacity === cap ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}
                                         >
                                             {cap}
                                         </button>
@@ -300,7 +250,6 @@ export default function PhoneDetail() {
                             </div>
                         )}
 
-                        {/* NÚT CHỌN MÀU SẮC */}
                         {availableColorsForCapacity.length > 0 && (
                             <div className="mb-8">
                                 <h3 className="text-sm font-semibold text-gray-800 mb-3">Chọn Màu Sắc:</h3>
@@ -309,11 +258,7 @@ export default function PhoneDetail() {
                                         <button
                                             key={color}
                                             onClick={() => setSelectedColor(color)}
-                                            className={`px-5 py-2.5 rounded-xl border-2 font-semibold transition-all ${
-                                                selectedColor === color 
-                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' 
-                                                    : 'border-gray-200 text-gray-600 hover:border-blue-300'
-                                            }`}
+                                            className={`px-5 py-2.5 rounded-xl border-2 font-semibold transition-all ${selectedColor === color ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}
                                         >
                                             {color}
                                         </button>
@@ -322,11 +267,8 @@ export default function PhoneDetail() {
                             </div>
                         )}
 
-                        {/* KHUNG ƯU ĐÃI THÊM */}
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5 mb-6">
-                            <h4 className="font-bold text-blue-900 flex items-center gap-2 mb-3">
-                                Khuyến mãi & Tiện ích
-                            </h4>
+                            <h4 className="font-bold text-blue-900 flex items-center gap-2 mb-3">Khuyến mãi & Tiện ích</h4>
                             <ul className="space-y-3 text-sm text-gray-700">
                                 <li className="flex gap-3 items-start"><ShieldCheck className="text-green-500 w-5 h-5 flex-shrink-0 mt-0.5"/> <span>Bảo hành chính hãng 12 tháng tại các trung tâm uỷ quyền toàn quốc.</span></li>
                                 <li className="flex gap-3 items-start"><RotateCcw className="text-blue-500 w-5 h-5 flex-shrink-0 mt-0.5"/> <span>1 đổi 1 trong 30 ngày nếu có lỗi phần cứng từ nhà sản xuất.</span></li>
@@ -334,61 +276,39 @@ export default function PhoneDetail() {
                             </ul>
                         </div>
 
-                        {/* NÚT ĐẶT HÀNG */}
-                            <div className="mt-auto flex flex-col sm:flex-row gap-3">
-                                {/* Nút MUA NGAY (Hành động chính) */}
-                                <button 
-                                    onClick={() => {
-                                        handleAddToCart();
-                                        navigate('/cart'); // Sau khi thêm vào giỏ thì bay thẳng vào trang thanh toán
-                                    }}
-                                    disabled={isOutOfStock}
-                                    className={`flex-1 py-4 rounded-xl font-bold text-lg flex flex-col items-center justify-center leading-tight transition-all ${
-                                        isOutOfStock 
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                            : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 hover:-translate-y-0.5'
-                                    }`}
-                                >
-                                    <span className="uppercase">Mua ngay</span>
-                                    <span className="text-[11px] font-normal">(Giao tận nơi hoặc nhận tại cửa hàng)</span>
-                                </button>
+                        <div className="mt-auto flex flex-col sm:flex-row gap-3">
+                            <button 
+                                onClick={() => { handleAddToCart(); navigate('/cart'); }}
+                                disabled={isOutOfStock}
+                                className={`flex-1 py-4 rounded-xl font-bold text-lg flex flex-col items-center justify-center leading-tight transition-all ${isOutOfStock ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 hover:-translate-y-0.5'}`}
+                            >
+                                <span className="uppercase">Mua ngay</span>
+                                <span className="text-[11px] font-normal">(Giao tận nơi hoặc nhận tại cửa hàng)</span>
+                            </button>
 
-                                {/* Nút THÊM VÀO GIỎ (Hành động phụ) */}
-                                <button 
-                                    onClick={handleAddToCart}
-                                    disabled={isOutOfStock}
-                                    className={`w-full sm:w-20 py-4 rounded-xl font-bold flex flex-col items-center justify-center transition-all border-2 ${
-                                        isOutOfStock 
-                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed' 
-                                            : 'border-blue-600 text-blue-600 hover:bg-blue-50'
-                                    }`}
-                                >
-                                    <ShoppingCart size={24} />
-                                    <span className="text-[10px] mt-1 uppercase whitespace-nowrap">Thêm giỏ hàng</span>
-                                </button>
-                            </div>
+                            <button 
+                                onClick={handleAddToCart}
+                                disabled={isOutOfStock}
+                                className={`w-full sm:w-20 py-4 rounded-xl font-bold flex flex-col items-center justify-center transition-all border-2 ${isOutOfStock ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-blue-600 text-blue-600 hover:bg-blue-50'}`}
+                            >
+                                <ShoppingCart size={24} />
+                                <span className="text-[10px] mt-1 uppercase whitespace-nowrap">Thêm giỏ hàng</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* =========================================
-                    PHẦN CHỨA BẢNG THÔNG SỐ VÀ ĐÁNH GIÁ 
-                    ========================================= */}
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    
-                    {/* CỘT TRÁI: ĐÁNH GIÁ (Chiếm 7/12 không gian) */}
                     <div className="lg:col-span-7">
-                         {/* CHÈN COMPONENT ĐÁNH GIÁ VÀO ĐÂY */}
                          <ReviewSection phoneModelId={model._id} />
                     </div>
 
-                    {/* CỘT PHẢI: BẢNG THÔNG SỐ KỸ THUẬT (Chiếm 5/12 không gian) */}
                     <div className="lg:col-span-5">
                         <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 border border-gray-100 sticky top-24">
                             <h2 className="text-xl font-bold text-gray-800 mb-6 uppercase flex items-center gap-2">
                                 <span className="w-1.5 h-6 bg-blue-600 rounded-full inline-block"></span>
                                 Cấu hình chi tiết
                             </h2>
-                            
                             <div className="flex flex-col bg-gray-50/50 rounded-xl p-2 border border-gray-100">
                                 {[
                                     { label: "Màn hình", icon: <Smartphone size={16}/>, value: specs.screenSize },
@@ -404,13 +324,8 @@ export default function PhoneDetail() {
                                     { label: "Pin & Sạc", icon: <Battery size={16}/>, value: specs.sim },
                                 ].map((item, idx) => item.value ? (
                                     <div key={idx} className="flex items-start py-3 border-b border-gray-200/60 last:border-0 hover:bg-white transition px-3 rounded-lg">
-                                        <div className="w-2/5 flex items-center gap-2 text-gray-500 text-sm font-medium">
-                                            <span className="text-blue-500">{item.icon}</span>
-                                            {item.label}
-                                        </div>
-                                        <div className="w-3/5 text-gray-800 text-sm font-semibold pl-2">
-                                            {item.value}
-                                        </div>
+                                        <div className="w-2/5 flex items-center gap-2 text-gray-500 text-sm font-medium"><span className="text-blue-500">{item.icon}</span>{item.label}</div>
+                                        <div className="w-3/5 text-gray-800 text-sm font-semibold pl-2">{item.value}</div>
                                     </div>
                                 ) : null)}
                             </div>
