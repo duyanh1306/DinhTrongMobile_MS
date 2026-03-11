@@ -233,10 +233,10 @@ const RepairOrderList = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Danh sách đơn chờ</h2>
-        <div className="text-sm text-gray-500">
-          Sắp xếp theo: Thời gian tạo (FIFO)
-        </div>
+        <h2 className="text-2xl font-bold text-gray-800">Danh sách khách đang chờ</h2>
+        {/*<div className="text-sm text-gray-500">*/}
+        {/*  Sắp xếp theo: Thời gian tạo (FIFO)*/}
+        {/*</div>*/}
       </div>
 
       {/* Filters Section */}
