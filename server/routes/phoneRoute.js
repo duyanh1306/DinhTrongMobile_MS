@@ -17,7 +17,7 @@ router.get("/all", getAllPhones);
 
 // PRIVATE ROUTES (Chỉ Admin/Nhân viên)
 router.get("/", authInternal, getPhonesPaginatedAndSearch);
-
+router.get('/grouped-by-brand', phoneController.getPhonesGroupedByBrand);
 // Dùng .array("images", 5) để nhận tối đa 5 file ảnh chụp thực tế
 router.post("/create", authInternal, uploadCloud.array("images", 5), createPhone);
 router.put("/update/:id", authInternal, uploadCloud.array("images", 5), updatePhone);

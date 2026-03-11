@@ -1,5 +1,6 @@
 const RepairOrder = require("../models/Repair_order");
 const RepairOrderDetail = require("../models/Repair_order_detail");
+const mongoose = require("mongoose");
 
 const getAllRepairOrders = async (req, res) => {
   try {
@@ -8,7 +9,36 @@ const getAllRepairOrders = async (req, res) => {
       .populate("createdBy", "fullName")
       .sort({ repairOrderDate: 1 });
 
-    res.status(200).json(orders);
+    // Add repair type to each order
+    const ordersWithType = await Promise.all(
+      orders.map(async (order) => {
+        const details = await RepairOrderDetail.findOne({ repairOrderId: order._id });
+        return {
+          ...order.toObject(),
+          repairType: details ? (details.type === "REPAIR" ? "Sửa chữa" : "Bảo hành") : "N/A"
+        };
+      })
+    );
+
+    res.status(200).json(ordersWithType);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getRepairOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const order = await RepairOrder.findById(id)
+      .populate("storeId", "name code")
+      .populate("createdBy", "fullName");
+
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
+    }
+
+    res.status(200).json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -50,7 +80,18 @@ const getFilteredRepairOrders = async (req, res) => {
       orders = orders.filter(order => orderIdsWithString.includes(order._id.toString()));
     }
     
-    res.status(200).json(orders);
+    // Add repair type to each order
+    const ordersWithType = await Promise.all(
+      orders.map(async (order) => {
+        const details = await RepairOrderDetail.findOne({ repairOrderId: order._id });
+        return {
+          ...order.toObject(),
+          repairType: details ? (details.type === "REPAIR" ? "Sửa chữa" : "Bảo hành") : "N/A"
+        };
+      })
+    );
+    
+    res.status(200).json(ordersWithType);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -139,10 +180,170 @@ const cancelRepairOrder = async (req, res) => {
   }
 };
 
+const updateRepairOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { totalPrice } = req.body;
+    
+    const order = await RepairOrder.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
+    }
+    
+    if (totalPrice !== undefined) {
+      order.totalPrice = totalPrice;
+    }
+    
+    await order.save();
+    
+    res.status(200).json({ message: "Đơn sửa chữa đã được cập nhật", order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updateRepairOrderDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { itemIds } = req.body;
+    
+    // Find and update the repair order details
+    const details = await RepairOrderDetail.findOne({ repairOrderId: id });
+    
+    if (!details) {
+      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
+    }
+    
+    if (itemIds !== undefined) {
+      details.itemIds = itemIds;
+    }
+    
+    await details.save();
+    
+    res.status(200).json({ message: "Chi tiết đơn sửa chữa đã được cập nhật", details });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update repair order details with transfer request creation
+const updateRepairOrderDetailsWithTransfer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { itemIds, items } = req.body; // items contains full item objects
+    
+    // Find the repair order to get store information
+    const repairOrder = await RepairOrder.findById(id);
+    if (!repairOrder) {
+      return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
+    }
+    
+    // Find and update the repair order details
+    const details = await RepairOrderDetail.findOne({ repairOrderId: id });
+    
+    if (!details) {
+      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
+    }
+    
+    if (itemIds !== undefined) {
+      details.itemIds = itemIds;
+    }
+    
+    await details.save();
+    
+    // Create transfer requests for items not in current store
+    let transferRequests = [];
+    if (items && items.length > 0) {
+      console.log('Items received for transfer request creation:', items);
+      console.log('Current store ID:', repairOrder.storeId);
+      
+      // Check which items need transfer
+      const itemsNeedingTransfer = items.filter(item => {
+        const itemStoreId = item.storeId?._id || item.storeId;
+        const needsTransfer = itemStoreId && itemStoreId !== repairOrder.storeId;
+        console.log(`Item ${item.name} - Store: ${itemStoreId}, Current: ${repairOrder.storeId}, Needs Transfer: ${needsTransfer}`);
+        return needsTransfer;
+      });
+      
+      console.log(`Items needing transfer: ${itemsNeedingTransfer.length}`);
+      
+      if (itemsNeedingTransfer.length > 0) {
+        const { createTransferRequestForRepairOrder } = require("./transfer_requestController");
+        
+        try {
+          // Use a default user ID if no authenticated user (for system-generated requests)
+          const requestedBy = req.user?.id || repairOrder.createdBy || new mongoose.Types.ObjectId();
+          
+          transferRequests = await createTransferRequestForRepairOrder(
+            id,
+            itemsNeedingTransfer,
+            repairOrder.storeId,
+            requestedBy
+          );
+          console.log(`Created ${transferRequests.length} transfer requests for repair order ${id}`);
+        } catch (transferError) {
+          console.error('Transfer request creation failed:', transferError);
+          // Continue with order update even if transfer fails
+        }
+      } else {
+        console.log('No items need transfer - all items are in current store');
+      }
+    } else {
+      console.log('No items provided for transfer request creation');
+    }
+    
+    res.status(200).json({ 
+      message: "Chi tiết đơn sửa chữa đã được cập nhật", 
+      details,
+      transferRequests: transferRequests
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Complete repair order
+const completeRepairOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const order = await RepairOrder.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
+    }
+    
+    if (order.status === "Completed") {
+      return res.status(400).json({ message: "Đơn sửa chữa đã hoàn thành" });
+    }
+    
+    if (order.status === "Cancelled") {
+      return res.status(400).json({ message: "Không thể hoàn thành đơn đã bị hủy" });
+    }
+    
+    if (order.status !== "In Progress") {
+      return res.status(400).json({ message: "Chỉ có thể hoàn thành đơn đang trong tiến trình" });
+    }
+    
+    order.status = "Completed";
+    await order.save();
+    
+    res.status(200).json({ message: "Đơn sửa chữa đã được hoàn thành", order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAllRepairOrders,
+  getRepairOrderById,
   getFilteredRepairOrders,
   getRepairOrderDetailsById,
+  updateRepairOrder,
+  updateRepairOrderDetails,
+  updateRepairOrderDetailsWithTransfer,
+  completeRepairOrder,
   acceptRepairOrder,
   cancelRepairOrder,
 };

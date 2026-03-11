@@ -211,11 +211,61 @@ const createAssembledPhone = async (req, res) => {
     }
 };
 
+// GET /api/phones/grouped-by-brand (Get phones grouped by brand)
+const getPhonesGroupedByBrand = async (req, res) => {
+    try {
+        const { status, storeId } = req.query;
+
+        // Build query for phones
+        let phoneQuery = {};
+        if (status) phoneQuery.status = status;
+        if (storeId) phoneQuery.storeId = storeId;
+
+        // Get all phones with populated data
+        const phones = await Phone.find(phoneQuery)
+            .populate({
+                path: 'phoneModelId',
+                populate: {
+                    path: 'brand',
+                    select: 'name'
+                }
+            })
+            .populate('storeId', 'name address')
+            .sort({ createdAt: -1 });
+
+        // Group phones by brand
+        const phonesByBrand = {};
+
+        phones.forEach(phone => {
+            const brand = phone.phoneModelId?.brand;
+            if (!brand) return;
+
+            const brandName = brand.name;
+            if (!phonesByBrand[brandName]) {
+                phonesByBrand[brandName] = {
+                    brand: brand,
+                    phones: []
+                };
+            }
+            phonesByBrand[brandName].phones.push(phone);
+        });
+
+        res.status(200).json({
+            success: true,
+            data: phonesByBrand
+        });
+    } catch (error) {
+        console.error("Error getting phones grouped by brand:", error);
+        res.status(500).json({ success: false, message: "Lỗi Server" });
+    }
+};
+
 module.exports = {
     getPhonesPaginatedAndSearch,
     getAllPhones,
     createPhone,
     updatePhone,
     deletePhone,
-    createAssembledPhone
+    createAssembledPhone,
+    getPhonesGroupedByBrand
 };

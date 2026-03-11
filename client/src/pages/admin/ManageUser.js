@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import AdminLayout from "../../layouts/AdminLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
@@ -374,7 +373,7 @@ export default function ManageUser() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 min-h-[600px] flex flex-col">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -888,6 +887,6 @@ export default function ManageUser() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 }
