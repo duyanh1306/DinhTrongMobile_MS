@@ -1,3 +1,4 @@
+// 1. Frontend - SalePOS.js
 import { useState, useEffect } from "react";
 import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Search, Settings, Send } from "lucide-react";
 import { toast } from "react-toastify";
@@ -8,41 +9,24 @@ export default function SalePOS() {
   const [inventory, setInventory] = useState([]);
   const [cart, setCart] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [phoneModels, setPhoneModels] = useState([]);
 
-  // State riêng cho form gửi Tech định giá (Bên tab Thu Mua)
-  const [tradeInRequest, setTradeInRequest] = useState({
-    phoneModelId: "", imei: "", note: ""
-  });
+  const [tradeInRequest, setTradeInRequest] = useState({ note: "" });
 
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
 
   useEffect(() => {
     fetchInventory();
-    fetchPhoneModels();
     setCart([]);
     setSearchQuery("");
   }, [orderType]);
 
-  const fetchPhoneModels = async () => {
-    try {
-      const token = localStorage.getItem("token"); // Lấy token
-      const res = await fetch("http://localhost:9999/api/phone_models/all", {
-        headers: { Authorization: `Bearer ${token}` } // Thêm token vào header
-      });
-      const data = await res.json();
-      setPhoneModels(Array.isArray(data) ? data : data.data || []);
-    } catch (error) { console.error("Lỗi tải Phone Models"); }
-  };
-
   const fetchInventory = async () => {
-    if (orderType !== "SALE") return; // Tab mua không cần load kho
+    if (orderType !== "SALE") return;
     try {
-      const token = localStorage.getItem("token"); // Lấy token
+      const token = localStorage.getItem("token");
 
       const [phoneRes, itemRes] = await Promise.allSettled([
-        // Phải nhét header Auth vào đây
         fetch(`http://localhost:9999/api/phones?status=in_stock`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`http://localhost:9999/api/items?status=in_stock`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
@@ -68,7 +52,6 @@ export default function SalePOS() {
 
   const calculateTotal = () => cart.reduce((sum, item) => sum + (item.price || 0), 0);
 
-  // GỬI ĐƠN BÁN RA
   const handleSaleSubmit = async () => {
     if (!customer.name || cart.length === 0) return toast.error("Nhập tên khách và chọn sản phẩm");
     if (!user) return toast.error("Vui lòng đăng nhập lại");
@@ -86,7 +69,7 @@ export default function SalePOS() {
         method: "POST", 
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // THÊM DÒNG NÀY
+          "Authorization": `Bearer ${token}` 
         }, 
         body: JSON.stringify(payload)
       });
@@ -94,15 +77,12 @@ export default function SalePOS() {
     } catch (err) { toast.error("Lỗi kết nối"); }
   };
 
-  // GỬI YÊU CẦU ĐỊNH GIÁ CHO TECH (Dành cho tab Thu Mua)
   const handleSendToTech = async () => {
     if (!customer.name || !customer.phone) return toast.error("Vui lòng nhập Tên và SĐT khách hàng!");
-    if (!tradeInRequest.phoneModelId || !tradeInRequest.imei) return toast.error("Vui lòng chọn dòng máy và nhập IMEI!");
     if (!user) return toast.error("Vui lòng đăng nhập lại");
 
     const token = localStorage.getItem("token");
     
-    // CỤC NÀY ĐÃ ĐƯỢC SỬA LẠI
     const payload = {
       storeId: user.storeId?._id || user.storeId,
       customerName: customer.name,
@@ -112,11 +92,7 @@ export default function SalePOS() {
       orderType: "PURCHASE",
       status: "Pending_Tech",
       note: tradeInRequest.note,
-      details: [], // <--- BẮT BUỘC PHẢI CÓ DÒNG NÀY ĐỂ BACKEND KHÔNG LỖI
-      tempPhoneData: {
-        phoneModelId: tradeInRequest.phoneModelId,
-        imei: tradeInRequest.imei
-      }
+      details: []
     };
 
     try {
@@ -131,7 +107,7 @@ export default function SalePOS() {
       if (res.ok) {
         toast.success(`Đã chuyển yêu cầu thu máy sang bộ phận Kỹ Thuật!`);
         setCustomer({name:"", phone:""});
-        setTradeInRequest({phoneModelId: "", imei: "", note: ""});
+        setTradeInRequest({note: ""});
       } else {
         const errorData = await res.json();
         toast.error(errorData.message || "Tạo yêu cầu thất bại");
@@ -145,7 +121,6 @@ export default function SalePOS() {
   return (
     <div className="flex h-screen bg-gray-100 p-4 gap-4 overflow-hidden">
       
-      {/* CỘT TRÁI */}
       <div className="w-2/3 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden">
         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
@@ -162,7 +137,6 @@ export default function SalePOS() {
         </div>
 
         {orderType === "SALE" ? (
-          // GIAO DIỆN BÁN RA
           <>
             <div className="p-3 bg-white border-b">
               <div className="relative">
@@ -184,7 +158,6 @@ export default function SalePOS() {
             </div>
           </>
         ) : (
-          // GIAO DIỆN THU MUA (CHỈ ĐIỀN FORM CHO TECH)
           <div className="p-8 flex-1 overflow-y-auto bg-purple-50 flex items-center justify-center">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-purple-100">
               <div className="text-center mb-8">
@@ -192,26 +165,13 @@ export default function SalePOS() {
                   <Smartphone size={32} />
                 </div>
                 <h3 className="text-2xl font-black text-gray-800">Tiếp nhận máy Thu cũ</h3>
-                <p className="text-gray-500 text-sm mt-2">Nhập thông tin thiết bị để bộ phận Kỹ thuật kiểm tra và định giá</p>
+                <p className="text-gray-500 text-sm mt-2">Sale chỉ cần nhập ghi chú, Kỹ thuật sẽ tự chọn model và định giá</p>
               </div>
 
               <div className="space-y-5">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Dòng máy khách mang đến <span className="text-red-500">*</span></label>
-                  <select value={tradeInRequest.phoneModelId} onChange={e => setTradeInRequest({...tradeInRequest, phoneModelId: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
-                    <option value="">-- Chọn dòng máy --</option>
-                    {phoneModels.map(pm => (<option key={pm._id} value={pm._id}>{pm.name}</option>))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Số IMEI thiết bị <span className="text-red-500">*</span></label>
-                  <input type="text" placeholder="Bấm *#06# trên máy khách để xem" value={tradeInRequest.imei} onChange={e => setTradeInRequest({...tradeInRequest, imei: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50 font-mono" />
-                </div>
-
-                <div>
                   <label className="block font-bold text-gray-700 mb-1">Ghi chú tình trạng sơ bộ (Tùy chọn)</label>
-                  <textarea placeholder="VD: Máy trầy viền, nứt kính nhẹ..." value={tradeInRequest.note} onChange={e => setTradeInRequest({...tradeInRequest, note: e.target.value})} rows="3" className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50"></textarea>
+                  <textarea placeholder="VD: Máy trầy viền, nứt kính nhẹ, khách nói hỏng loa..." value={tradeInRequest.note} onChange={e => setTradeInRequest({note: e.target.value})} rows="4" className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50"></textarea>
                 </div>
               </div>
             </div>
@@ -219,9 +179,7 @@ export default function SalePOS() {
         )}
       </div>
 
-      {/* CỘT PHẢI: THÔNG TIN KHÁCH HÀNG & ACTION */}
       <div className="w-1/3 flex flex-col gap-4">
-        {/* THÔNG TIN KHÁCH */}
         <div className="bg-white p-4 rounded-xl shadow-sm border">
           <h3 className="font-bold mb-4 flex items-center gap-2 border-b pb-2">
             <User size={18} className={orderType === "SALE" ? "text-orange-600" : "text-purple-600"} /> 
@@ -233,7 +191,6 @@ export default function SalePOS() {
           </div>
         </div>
 
-        {/* NÚT ACTION THAY ĐỔI THEO CHẾ ĐỘ */}
         {orderType === "SALE" ? (
            <div className="bg-white flex-1 p-4 rounded-xl shadow-sm border flex flex-col overflow-hidden">
              <h3 className="font-bold mb-4 flex items-center gap-2 border-b pb-2">
@@ -268,7 +225,7 @@ export default function SalePOS() {
         ) : (
            <div className="bg-white flex-1 p-6 rounded-xl shadow-sm border flex flex-col justify-center text-center">
              <h3 className="text-lg font-bold text-gray-800 mb-4">Gửi yêu cầu Kỹ Thuật</h3>
-             <p className="text-sm text-gray-500 mb-8">Vui lòng kiểm tra lại thông tin khách hàng và thiết bị trước khi chuyển cho Tech định giá.</p>
+             <p className="text-sm text-gray-500 mb-8">Vui lòng kiểm tra lại thông tin khách hàng và ghi chú trước khi chuyển cho Tech định giá.</p>
              <button onClick={handleSendToTech} className="w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-xl bg-purple-600 text-white hover:bg-purple-700 transition-transform hover:-translate-y-1">
                <Send size={20} /> CHUYỂN CHO TECH ĐỊNH GIÁ
              </button>

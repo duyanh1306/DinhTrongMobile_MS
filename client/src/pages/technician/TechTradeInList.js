@@ -1,3 +1,4 @@
+// 2. Frontend - TechTradeInList.js
 import { useState, useEffect } from "react";
 import { Wrench, CheckCircle, Calculator, DollarSign } from "lucide-react";
 import { toast } from "react-toastify";
@@ -5,9 +6,24 @@ import { toast } from "react-toastify";
 export default function TechTradeInList() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [valuation, setValuation] = useState({ price: "", techNote: "" });
+  const [phoneModels, setPhoneModels] = useState([]);
+  const [valuation, setValuation] = useState({ price: "", techNote: "", phoneModelId: "", imei: "" });
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { 
+    fetchRequests(); 
+    fetchPhoneModels();
+  }, []);
+
+  const fetchPhoneModels = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:9999/api/phone_models/all", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setPhoneModels(Array.isArray(data) ? data : data.data || []);
+    } catch (error) { console.error("Lỗi tải Phone Models"); }
+  };
 
   const fetchRequests = async () => {
     try {
@@ -23,6 +39,8 @@ export default function TechTradeInList() {
   };
 
   const submitValuation = async () => {
+    if(!valuation.phoneModelId) return toast.error("Vui lòng chọn dòng máy!");
+    if(!valuation.imei) return toast.error("Vui lòng nhập IMEI thiết bị!");
     if(!valuation.price) return toast.error("Vui lòng nhập giá thu mua!");
     
     try {
@@ -36,14 +54,18 @@ export default function TechTradeInList() {
         body: JSON.stringify({ 
             totalPrice: Number(valuation.price), 
             status: "Pending",
-            note: valuation.techNote ? `[KẾT QUẢ TEST]: ${valuation.techNote}` : "Tech đã chốt giá" 
+            note: valuation.techNote ? `[KẾT QUẢ TEST]: ${valuation.techNote}` : "Tech đã chốt giá",
+            tempPhoneData: {
+                phoneModelId: valuation.phoneModelId,
+                imei: valuation.imei
+            }
         })
       });
 
       if(res.ok) {
           toast.success("Đã định giá xong! Đã chuyển lại cho Sale.");
           setSelectedRequest(null);
-          setValuation({ price: "", techNote: "" });
+          setValuation({ price: "", techNote: "", phoneModelId: "", imei: "" });
           fetchRequests();
       } else {
           toast.error("Lỗi cập nhật giá");
@@ -61,11 +83,10 @@ export default function TechTradeInList() {
         {pendingRequests.map(req => (
           <div key={req._id} className="bg-white p-6 rounded-xl shadow-sm border flex justify-between items-center">
             <div>
-              <p className="font-bold text-lg">{req.tempPhoneData?.phoneModelId?.name || "Máy khách bán"}</p>
-              <p className="text-sm text-gray-500 font-mono">IMEI: {req.tempPhoneData?.imei || "Đang cập nhật"}</p>
+              <p className="font-bold text-lg">Máy khách bán (Sale gửi)</p>
               <p className="text-xs mt-2 bg-gray-100 inline-block px-2 py-1 rounded">Khách: {req.customerName} - {req.customerPhone}</p>
             </div>
-            <button onClick={() => { setSelectedRequest(req); setValuation({price: "", techNote: ""}); }} className="bg-purple-100 text-purple-700 px-6 py-2 rounded-lg font-bold hover:bg-purple-200 flex items-center gap-2">
+            <button onClick={() => { setSelectedRequest(req); setValuation({price: "", techNote: "", phoneModelId: "", imei: ""}); }} className="bg-purple-100 text-purple-700 px-6 py-2 rounded-lg font-bold hover:bg-purple-200 flex items-center gap-2">
               <Calculator size={18}/> Bắt đầu định giá
             </button>
           </div>
@@ -75,15 +96,26 @@ export default function TechTradeInList() {
 
       {selectedRequest && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-2xl w-[500px] shadow-2xl">
+          <div className="bg-white p-8 rounded-2xl w-[500px] shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">Định giá thiết bị</h3>
             <div className="bg-gray-50 p-4 rounded-lg mb-6 border">
-                <p><strong>Dòng máy:</strong> {selectedRequest.tempPhoneData?.phoneModelId?.name || "Máy khách bán"}</p>
-                <p><strong>IMEI:</strong> {selectedRequest.tempPhoneData?.imei || "N/A"}</p>
                 <p className="text-sm text-red-500 italic mt-2">Ghi chú Sale: {selectedRequest.note || "Không có"}</p>
             </div>
 
             <div className="space-y-4">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Dòng máy <span className="text-red-500">*</span></label>
+                  <select value={valuation.phoneModelId} onChange={e => setValuation({...valuation, phoneModelId: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
+                    <option value="">-- Chọn dòng máy --</option>
+                    {phoneModels.map(pm => (<option key={pm._id} value={pm._id}>{pm.name}</option>))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Số IMEI thiết bị <span className="text-red-500">*</span></label>
+                  <input type="text" placeholder="Bấm *#06# trên máy để xem" value={valuation.imei} onChange={e => setValuation({...valuation, imei: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50 font-mono" />
+                </div>
+
                 <div>
                     <label className="block font-bold text-gray-700 mb-1">Kết quả test / Lý do trừ tiền</label>
                     <textarea value={valuation.techNote} onChange={e => setValuation({...valuation, techNote: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500" placeholder="VD: Pin chai, vỏ móp, màn hình xước..."></textarea>
