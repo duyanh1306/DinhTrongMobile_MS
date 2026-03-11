@@ -67,12 +67,12 @@ export default function AdminSidebar() {
   ];
 
   return (
-    <div className="h-screen w-64 bg-blue-900 text-white flex flex-col shadow-lg overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar">
-      <div className="text-2xl font-bold p-5 border-b border-blue-800 sticky top-0 bg-blue-900 z-10">
+    <div className="h-full w-64 bg-blue-900 text-white flex flex-col shadow-lg overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar">
+      <div className="text-2xl font-bold p-5 border-b border-blue-800 bg-blue-900 z-10 flex-shrink-0">
         Admin Panel
       </div>
       
-      <nav className="flex flex-col p-4 gap-2">
+      <nav className="flex flex-col p-4 gap-2 flex-1">
         {menuGroups.map((group, index) => (
           <div key={index} className="mb-2">
             {!group.id ? (
@@ -139,9 +139,13 @@ export default function AdminSidebar() {
       </nav>
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 0px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; }
+        .custom-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       `}</style>
     </div>
   );

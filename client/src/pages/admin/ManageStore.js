@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Edit, Trash2, Plus, X } from "lucide-react";
-import AdminLayout from "../../layouts/AdminLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
@@ -170,7 +169,7 @@ export default function ManageStore() {
   };
 
   return (
-    <AdminLayout>
+    <>
       {/* Component chứa các Toast Notifications */}
       <ToastContainer position="top-right" autoClose={3000} />
 
@@ -318,6 +317,6 @@ export default function ManageStore() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 }
