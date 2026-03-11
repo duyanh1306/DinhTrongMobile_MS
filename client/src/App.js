@@ -35,6 +35,8 @@ import Cart from "./pages/customer/Cart";
 import OrderHistory from "./pages/customer/OrderHistory";
 import AssemblePhone from "./pages/technician/AssemblePhone";
 import RepairOrderList from "./pages/technician/RepairOrderList";
+import RepairInProgress from "./pages/technician/RepairInProgress";
+import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 const CustomerProfile = () => (
@@ -282,6 +284,28 @@ function App() {
             <PrivateRoute allowedRoles={["TECHNICIAN"]}>
               <TechLayout>
                 <RepairOrderList />
+              </TechLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/tech/repair-in-progress"
+          element={
+            <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+              <TechLayout>
+                <RepairInProgress />
+              </TechLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/tech/repair-in-progress/:orderId"
+          element={
+            <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+              <TechLayout>
+                <RepairInProgressDetail />
               </TechLayout>
             </PrivateRoute>
           }
