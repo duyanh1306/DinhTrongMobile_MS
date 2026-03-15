@@ -25,7 +25,6 @@ const inventoryTransactionRoutes = require("./routes/inventory_transactionRoutes
 const transferRequestRoutes = require("./routes/transfer_requestRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const phoneRoute = require("./routes/phoneRoute");
-const recipeRoute = require("./routes/recipeRoute");
 const cartRoute = require("./routes/cartRoute");
 const orderRoute = require("./routes/orderRoute");
 const phoneBrand = require("./routes/phone_brandRoute");

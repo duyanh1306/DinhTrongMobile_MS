@@ -4,13 +4,8 @@ const Phone_brand = require("../models/PhoneBrand");
 // GET /api/phone_models/all
 const getAllPhoneModels = async (req, res) => {
     try {
-<<<<<<< HEAD
         // Thêm populate để lấy tên hãng ra hiển thị
         const phone_models = await Phone_model.find().populate('brand', 'name');
-=======
-        const phone_models = await Phone_model.find()
-            .populate("brand", "name")
->>>>>>> aed3065ecfa13016089a9f327d13e8b8ebb409b8
         res.status(200).json({ success: true, data: phone_models });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

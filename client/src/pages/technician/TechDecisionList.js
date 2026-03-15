@@ -1,18 +1,17 @@
-// 3. Tạo file Frontend mới: TechDecisionList.js (Màn hình để Tech xử lý hàng chờ)
 import { useState, useEffect } from "react";
-import { Settings, Hammer, Scissors, Save, X, Plus, Trash2 } from "lucide-react";
+import { Settings, Hammer, Scissors, Save, X, Plus, Trash2, Package } from "lucide-react";
 import { toast } from "react-toastify";
 
 export default function TechDecisionList() {
   const [waitingPhones, setWaitingPhones] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(null);
-  const [decision, setDecision] = useState("SELL"); // "SELL" hoặc "DISMANTLE"
+  const [decision, setDecision] = useState("SELL"); 
   const [itemTypes, setItemTypes] = useState([]);
 
   // Form Bán
   const [sellForm, setSellForm] = useState({ sellingPrice: "", capacity: "", colorName: "" });
   
-  // Form Rã xác
+  // Form Rã xác (ĐÃ THÊM CÁC TRƯỜNG MỚI)
   const [dismantleParts, setDismantleParts] = useState([]);
 
   useEffect(() => {
@@ -31,19 +30,26 @@ export default function TechDecisionList() {
     } catch (err) { toast.error("Lỗi tải danh sách chờ"); }
   };
 
- const fetchItemTypes = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch("http://localhost:9999/api/item_types", {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-    setItemTypes(Array.isArray(data) ? data : data.data || []);
-  } catch (err) { console.log("Lỗi tải loại linh kiện"); }
-};
+  const fetchItemTypes = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:9999/api/item_types", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setItemTypes(Array.isArray(data) ? data : data.data || []);
+    } catch (err) { console.log("Lỗi tải loại linh kiện"); }
+  };
 
+  // THÊM CÁC THUỘC TÍNH VÀO STATE MẶC ĐỊNH
   const addPartRow = () => {
-    setDismantleParts([...dismantleParts, { itemTypeId: "", serialCode: "", baseCost: "", price: "" }]);
+    setDismantleParts([
+      ...dismantleParts, 
+      { 
+        itemTypeId: "", name: "", serialCode: "", quality: "Zin bóc máy", 
+        ram: "", capacity: "", color: "", baseCost: "", price: "" 
+      }
+    ]);
   };
 
   const removePartRow = (index) => {
@@ -58,7 +64,10 @@ export default function TechDecisionList() {
 
   const handleSubmit = async () => {
     if (decision === "SELL" && !sellForm.sellingPrice) return toast.error("Vui lòng nhập giá bán!");
-    if (decision === "DISMANTLE" && dismantleParts.some(p => !p.itemTypeId)) return toast.error("Vui lòng chọn loại linh kiện cho tất cả các dòng!");
+    if (decision === "DISMANTLE") {
+        if (dismantleParts.length === 0) return toast.error("Vui lòng thêm ít nhất 1 linh kiện!");
+        if (dismantleParts.some(p => !p.itemTypeId || !p.name)) return toast.error("Vui lòng nhập Loại và Tên cho tất cả linh kiện!");
+    }
 
     try {
       const token = localStorage.getItem("token");
@@ -71,7 +80,8 @@ export default function TechDecisionList() {
         body: JSON.stringify({
           decision,
           ...sellForm,
-          parts: dismantleParts
+          parts: dismantleParts,
+          phoneName: selectedPhone.phoneModelId?.name // Truyền tên máy gốc xuống backend
         })
       });
 
@@ -117,7 +127,7 @@ export default function TechDecisionList() {
 
       {selectedPhone && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
               <h3 className="text-xl font-bold">Xử lý: {selectedPhone.phoneModelId?.name} (IMEI: {selectedPhone.imei})</h3>
               <button onClick={() => setSelectedPhone(null)} className="text-gray-400 hover:text-red-500"><X size={24} /></button>
@@ -157,41 +167,79 @@ export default function TechDecisionList() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-red-50/50 p-4 rounded-xl border border-red-100">
-                  <div className="flex justify-between items-center mb-4">
-                    <label className="font-bold text-gray-700">Danh sách linh kiện rã được</label>
-                    <button onClick={addPartRow} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-red-700">
-                      <Plus size={14}/> Thêm linh kiện
+                <div className="bg-red-50/30 p-4 rounded-xl border border-red-100">
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-red-200">
+                    <label className="font-bold text-gray-700 flex items-center gap-2">
+                        <Package size={18} className="text-red-600"/> Danh sách linh kiện rã được
+                    </label>
+                    <button onClick={addPartRow} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-1 hover:bg-red-700 shadow-sm transition">
+                      <Plus size={16}/> Thêm linh kiện
                     </button>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-gray-500">
-                      <tr>
-                        <th className="pb-2">Loại linh kiện <span className="text-red-500">*</span></th>
-                        <th className="pb-2">Serial / Mã (Tùy chọn)</th>
-                        <th className="pb-2">Giá vốn định giá</th>
-                        <th className="pb-2">Giá bán lẻ</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  
+                  {/* DANH SÁCH CARD NHẬP LINH KIỆN */}
+                  <div className="space-y-4">
                       {dismantleParts.map((part, idx) => (
-                        <tr key={idx}>
-                          <td className="pr-2 pb-2">
-                            <select value={part.itemTypeId} onChange={(e) => handlePartChange(idx, "itemTypeId", e.target.value)} className="w-full p-2 border rounded outline-none">
-                              <option value="">-- Chọn --</option>
-                              {itemTypes.map(it => <option key={it._id} value={it._id}>{it.name}</option>)}
-                            </select>
-                          </td>
-                          <td className="pr-2 pb-2"><input type="text" placeholder="Auto tạo nếu trống" value={part.serialCode} onChange={(e) => handlePartChange(idx, "serialCode", e.target.value)} className="w-full p-2 border rounded outline-none"/></td>
-                          <td className="pr-2 pb-2"><input type="number" placeholder="0" value={part.baseCost} onChange={(e) => handlePartChange(idx, "baseCost", e.target.value)} className="w-full p-2 border rounded outline-none"/></td>
-                          <td className="pr-2 pb-2"><input type="number" placeholder="0" value={part.price} onChange={(e) => handlePartChange(idx, "price", e.target.value)} className="w-full p-2 border rounded outline-none"/></td>
-                          <td className="pb-2"><button onClick={() => removePartRow(idx)} className="p-2 text-red-500 hover:bg-red-100 rounded"><Trash2 size={16}/></button></td>
-                        </tr>
+                        <div key={idx} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group">
+                            <button onClick={() => removePartRow(idx)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-2 rounded-full transition">
+                                <Trash2 size={16}/>
+                            </button>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mr-10 mb-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Loại linh kiện *</label>
+                                    <select value={part.itemTypeId} onChange={(e) => handlePartChange(idx, "itemTypeId", e.target.value)} className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-red-500">
+                                        <option value="">-- Chọn --</option>
+                                        {itemTypes.map(it => <option key={it._id} value={it._id}>{it.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tên hiển thị *</label>
+                                    <input type="text" placeholder="VD: Mainboard iPhone 14 Pro (Zin bóc máy)" value={part.name} onChange={(e) => handlePartChange(idx, "name", e.target.value)} className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-red-500"/>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Serial (SN)</label>
+                                    <input type="text" placeholder="Auto tạo nếu trống" value={part.serialCode} onChange={(e) => handlePartChange(idx, "serialCode", e.target.value)} className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tình trạng</label>
+                                    <input type="text" placeholder="VD: Zin keng" value={part.quality} onChange={(e) => handlePartChange(idx, "quality", e.target.value)} className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-red-500"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dung lượng</label>
+                                    <input type="text" placeholder="VD: 256GB" value={part.capacity} onChange={(e) => handlePartChange(idx, "capacity", e.target.value)} className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-red-500"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">RAM</label>
+                                    <input type="text" placeholder="VD: 6GB" value={part.ram} onChange={(e) => handlePartChange(idx, "ram", e.target.value)} className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-red-500"/>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-red-50/50 p-3 rounded-lg border border-red-100">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Màu sắc</label>
+                                    <input type="text" placeholder="VD: Tím (Deep Purple)" value={part.color} onChange={(e) => handlePartChange(idx, "color", e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Giá vốn định giá</label>
+                                    <input type="number" placeholder="0" value={part.baseCost} onChange={(e) => handlePartChange(idx, "baseCost", e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 font-bold text-gray-700"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-red-600 uppercase mb-1">Giá bán lẻ (VND)</label>
+                                    <input type="number" placeholder="0" value={part.price} onChange={(e) => handlePartChange(idx, "price", e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 font-bold text-red-600"/>
+                                </div>
+                            </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                  {dismantleParts.length === 0 && <p className="text-sm text-gray-400 italic text-center py-4">Bấm "Thêm linh kiện" để nhập các món rã được</p>}
+                      {dismantleParts.length === 0 && (
+                          <div className="text-center py-8 bg-white rounded-xl border border-dashed border-red-200">
+                              <p className="text-gray-400 italic">Bấm "Thêm linh kiện" để nhập chi tiết các món rã được</p>
+                          </div>
+                      )}
+                  </div>
                 </div>
               )}
             </div>
