@@ -240,7 +240,11 @@ export default function AssemblePhone() {
                                 )}
                                 <div>
                                     <div className="font-semibold">{model.name}</div>
-                                    <div className="text-sm text-gray-600">{model.brand}</div>
+                                    <div className="text-sm text-gray-600">
+                                        {typeof model.brand === "object" && model.brand !== null
+                                            ? model.brand.name
+                                            : model.brand}
+                                    </div>
                                 </div>
                             </div>
                         </div>
