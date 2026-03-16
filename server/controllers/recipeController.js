@@ -26,12 +26,7 @@ const createRecipe = async (req, res) => {
         res.status(400).json({ success: false, message: error.message });
     }
 };
-<<<<<<< HEAD
 
-module.exports = {
-    getAllRecipes,
-    createRecipe
-=======
 // Hàm lấy Recipe dựa trên ID của dòng máy (Phone Model)
 const getRecipeByModelId = async (req, res) => {
     try {
@@ -58,5 +53,4 @@ module.exports = {
     getAllRecipes,
     createRecipe,
     getRecipeByModelId
->>>>>>> aed3065ecfa13016089a9f327d13e8b8ebb409b8
 };

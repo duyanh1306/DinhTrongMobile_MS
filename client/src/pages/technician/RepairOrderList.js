@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
-import { Calendar, User, Phone, Store, CheckCircle, Clock, XCircle, AlertCircle, Eye, Filter, Play, Ban } from "lucide-react";
+import { Calendar, User, Phone, Store, CheckCircle, Clock, XCircle, AlertCircle, Eye, Filter, Play, Ban, Search } from "lucide-react";
 import dayjs from "dayjs";
 import { toast, ToastContainer } from "react-toastify";
+import { useLocation } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
 const RepairOrderList = () => {
+  const location = useLocation();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [stores, setStores] = useState([]);
@@ -18,13 +20,23 @@ const RepairOrderList = () => {
   const [filters, setFilters] = useState({
     status: 'ALL',
     type: 'ALL',
-    storeId: 'ALL'
+    storeId: 'ALL',
+    customerName: ''
   });
 
+  // Check if we're on the repair-in-progress page
+  const isRepairInProgressPage = location.pathname === '/tech/repair-in-progress';
+
   useEffect(() => {
-    fetchRepairOrders();
+    if (isRepairInProgressPage) {
+      // Auto-filter for IN_PROGRESS status on repair-in-progress page
+      fetchInProgressOrders();
+    } else {
+      // Fetch all orders on other pages
+      fetchRepairOrders();
+    }
     fetchStores();
-  }, []);
+  }, [isRepairInProgressPage]);
 
   const fetchStores = async () => {
     try {
@@ -45,6 +57,22 @@ const RepairOrderList = () => {
     } catch (err) {
       setError("Không thể tải danh sách đơn sửa chữa");
       console.error("Error fetching repair orders:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInProgressOrders = async () => {
+    try {
+      setLoading(true);
+      // Fetch only IN_PROGRESS orders - backend will automatically filter by user's store
+      const response = await axiosClient.get('/repair-orders/filter?status=IN_PROGRESS');
+      setOrders(response.data);
+      setFilteredOrders(response.data);
+      setError(null);
+    } catch (err) {
+      setError("Không thể tải danh sách đơn đang sửa chữa");
+      console.error("Error fetching in-progress orders:", err);
     } finally {
       setLoading(false);
     }
@@ -91,11 +119,30 @@ const RepairOrderList = () => {
     fetchFilteredOrders();
   };
 
+  const handleSearch = (searchTerm) => {
+    handleFilterChange('customerName', searchTerm);
+    
+    // If search term is empty, reset to all orders
+    if (!searchTerm.trim()) {
+      setFilteredOrders(orders);
+      return;
+    }
+    
+    // Filter orders by customer name (case-insensitive)
+    const filtered = orders.filter(order => 
+      order.customerName && 
+      order.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    setFilteredOrders(filtered);
+  };
+
   const resetFilters = () => {
     setFilters({
       status: 'ALL',
       type: 'ALL',
-      storeId: 'ALL'
+      storeId: 'ALL',
+      customerName: ''
     });
     // Immediately show all orders when reset
     setFilteredOrders(orders);
@@ -221,7 +268,7 @@ const RepairOrderList = () => {
       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
         <p>{error}</p>
         <button 
-          onClick={fetchRepairOrders}
+          onClick={isRepairInProgressPage ? fetchInProgressOrders : fetchRepairOrders}
           className="mt-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
         >
           Thử lại
@@ -233,7 +280,9 @@ const RepairOrderList = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Danh sách khách đang chờ</h2>
+        <h2 className="text-2xl font-bold text-gray-800">
+          {isRepairInProgressPage ? 'Đang sửa chữa' : 'Danh sách khách đang chờ'}
+        </h2>
         {/*<div className="text-sm text-gray-500">*/}
         {/*  Sắp xếp theo: Thời gian tạo (FIFO)*/}
         {/*</div>*/}
@@ -243,10 +292,27 @@ const RepairOrderList = () => {
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center gap-3 mb-4">
           <Filter className="w-5 h-5 text-gray-600" />
-          <h3 className="font-semibold text-gray-800">Bộ lọc</h3>
+          <h3 className="font-semibold text-gray-800">Bộ lọc và Tìm kiếm</h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Customer Name Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tên khách hàng
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={filters.customerName}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Tìm theo tên khách hàng..."
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Trạng thái
@@ -279,6 +345,7 @@ const RepairOrderList = () => {
             </select>
           </div>
           
+          {/* Store Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Cửa hàng
