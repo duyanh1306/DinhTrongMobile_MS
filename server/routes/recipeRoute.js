@@ -8,4 +8,6 @@ router.get("/all", recipeController.getAllRecipes);
 // API cho Admin thêm công thức
 router.post("/create", recipeController.createRecipe);
 
+
+router.get('/by-model/:modelId', recipeController.getRecipeByModelId);
 module.exports = router;

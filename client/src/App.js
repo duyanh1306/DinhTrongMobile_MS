@@ -43,7 +43,6 @@ import BuildPhone from "./pages/customer/BuildPhone";
 import OrderDetail from "./pages/customer/OrderDetail";
 import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
 import CategoryPage from "./pages/customer/CategoryPage";
-import TechTradeInList from "./pages/technician/TechTradeInList";
 import TechDecisionList from "./pages/technician/TechDecisionList";
 const CustomerProfile = () => (
     <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
@@ -357,16 +356,7 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-<Route
-          path="/tech/trade-in-orders"
-          element={
-            <PrivateRoute allowedRoles={["TECHNICIAN"]}>
-              <TechLayout>
-                <TechTradeInList />
-              </TechLayout>
-            </PrivateRoute>
-          }
-        />
+
                 <Route
                     path="/tech/assemble"
                     element={

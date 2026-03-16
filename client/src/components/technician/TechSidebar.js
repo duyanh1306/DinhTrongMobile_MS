@@ -18,8 +18,7 @@ export default function TechSidebar() {
   const items = [
     { text: "Dashboard", link: "/tech/dashboard", icon: <LayoutDashboard size={20} /> },
     { text: "Profile", link: "/profile", icon: <User size={20} /> },
-    { text: "Đơn sửa chữa", link: "/tech/repair-orders", icon: <List size={20} /> },
-    { text: "Hàng chờ thu mua", link: "/tech/trade-in-orders", icon: <List size={20} /> },
+    { text: "Hàng chờ", link: "/tech/repair-orders", icon: <List size={20} /> },
     { text: "Hàng chờ quyết định", link: "/tech/decision-orders", icon: <List size={20} /> },
     { text: "Đang sửa chữa", link: "/tech/repair-in-progress", icon: <PlayCircle size={20} /> },
     { text: "Công việc", link: "/tech/tasks", icon: <Wrench size={20} /> },

@@ -50,7 +50,7 @@ const getPhonesPaginatedAndSearch = async (req, res) => {
 const handleTechDecision = async (req, res) => {
   try {
     const { id } = req.params;
-    const { decision, sellingPrice, capacity, colorName, parts } = req.body;
+    const { decision, sellingPrice, capacity, colorName, parts, phoneName } = req.body;
 
     const phone = await Phone.findById(id);
     if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
@@ -70,13 +70,26 @@ const handleTechDecision = async (req, res) => {
 
       if (parts && parts.length > 0) {
         const itemsToCreate = parts.map((p) => ({
+          name: p.name || `Linh kiện bóc máy IMEI: ${phone.imei}`,
           item_type: p.itemTypeId,
           storeId: phone.storeId,
-          serialCode: p.serialCode || `SN-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          serialCode: p.serialCode || `SN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`,
           baseCost: Number(p.baseCost || 0),
           price: Number(p.price || 0),
-          status: "in_stock"
+          status: "in_stock",
+          
+          // ================= THUỘC TÍNH RÃ XÁC =================
+          origin: "disassembled", // Đánh dấu là hàng bóc máy
+          sourceDevice: phoneName ? `${phoneName} (IMEI: ${phone.imei})` : `IMEI: ${phone.imei}`, // Lưu lại bóc từ máy nào
+          quality: p.quality || "Zin bóc máy",
+          
+          // Các thuộc tính tuỳ chọn (Đặc biệt cho Mainboard)
+          ram: p.ram || "",
+          capacity: p.capacity || "",
+          color: p.color || ""
         }));
+
+        // Insert toàn bộ mảng linh kiện vào bảng Item
         await Item.insertMany(itemsToCreate);
       }
       return res.status(200).json({ message: "Đã rã máy và nhập linh kiện vào kho" });
