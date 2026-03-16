@@ -18,6 +18,19 @@ router.get("/filter", getFilteredRepairOrders);
 router.get("/by-status", getFilteredRepairOrders);
 router.get("/:id", getRepairOrderById);
 router.get("/:id/details", getRepairOrderDetailsById);
+
+// Test endpoint to check auth middleware
+router.get("/test-auth", (req, res) => {
+  try {
+    res.status(200).json({ 
+      message: "Auth test endpoint",
+      user: req.user ? "User found" : "No user",
+      headers: req.headers
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 router.put("/:id", updateRepairOrder);
 router.put("/:id/details", updateRepairOrderDetails);
 router.put("/:id/details-with-transfer", updateRepairOrderDetailsWithTransfer);

@@ -3,6 +3,7 @@ import axiosClient from "../../api/axiosClient";
 import { Calendar, User, Phone, Store, CheckCircle, Clock, XCircle, AlertCircle, Eye, Filter, Play, Ban, Wrench, Calculator, DollarSign, X } from "lucide-react";
 import dayjs from "dayjs";
 import { toast, ToastContainer } from "react-toastify";
+import { useLocation } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
 const RepairOrderList = () => {
@@ -23,7 +24,8 @@ const RepairOrderList = () => {
   const [filters, setFilters] = useState({
     status: 'ALL',
     type: 'ALL',
-    storeId: 'ALL'
+    storeId: 'ALL',
+    customerName: ''
   });
 
   // =========================================================================
@@ -71,6 +73,22 @@ const RepairOrderList = () => {
     }
   };
 
+  const fetchInProgressOrders = async () => {
+    try {
+      setLoading(true);
+      // Fetch only IN_PROGRESS orders - backend will automatically filter by user's store
+      const response = await axiosClient.get('/repair-orders/filter?status=IN_PROGRESS');
+      setOrders(response.data);
+      setFilteredOrders(response.data);
+      setError(null);
+    } catch (err) {
+      setError("Không thể tải danh sách đơn đang sửa chữa");
+      console.error("Error fetching in-progress orders:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchFilteredOrders = async () => {
     try {
       setFilterLoading(true);
@@ -95,6 +113,24 @@ const RepairOrderList = () => {
   };
 
   const applyFilters = () => fetchFilteredOrders();
+
+  const handleSearch = (searchTerm) => {
+    handleFilterChange('customerName', searchTerm);
+    
+    // If search term is empty, reset to all orders
+    if (!searchTerm.trim()) {
+      setFilteredOrders(orders);
+      return;
+    }
+    
+    // Filter orders by customer name (case-insensitive)
+    const filtered = orders.filter(order => 
+      order.customerName && 
+      order.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    setFilteredOrders(filtered);
+  };
 
   const resetFilters = () => {
     setFilters({ status: 'ALL', type: 'ALL', storeId: 'ALL' });
