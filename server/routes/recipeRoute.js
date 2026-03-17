@@ -1,13 +1,19 @@
 const express = require("express");
 const router = express.Router();
-const recipeController = require("../controllers/recipeController");
+const { authInternal } = require("../middlewares/auth");
+const {
+    getAllRecipes,
+    createRecipe,
+    updateRecipe,
+    deleteRecipe
+} = require("../controllers/recipeController");
 
-// API public cho khách hàng xem công thức
-router.get("/all", recipeController.getAllRecipes);
+// PUBLIC ROUTES
+router.get("/all", getAllRecipes); // Dòng 12 thường nằm ở đây
 
-// API cho Admin thêm công thức
-router.post("/create", recipeController.createRecipe);
+// PRIVATE ROUTES (Yêu cầu quyền Admin/Internal)
+router.post("/create", authInternal, createRecipe);
+router.put("/update/:id", authInternal, updateRecipe);
+router.delete("/delete/:id", authInternal, deleteRecipe);
 
-
-router.get('/by-model/:modelId', recipeController.getRecipeByModelId);
 module.exports = router;

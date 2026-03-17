@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const { authInternal } = require("../middlewares/auth");
 const {
     createItemType, 
@@ -11,21 +11,22 @@ const {
     getItemTypePaginatedAndSearch
 } = require("../controllers/item_typeController");
 
-// Cấu hình Multer để lưu ảnh
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const dir = './uploads/item_types';
-        // Nếu thư mục chưa có thì tự động tạo
-        if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: function (req, file, cb) {
-        // Đổi tên file để không bị trùng (Thêm timestamp)
-        cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
-    }
+// Cấu hình Cloudinary (Bạn cần thêm các biến này vào file .env của backend)
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Cấu hình Multer Storage để đẩy file thẳng lên Cloudinary
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'DinhTrongMobile/item_types', // Tên thư mục sẽ tạo trên Cloudinary
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'], // Các định dạng cho phép
+    },
+});
+
 const upload = multer({ storage: storage });
 
 // PUBLIC ROUTES
@@ -33,7 +34,7 @@ router.get("/all", getAllItemTypes);
 
 // PRIVATE ROUTES
 router.get("/", authInternal, getItemTypePaginatedAndSearch);
-// THÊM middleware upload.single('image') vào đây
+// Dùng upload.single('image') để nhận file
 router.post("/create", authInternal, upload.single('image'), createItemType);
 router.put("/update/:id", authInternal, upload.single('image'), updateItemType);
 

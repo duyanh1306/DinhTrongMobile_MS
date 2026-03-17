@@ -44,6 +44,7 @@ import OrderDetail from "./pages/customer/OrderDetail";
 import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
 import CategoryPage from "./pages/customer/CategoryPage";
 import TechDecisionList from "./pages/technician/TechDecisionList";
+import AdminRecipe from "./pages/admin/AdminRecipe";
 const CustomerProfile = () => (
     <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -119,6 +120,7 @@ function App() {
             </PrivateRoute>
           }
         />
+         
         <Route
                     path="/admin/phone_brands"
                     element={
@@ -169,7 +171,16 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-
+                <Route
+                    path="/admin/recipes"
+                    element={
+                        <PrivateRoute allowedRoles={['ADMIN']}>
+                            <AdminLayout>
+                                <AdminRecipe/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
                 <Route
                     path="/admin/repair_service"
                     element={
