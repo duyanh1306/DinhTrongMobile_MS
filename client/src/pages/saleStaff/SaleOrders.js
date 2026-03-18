@@ -9,6 +9,9 @@ import {
   Package,
   Printer,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
+  Filter
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useReactToPrint } from "react-to-print";
@@ -64,7 +67,7 @@ const InvoicePrint = ({ order, details, formatCurrency, contentRef }) => {
                 </div>
                 <div className="text-[9px] italic mt-0.5">
                   {d.phoneId
-                    ? `IMEI: ${d.phoneId.imei}`
+                    ? `Mã: ${d.phoneId._id.substring(d.phoneId._id.length - 6).toUpperCase()}`
                     : `SN: ${d.itemId?.serialCode}`}
                 </div>
                 <div className="text-[9px] mt-0.5">
@@ -103,16 +106,26 @@ const InvoicePrint = ({ order, details, formatCurrency, contentRef }) => {
 export default function SaleOrders() {
   const [orders, setOrders] = useState([]);
   const [orderDetails, setOrderDetails] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // States cho Lọc và Phân trang
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, Pending, Completed, Cancelled
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const printRef = useRef(null);
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Reset về trang 1 khi đổi bộ lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
 
   const fetchOrders = async () => {
     try {
@@ -145,7 +158,8 @@ export default function SaleOrders() {
         }),
       );
 
-      setOrders(updatedOrders);
+      // Sắp xếp đơn mới nhất lên đầu
+      setOrders(updatedOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     } catch (err) {
       toast.error("Lỗi tải danh sách đơn hàng");
     }
@@ -234,115 +248,182 @@ export default function SaleOrders() {
       currency: "VND",
     }).format(val || 0);
 
+  // LỌC VÀ PHÂN TRANG
+  const filteredOrders = orders.filter((o) => {
+    const matchesSearch = o.customerPhone?.includes(searchQuery) || o.customerName?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "ALL" || o.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const currentOrders = filteredOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Quản lý Giao dịch</h1>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Tìm SĐT khách hàng..."
-            className="pl-10 pr-4 py-2 border rounded-lg w-full focus:ring-2 focus:ring-orange-500 outline-none"
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        
+        <div className="flex gap-3">
+          <div className="flex items-center bg-white border rounded-lg px-3 focus-within:ring-2 focus-within:ring-orange-500">
+             <Filter size={18} className="text-gray-400" />
+             <select 
+               value={statusFilter} 
+               onChange={(e) => setStatusFilter(e.target.value)}
+               className="bg-transparent py-2 px-2 outline-none font-medium text-gray-600"
+             >
+               <option value="ALL">Tất cả trạng thái</option>
+               <option value="Pending">Chờ xác nhận</option>
+               <option value="Completed">Đã hoàn tất</option>
+               <option value="Cancelled">Đã hủy</option>
+             </select>
+          </div>
+
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Tìm tên hoặc SĐT khách..."
+              value={searchQuery}
+              className="pl-10 pr-4 py-2 border rounded-lg w-full focus:ring-2 focus:ring-orange-500 outline-none"
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100 text-gray-600 uppercase text-[10px] font-black tracking-wider">
-            <tr>
-              <th className="p-4">Mã đơn</th>
-              <th className="p-4">Khách hàng</th>
-              <th className="p-4 text-right">Tổng tiền</th>
-              <th className="p-4">Loại đơn</th>
-              <th className="p-4">Trạng thái</th>
-              <th className="p-4 text-center">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {orders
-              .filter(
-                (o) =>
-                  o.status !== "Cancelled" &&
-                  o.customerPhone?.includes(searchQuery),
-              )
-              .map((order) => (
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+            <thead className="bg-gray-100 text-gray-600 uppercase text-[10px] font-black tracking-wider">
+                <tr>
+                <th className="p-4">Mã đơn</th>
+                <th className="p-4">Thời gian</th>
+                <th className="p-4">Khách hàng</th>
+                <th className="p-4 text-right">Tổng tiền</th>
+                <th className="p-4">Loại đơn</th>
+                <th className="p-4">Trạng thái</th>
+                <th className="p-4 text-center">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+                {currentOrders.map((order) => (
                 <tr
-                  key={order._id}
-                  className="hover:bg-gray-50 transition-colors"
+                    key={order._id}
+                    className="hover:bg-gray-50 transition-colors"
                 >
-                  <td className="p-4 font-mono text-xs text-orange-600 font-bold uppercase">
+                    <td className="p-4 font-mono text-xs text-orange-600 font-bold uppercase">
                     #{order._id.substring(order._id.length - 6)}
-                  </td>
-                  <td className="p-4">
+                    </td>
+                    <td className="p-4 text-sm text-gray-500">
+                        {new Date(order.createdAt).toLocaleString("vi-VN", { dateStyle: 'short', timeStyle: 'short' })}
+                    </td>
+                    <td className="p-4">
                     <div className="font-semibold text-gray-800">
-                      {order.customerName}
+                        {order.customerName}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {order.customerPhone || "N/A"}
+                        {order.customerPhone || "N/A"}
                     </div>
-                  </td>
-                  <td className="p-4 font-bold text-gray-700 text-right">
+                    </td>
+                    <td className="p-4 font-bold text-gray-700 text-right">
                     {formatCurrency(order.totalPrice)}
-                  </td>
-                  <td className="p-4">
+                    </td>
+                    <td className="p-4">
                     <span
-                      className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                        className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
                         order.orderType === "SALE"
-                          ? "bg-blue-50 text-blue-600"
-                          : "bg-purple-50 text-purple-600"
-                      }`}
+                            ? "bg-blue-50 text-blue-600"
+                            : "bg-purple-50 text-purple-600"
+                        }`}
                     >
-                      {order.orderType === "SALE" ? "Bán hàng" : "Thu mua"}
+                        {order.orderType === "SALE" ? "Bán hàng" : "Thu mua"}
                     </span>
-                  </td>
-                  <td className="p-4 text-sm">
+                    </td>
+                    <td className="p-4 text-sm">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
                         order.status === "Completed"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
+                            ? "bg-green-100 text-green-700"
+                            : order.status === "Cancelled"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}
                     >
-                      {order.status === "Completed"
+                        {order.status === "Completed"
                         ? "Đã hoàn tất"
+                        : order.status === "Cancelled"
+                        ? "Đã hủy"
                         : "Chờ xác nhận"}
                     </span>
-                  </td>
-                  <td className="p-4 flex justify-center gap-2">
+                    </td>
+                    <td className="p-4 flex justify-center gap-2">
                     <button
-                      onClick={() => handleOpenDetail(order)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"
+                        onClick={() => handleOpenDetail(order)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"
                     >
-                      <Eye size={18} />
+                        <Eye size={18} />
                     </button>
                     {order.status === "Pending" && (
-                      <>
+                        <>
                         <button
-                          onClick={() => handleConfirmPayment(order._id)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-full"
-                          title="Xác nhận"
+                            onClick={() => handleConfirmPayment(order._id)}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-full"
+                            title="Xác nhận"
                         >
-                          <CheckCircle size={18} />
+                            <CheckCircle size={18} />
                         </button>
                         <button
-                          onClick={() => handleCancelOrder(order)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-full"
-                          title="Huỷ đơn"
+                            onClick={() => handleCancelOrder(order)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-full"
+                            title="Huỷ đơn"
                         >
-                          <XCircle size={18} />
+                            <XCircle size={18} />
                         </button>
-                      </>
+                        </>
                     )}
-                  </td>
+                    </td>
                 </tr>
-              ))}
-          </tbody>
-        </table>
+                ))}
+            </tbody>
+            </table>
+        </div>
+        {currentOrders.length === 0 && (
+            <div className="text-center py-10 text-gray-500">
+                Không tìm thấy đơn hàng nào phù hợp.
+            </div>
+        )}
+
+        {/* Thanh Phân trang */}
+        {totalPages > 1 && (
+            <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                    Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredOrders.length)} / {filteredOrders.length}
+                </span>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                        disabled={currentPage === 1}
+                        className="p-2 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
+                    >
+                        <ChevronLeft size={16}/>
+                    </button>
+                    <span className="px-4 py-1.5 text-sm font-bold bg-white border rounded">{currentPage}</span>
+                    <button 
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                        disabled={currentPage === totalPages}
+                        className="p-2 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
+                    >
+                        <ChevronRight size={16}/>
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
 
+      {/* Modal Chi tiết đơn hàng */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
@@ -407,9 +488,9 @@ export default function SaleOrders() {
                         <td className="p-3">
                           <div className="flex items-center gap-2 font-bold italic">
                             {detail.phoneId ? (
-                              <Smartphone size={16} />
+                              <Smartphone size={16} className="text-blue-500" />
                             ) : (
-                              <Package size={16} />
+                              <Package size={16} className="text-emerald-500" />
                             )}
                             {detail.phoneId?.phoneModelId?.name ||
                               detail.itemId?.item_type?.name ||
@@ -417,7 +498,7 @@ export default function SaleOrders() {
                           </div>
                           <div className="text-[10px] text-gray-400 ml-6">
                             {detail.phoneId
-                              ? `IMEI: ${detail.phoneId.imei}`
+                              ? `Mã: ${detail.phoneId._id.substring(detail.phoneId._id.length - 6).toUpperCase()}`
                               : `SN: ${detail.itemId?.serialCode}`}
                           </div>
                         </td>
@@ -430,11 +511,13 @@ export default function SaleOrders() {
                         </td>
                         <td className="p-3 text-center">
                           {detail.warranty ? (
-                            <span className="text-[10px] text-green-600 font-bold">
+                            <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded">
                               CÓ BH
                             </span>
                           ) : (
-                            "—"
+                            <span className="text-[10px] text-gray-400 font-bold">
+                              KHÔNG
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -447,7 +530,7 @@ export default function SaleOrders() {
             <div className="p-4 border-t bg-gray-100 flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-6 py-2 bg-white border rounded-lg font-bold"
+                className="px-6 py-2 bg-white border rounded-lg font-bold hover:bg-gray-50"
               >
                 Đóng
               </button>

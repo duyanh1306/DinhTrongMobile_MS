@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 import { Plus, Edit, Search, ChevronLeft, ChevronRight, X, Package, CheckCircle, Clock, AlertCircle } from "lucide-react";
 
 const initialFormState = {
-    imei: '',
     phoneModelId: '',
     colorName: '',
     capacity: '', 
@@ -88,7 +87,6 @@ export default function AdminPhone() {
         }
     };
 
-    // LOGIC LỌC DÒNG MÁY THEO NGUỒN GỐC
     const filteredPhoneModels = phoneModels.filter(pm => {
         if (formData.source === 'supplier') {
             return pm.condition === 1; 
@@ -128,7 +126,6 @@ export default function AdminPhone() {
         }
 
         setFormData({
-            imei: phone.imei,
             phoneModelId: extractedModelId,
             colorName: phone.colorName,
             capacity: phone.capacity || '',
@@ -148,7 +145,6 @@ export default function AdminPhone() {
 
     const handleCloseModal = () => { setShowModal(false); };
 
-    // FIX CHÍNH: Xử lý reset dòng máy ở đây, chỉ khi người dùng TỰ TAY đổi nguồn gốc
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         if (name === 'source') {
@@ -198,7 +194,6 @@ export default function AdminPhone() {
             const token = localStorage.getItem("token");
             const submitData = new FormData();
             
-            submitData.append("imei", formData.imei);
             submitData.append("phoneModelId", formData.phoneModelId);
             submitData.append("colorName", formData.colorName);
             submitData.append("capacity", formData.capacity);
@@ -261,7 +256,7 @@ export default function AdminPhone() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="relative md:col-span-2">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                        <input type="text" name="search" placeholder="Quét hoặc gõ đuôi IMEI..." value={filters.search} onChange={handleFilterChange} className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                        <input type="text" name="search" placeholder="Tìm theo màu sắc..." value={filters.search} onChange={handleFilterChange} className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
                     </div>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                         <option value="">Tất cả Trạng thái</option>
@@ -282,7 +277,7 @@ export default function AdminPhone() {
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 border-b">
                             <tr>
-                                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Mã IMEI</th>
+                                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Mã Máy</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Tên Dòng Máy</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Màu sắc</th>
                                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase text-blue-600">Dung lượng</th>
@@ -294,7 +289,7 @@ export default function AdminPhone() {
                         <tbody className="divide-y">
                             {phones.map(phone => (
                                 <tr key={phone._id} className="hover:bg-indigo-50/30">
-                                    <td className="px-6 py-4 font-bold text-gray-800">{phone.imei}</td>
+                                    <td className="px-6 py-4 font-mono font-bold text-gray-500">#{phone._id.substring(phone._id.length - 6).toUpperCase()}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{phone.phoneModelId?.name || 'N/A'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{phone.colorName}</td>
                                     <td className="px-6 py-4 text-sm font-semibold text-blue-600">{phone.capacity || 'N/A'}</td>
@@ -333,11 +328,6 @@ export default function AdminPhone() {
                         
                         <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold mb-1">Mã IMEI <span className="text-red-500">*</span></label>
-                                    <input type="text" name="imei" value={formData.imei} onChange={handleInputChange} required disabled={isEditing} className="w-full border p-2 rounded focus:ring-2 outline-none disabled:bg-gray-100 disabled:text-gray-500" />
-                                </div>
-                                
                                 <div>
                                     <label className="block text-sm font-semibold mb-1">Nguồn gốc <span className="text-red-500">*</span></label>
                                     <select name="source" value={formData.source} onChange={handleInputChange} className="w-full border p-2 rounded bg-white focus:ring-2 outline-none">

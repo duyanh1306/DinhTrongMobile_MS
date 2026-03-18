@@ -354,72 +354,81 @@ const updateRepairOrderDetails = async (req, res) => {
   }
 };
 
-// Update repair order details with transfer request creation
 const updateRepairOrderDetailsWithTransfer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { itemIds, items, serviceId } = req.body; // Add serviceId destructuring
-    
+    const { itemIds, items, serviceId } = req.body;
+
     console.log('=== UPDATE REPAIR ORDER DETAILS DEBUG ===');
     console.log('Request body:', req.body);
-    console.log('Extracted values:', { 
+    console.log('Extracted values:', {
       itemIds: itemIds ? `${itemIds.length} items` : 'undefined',
       items: items ? `${items.length} items` : 'undefined',
       serviceId: serviceId || 'undefined'
     });
-    
-    // Find the repair order to get store information
+
+    // Find repair order to get store information
     const repairOrder = await RepairOrder.findById(id);
     if (!repairOrder) {
       return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
     }
-    
-    // Find and update the repair order details
+
+    // Find and update repair order details
     const details = await RepairOrderDetail.findOne({ repairOrderId: id });
-    
+
     if (!details) {
       return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
     }
-    
+
     console.log('Current repair order details before update:');
     console.log('- Current serviceId:', details.serviceId);
     console.log('- Current itemIds count:', details.itemIds ? details.itemIds.length : 0);
-    
+
     // Update itemIds if provided
     if (itemIds !== undefined) {
       details.itemIds = itemIds;
       console.log('Updated itemIds to:', itemIds);
     }
-    
-    // Update serviceId if provided
+
+    // Update serviceId if provided - Handle both single serviceId and array
     if (serviceId !== undefined) {
       console.log('Attempting to update serviceId from', details.serviceId, 'to', serviceId);
-      details.serviceId = serviceId;
-      console.log('Set serviceId to:', serviceId);
+
+      // If serviceId is an array, use it directly
+      if (Array.isArray(serviceId)) {
+        details.serviceId = serviceId;
+      } else if (serviceId) {
+        // If single serviceId, convert to array
+        details.serviceId = [serviceId];
+      } else {
+        details.serviceId = [];
+      }
+
+      console.log('Set serviceId to:', details.serviceId);
     } else {
       console.log('No serviceId provided in request');
     }
-    
+
     console.log('Details before save:', {
       serviceId: details.serviceId,
       itemIds: details.itemIds
     });
-    
+
     await details.save();
-    
+
     console.log('Details after save:', {
       serviceId: details.serviceId,
       itemIds: details.itemIds
     });
     console.log('Repair order details saved successfully');
     console.log('=== END DEBUG ===');
-    
+
     // Create transfer requests for items not in current store
     let transferRequests = [];
     if (items && items.length > 0) {
       console.log('Items received for transfer request creation:', items);
       console.log('Current store ID:', repairOrder.storeId);
-      
+
       // Check which items need transfer
       const itemsNeedingTransfer = items.filter(item => {
         const itemStoreId = item.storeId?._id || item.storeId;
@@ -427,21 +436,21 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
         console.log(`Item ${item.name} - Store: ${itemStoreId}, Current: ${repairOrder.storeId}, Needs Transfer: ${needsTransfer}`);
         return needsTransfer;
       });
-      
+
       console.log(`Items needing transfer: ${itemsNeedingTransfer.length}`);
-      
+
       if (itemsNeedingTransfer.length > 0) {
         const { createTransferRequestForRepairOrder } = require("./transfer_requestController");
-        
+
         try {
           // Use a default user ID if no authenticated user (for system-generated requests)
           const requestedBy = req.user?.id || repairOrder.createdBy || new mongoose.Types.ObjectId();
-          
+
           transferRequests = await createTransferRequestForRepairOrder(
-            id,
-            itemsNeedingTransfer,
-            repairOrder.storeId,
-            requestedBy
+              id,
+              itemsNeedingTransfer,
+              repairOrder.storeId,
+              requestedBy
           );
           console.log(`Created ${transferRequests.length} transfer requests for repair order ${id}`);
         } catch (transferError) {
@@ -454,9 +463,9 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
     } else {
       console.log('No items provided for transfer request creation');
     }
-    
-    res.status(200).json({ 
-      message: "Chi tiết đơn sửa chữa đã được cập nhật", 
+
+    res.status(200).json({
+      message: "Chi tiết đơn sửa chữa đã được cập nhật",
       details,
       transferRequests: transferRequests
     });
@@ -465,7 +474,6 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // Complete repair order
 const completeRepairOrder = async (req, res) => {
   try {

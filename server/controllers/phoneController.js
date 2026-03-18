@@ -109,44 +109,44 @@ const handleTechDecision = async (req, res) => {
     const { id } = req.params;
     const { decision, sellingPrice, capacity, colorName, parts, phoneName } = req.body;
 
-    const phone = await Phone.findById(id);
-    if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
-
     if (decision === "SELL") {
-      phone.status = "in_stock";
-      phone.sellingPrice = Number(sellingPrice);
-      phone.capacity = capacity || phone.capacity;
-      phone.colorName = colorName || phone.colorName;
-      await phone.save();
-      return res.status(200).json({ message: "Đã chuyển máy vào kho bán", data: phone });
+      // Dùng findByIdAndUpdate để ép Mongoose lưu thành công, bỏ qua validation thừa
+      const updateData = {
+        status: "in_stock", // Ép thẳng về Sẵn sàng bán
+        sellingPrice: Number(sellingPrice)
+      };
+      if (capacity) updateData.capacity = capacity;
+      if (colorName) updateData.colorName = colorName;
+
+      const updatedPhone = await Phone.findByIdAndUpdate(id, updateData, { new: true });
+      
+      if (!updatedPhone) return res.status(404).json({ message: "Không tìm thấy máy" });
+      return res.status(200).json({ message: "Đã chuyển máy vào kho (Sẵn sàng bán)", data: updatedPhone });
     } 
     
     if (decision === "DISMANTLE") {
-      phone.status = "defective"; // Đánh dấu máy đã hỏng/rã xác
+      const phone = await Phone.findById(id);
+      if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
+
+      phone.status = "defective"; 
       await phone.save();
 
       if (parts && parts.length > 0) {
         const itemsToCreate = parts.map((p) => ({
-          name: p.name || `Linh kiện bóc máy IMEI: ${phone.imei}`,
+          name: p.name || `Linh kiện bóc máy`,
           item_type: p.itemTypeId,
           storeId: phone.storeId,
           serialCode: p.serialCode || `SN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`,
           baseCost: Number(p.baseCost || 0),
           price: Number(p.price || 0),
           status: "in_stock",
-          
-          // ================= THUỘC TÍNH RÃ XÁC =================
-          origin: "disassembled", // Đánh dấu là hàng bóc máy
-          sourceDevice: phoneName ? `${phoneName} (IMEI: ${phone.imei})` : `IMEI: ${phone.imei}`, // Lưu lại bóc từ máy nào
+          origin: "disassembled",
+          sourceDevice: phoneName ? `${phoneName}` : `Máy bóc (Mã: ${phone._id.toString().slice(-6)})`,
           quality: p.quality || "Zin bóc máy",
-          
-          // Các thuộc tính tuỳ chọn (Đặc biệt cho Mainboard)
           ram: p.ram || "",
           capacity: p.capacity || "",
           color: p.color || ""
         }));
-
-        // Insert toàn bộ mảng linh kiện vào bảng Item
         await Item.insertMany(itemsToCreate);
       }
       return res.status(200).json({ message: "Đã rã máy và nhập linh kiện vào kho" });
@@ -154,6 +154,7 @@ const handleTechDecision = async (req, res) => {
 
     res.status(400).json({ message: "Quyết định không hợp lệ" });
   } catch (error) {
+    console.error("LỖI TECH DECISION:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -378,6 +379,5 @@ module.exports = {
     createAssembledPhone,
     getPhonesGroupedByBrand,
     handleTechDecision,
-    //testPhoneQRCode,
     generatePhoneQRCode
 };

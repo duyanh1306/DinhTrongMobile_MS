@@ -3,7 +3,6 @@ const { Schema } = mongoose;
 
 const phoneSchema = new Schema(
     {
-        imei: { type: String, required: true, unique: true }, 
         phoneModelId: { type: Schema.Types.ObjectId, ref: 'Phone_model', required: true }, 
         colorName: { type: String, required: true }, 
         capacity: { type: String, required: true },  
@@ -30,5 +29,5 @@ const phoneSchema = new Schema(
     { timestamps: true }
 );
 
-phoneSchema.index({ imei: 1 });
+// Đã bỏ dòng phoneSchema.index({ imei: 1 });
 module.exports = mongoose.models.Phone || mongoose.model("Phone", phoneSchema);
