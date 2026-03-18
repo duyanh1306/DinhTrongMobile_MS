@@ -1,5 +1,62 @@
 const Phone = require("../models/Phone");
 const Item = require("../models/Item");
+const QRCode = require('qrcode');
+
+// GET /api/phones/qrcode/:id
+const generatePhoneQRCode = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const phone = await Phone.findById(id);
+
+        if (!phone) {
+            return res.status(404).json({ success: false, message: "Phone not found" });
+        }
+
+        // Just use the ObjectId string directly
+        const qrText = phone._id.toString();
+
+        console.log('Generated QR Code for phone ID:', qrText);
+
+        const qrCodeImage = await QRCode.toBuffer(qrText, {
+            type: 'png',
+            width: 200,
+            margin: 1,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Disposition', 'inline; filename=qrcode.png');
+
+        res.status(200).send(qrCodeImage);
+
+    } catch (error) {
+        console.error("Error generating phone QR code:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// const testPhoneQRCode = async (req, res) => {
+//     try {
+//         console.log('=== TESTING PHONE QR CODE GENERATION ===');
+//
+//         // Test with a sample phone ID
+//         const testId = '69a600000000000000000001';
+//
+//         // Create a mock request object with the test ID
+//         const mockReq = { params: { id: testId } };
+//
+//         // Call the generatePhoneQRCode method
+//         await generatePhoneQRCode(mockReq, res);
+//
+//     } catch (error) {
+//         console.error("Error testing phone QR code:", error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
 
 // GET /api/phones (Phân trang & Tìm kiếm)
 const getPhonesPaginatedAndSearch = async (req, res) => {
@@ -320,5 +377,7 @@ module.exports = {
     deletePhone,
     createAssembledPhone,
     getPhonesGroupedByBrand,
-    handleTechDecision
+    handleTechDecision,
+    testPhoneQRCode,
+    generatePhoneQRCode
 };

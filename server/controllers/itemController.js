@@ -1,4 +1,40 @@
 const Item = require("../models/Item");
+const QRCode = require('qrcode');
+// GET /api/items/qrcode/:id
+const generateItemQRCode = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const item = await Item.findById(id);
+
+        if (!item) {
+            return res.status(404).json({ success: false, message: "Item not found" });
+        }
+
+        const qrText = item._id.toString();
+
+        console.log('Generated QR Code for item ID:', qrText);
+
+        const qrCodeImage = await QRCode.toBuffer(qrText, {
+            type: 'png',
+            width: 200,
+            margin: 1,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Disposition', 'inline; filename=qrcode.png');
+
+        res.status(200).send(qrCodeImage);
+
+    } catch (error) {
+        console.error("Error generating item QR code:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 // GET /api/items/all
 const getAllItems = async (req, res) => {
@@ -154,4 +190,7 @@ const deleteItem = async (req, res) => {
     }
 };
 
-module.exports = { getAllItems, getItemsPaginatedAndSearch, getItemById, createItem, updateItem, deleteItem };
+module.exports = { 
+    getAllItems, getItemsPaginatedAndSearch, getItemById, createItem, updateItem, deleteItem,
+    generateItemQRCode
+};

@@ -11,7 +11,8 @@ const {
     deletePhone,
     createAssembledPhone,
     getPhonesGroupedByBrand,
-    handleTechDecision
+    handleTechDecision,
+    generatePhoneQRCode
 } = require("../controllers/phoneController");
 
 // PUBLIC ROUTES (Có thể dùng cho khách xem danh sách IMEI nếu cần)
@@ -25,4 +26,5 @@ router.post("/create", authInternal, uploadCloud.array("images", 5), createPhone
 router.put("/update/:id", authInternal, uploadCloud.array("images", 5), updatePhone);
 router.delete("/:id", authInternal, deletePhone);
 router.post('/assemble', authTechnician, createAssembledPhone);
+router.get('/qrcode/:id', generatePhoneQRCode);
 module.exports = router;

@@ -7,7 +7,8 @@ const {
     getAllItems,
     getItemsPaginatedAndSearch,
     getItemById,
-    deleteItem
+    deleteItem,
+    generateItemQRCode,
 } = require("../controllers/itemController");
 
 router.get("/", authInternal, getItemsPaginatedAndSearch);
@@ -16,5 +17,7 @@ router.get("/:id", authInternal, getItemById);
 router.post("/create", authInternal, createItem);
 router.put("/update/:id", authInternal, updateItem);
 router.delete("/:id", authInternal, deleteItem);
+
+router.get("/:id/qr", generateItemQRCode);
 
 module.exports = router;
