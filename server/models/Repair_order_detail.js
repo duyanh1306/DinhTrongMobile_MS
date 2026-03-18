@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const repairOrderDetailSchema = new mongoose.Schema(
   {
     repairOrderId: { type: mongoose.Schema.Types.ObjectId, ref: "Repair_order", required: true },
-    serviceId: { type: mongoose.Schema.Types.ObjectId, ref: "Repair_service" }, 
+    serviceId: [{ type: mongoose.Schema.Types.ObjectId, ref: "Repair_service" }],
     itemIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }], 
     
     type: { type: String, enum: ["REPAIR", "WARRANTY"] }, 
