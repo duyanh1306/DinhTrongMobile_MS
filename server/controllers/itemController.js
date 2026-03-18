@@ -1,5 +1,6 @@
 const Item = require("../models/Item");
 const QRCode = require('qrcode');
+const Item_type = require("../models/Item_type");
 // GET /api/items/qrcode/:id
 const generateItemQRCode = async (req, res) => {
     try {
@@ -189,8 +190,86 @@ const deleteItem = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+const importBatch = async (req, res) => {
+    try {
+        const { batches } = req.body; // 
+
+        if (!batches || !Array.isArray(batches) || batches.length === 0) {
+            return res.status(400).json({ success: false, message: "Danh sách nhập kho trống!" });
+        }
+
+        const itemsToInsert = [];
+        const dateObj = new Date();
+        const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}${String(dateObj.getMonth() + 1).padStart(2, '0')}${String(dateObj.getFullYear()).slice(2)}`;
+
+        // 🌟 LẶP QUA TỪNG LÔ HÀNG TRONG GIỎ
+        for (const batch of batches) {
+            const {
+                item_type, quantity, origin, baseCost, price,
+                warrantyPeriod, storeId, color, capacity, ram,
+                quality, sourceDevice, batchSuffix
+            } = batch;
+
+            const qty = parseInt(quantity, 10);
+            if (qty < 1) continue; 
+
+            const typeInfo = await Item_type.findById(item_type);
+            if (!typeInfo) continue;
+
+            const typeCode = typeInfo.code; 
+            const typeName = typeInfo.name;
+            const finalSuffix = batchSuffix ? batchSuffix.trim().toUpperCase() : dateStr;
+
+            // Mã ngẫu nhiên 4 số để chống trùng lặp tuyệt đối khi nhập quá nhanh
+            const uniqueFactor = Math.floor(1000 + Math.random() * 9000);
+
+            // SINH LINH KIỆN CHO LÔ NÀY
+            for (let i = 1; i <= qty; i++) {
+                const idxStr = String(i).padStart(3, '0'); 
+                
+                // VD: BAT-IP13-180326-8921-001
+                const autoSerialCode = `${typeCode}-${finalSuffix}-${uniqueFactor}-${idxStr}`;
+
+                itemsToInsert.push({
+                    serialCode: autoSerialCode,
+                    name: typeName, 
+                    item_type,
+                    status: "in_stock",
+                    origin: origin || "new",
+                    baseCost: baseCost || 0,
+                    price: price || 0,
+                    warrantyPeriod: warrantyPeriod || 0,
+                    storeId: storeId, 
+                    color: color || "",
+                    capacity: capacity || "",
+                    ram: ram || "",
+                    quality: quality || "",
+                    sourceDevice: sourceDevice || ""
+                });
+            }
+        }
+
+        if (itemsToInsert.length === 0) {
+            return res.status(400).json({ success: false, message: "Không có sản phẩm hợp lệ để nhập." });
+        }
+
+        // 🌟 LƯU TOÀN BỘ HÀNG TRĂM SẢN PHẨM VÀO DB SIÊU TỐC
+        const savedItems = await Item.insertMany(itemsToInsert);
+
+        res.status(201).json({
+            success: true,
+            message: `Đã nhập thành công tổng cộng ${itemsToInsert.length} linh kiện vào kho.`,
+            data: savedItems
+        });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ success: false, message: "Trùng lặp mã Serial Code do có lô hàng đã tồn tại." });
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 module.exports = { 
-    getAllItems, getItemsPaginatedAndSearch, getItemById, createItem, updateItem, deleteItem,
+    importBatch, getAllItems, getItemsPaginatedAndSearch, getItemById, createItem, updateItem, deleteItem,
     generateItemQRCode
 };

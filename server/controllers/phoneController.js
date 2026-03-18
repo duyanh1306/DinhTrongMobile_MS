@@ -378,6 +378,6 @@ module.exports = {
     createAssembledPhone,
     getPhonesGroupedByBrand,
     handleTechDecision,
-    testPhoneQRCode,
+    //testPhoneQRCode,
     generatePhoneQRCode
 };

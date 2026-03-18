@@ -28,6 +28,8 @@ const Login = () => {
 
       if (role === 'ADMIN') {
         navigate('/admin/dashboard');
+      } else if (role === 'MANAGER') {
+        navigate('/manager/dashboard');
       } else if (role === 'SALE_STAFF') {
         navigate('/sale/dashboard');
       } else if (role === 'TECHNICIAN') {

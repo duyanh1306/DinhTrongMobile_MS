@@ -10,11 +10,10 @@ const createStore = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 const getAllStores = async (req, res) => {
   try {
     const stores = await Store.find();
-    res.status(200).json(stores);
+    res.status(200).json({ success: true, data: stores });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

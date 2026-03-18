@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Edit, Wrench, CheckCircle, ShoppingCart, ChevronLeft, Search, Plus, X, Filter, Trash2 } from "lucide-react";
+import { Edit, Wrench, CheckCircle, ShoppingCart, ChevronLeft, Search, Plus, X, Filter, Trash2, Package } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast } from "react-toastify";
@@ -9,18 +9,15 @@ export default function BuildPhone() {
     const navigate = useNavigate();
     const [recipes, setRecipes] = useState([]);
     const [allItems, setAllItems] = useState([]);
-    const [itemTypesMap, setItemTypesMap] = useState({}); // FIX: Thêm state lưu bản đồ Item Types
+    const [itemTypesMap, setItemTypesMap] = useState({}); 
     const [loading, setLoading] = useState(true);
 
-    // State quản lý việc Build
     const [selectedRecipe, setSelectedRecipe] = useState("");
-    const [selectedParts, setSelectedParts] = useState({}); // { partKey: itemObject }
+    const [selectedParts, setSelectedParts] = useState({}); 
 
-    // State cho Modal Chọn Linh Kiện
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentPartType, setCurrentPartType] = useState(null); // { id, name, acceptedTypes }
+    const [currentPartType, setCurrentPartType] = useState(null); 
     
-    // State Bộ lọc trong Modal
     const [modalSearch, setModalSearch] = useState("");
     const [modalPriceFilter, setModalPriceFilter] = useState("");
     const [modalCapacityFilter, setModalCapacityFilter] = useState("");
@@ -33,7 +30,6 @@ export default function BuildPhone() {
     useEffect(() => {
         const fetchBuildData = async () => {
             try {
-                // FIX: Lấy thêm item_types để làm bản đồ lấy ảnh chung
                 const [recipesRes, itemsRes, itemTypesRes] = await Promise.all([
                     axiosClient.get('/recipes/all'),
                     axiosClient.get('/items/all'),
@@ -44,7 +40,6 @@ export default function BuildPhone() {
                 const availableItems = (itemsRes.data.data || []).filter(i => i.status === 'in_stock');
                 setAllItems(availableItems);
 
-                // Tạo bản đồ tra cứu Item Types bằng ID để lấy ảnh
                 const typesMap = {};
                 (itemTypesRes.data.data || []).forEach(type => {
                     typesMap[type._id] = type;
@@ -67,7 +62,6 @@ export default function BuildPhone() {
 
     const activeRecipe = recipes.find(r => r._id === selectedRecipe);
 
-    // Mở Modal chọn linh kiện
     const openSelectionModal = (partKey, partName, acceptedTypes) => {
         setCurrentPartType({ id: partKey, name: partName, acceptedTypes: acceptedTypes });
         setModalSearch("");
@@ -79,10 +73,13 @@ export default function BuildPhone() {
         setIsModalOpen(true);
     };
 
-    const handleSelectItem = (item) => {
+    const handleSelectItem = (itemGroup) => {
+        // 🌟 LẤY ITEM ĐẦU TIÊN TRONG NHÓM ĐỂ THÊM VÀO GIỎ HÀNG
+        const actualItemToSelect = itemGroup.itemsList[0]; 
+
         setSelectedParts(prev => ({
             ...prev,
-            [currentPartType.id]: item
+            [currentPartType.id]: actualItemToSelect
         }));
         setIsModalOpen(false);
     };
@@ -95,7 +92,6 @@ export default function BuildPhone() {
         });
     };
 
-    // Tự động trích xuất thuộc tính lọc
     const availableCapacities = useMemo(() => {
         if (!currentPartType || !currentPartType.acceptedTypes) return [];
         const itemsInScope = allItems.filter(i => {
@@ -123,7 +119,6 @@ export default function BuildPhone() {
         return [...new Set(itemsInScope.map(i => i.color).filter(Boolean))];
     }, [currentPartType, allItems]);
 
-    // Logic lọc trong modal
     const modalFilteredItems = useMemo(() => {
         if (!currentPartType || !currentPartType.acceptedTypes) return [];
         
@@ -131,6 +126,10 @@ export default function BuildPhone() {
             const typeId = i.item_type?._id || i.item_type;
             return currentPartType.acceptedTypes.some(acc => (acc._id || acc) === typeId);
         });
+
+        // 🌟 LOẠI TRỪ CÁC ITEM ĐÃ ĐƯỢC CHỌN VÀO SLOT KHÁC ĐỂ TRÁNH TRÙNG
+        const alreadySelectedIds = Object.values(selectedParts).map(item => item._id);
+        filtered = filtered.filter(i => !alreadySelectedIds.includes(i._id));
 
         if (modalSearch) {
             filtered = filtered.filter(i => i.name.toLowerCase().includes(modalSearch.toLowerCase()) || i.serialCode.toLowerCase().includes(modalSearch.toLowerCase()));
@@ -145,10 +144,34 @@ export default function BuildPhone() {
         if (modalColorFilter) filtered = filtered.filter(i => i.color === modalColorFilter);
 
         return filtered;
-    }, [currentPartType, allItems, modalSearch, modalPriceFilter, modalCapacityFilter, modalRamFilter, modalColorFilter]);
+    }, [currentPartType, allItems, modalSearch, modalPriceFilter, modalCapacityFilter, modalRamFilter, modalColorFilter, selectedParts]);
 
-    const modalTotalPages = Math.ceil(modalFilteredItems.length / itemsPerPage);
-    const modalCurrentItems = modalFilteredItems.slice((modalPage - 1) * itemsPerPage, modalPage * itemsPerPage);
+    // 🌟 THUẬT TOÁN GỘP NHÓM (GROUPING) 🌟
+    const groupedItems = useMemo(() => {
+        const groups = {};
+        modalFilteredItems.forEach(item => {
+            const typeId = item.item_type?._id || item.item_type;
+            // Tạo chữ ký: Cùng loại + Cùng giá + Cùng tình trạng + Cùng cấu hình = 1 Nhóm
+            const signature = `${typeId}-${item.price}-${item.origin}-${item.color || ''}-${item.capacity || ''}-${item.ram || ''}-${item.quality || ''}`;
+            
+            if (!groups[signature]) {
+                groups[signature] = {
+                    ...item, // Lấy thông tin hiển thị của đại diện đầu tiên
+                    stockQuantity: 1,
+                    itemsList: [item] // Chứa danh sách các item thực tế bên trong
+                };
+            } else {
+                groups[signature].stockQuantity += 1;
+                groups[signature].itemsList.push(item);
+            }
+        });
+        // Trả về mảng các nhóm
+        return Object.values(groups);
+    }, [modalFilteredItems]);
+
+    // Phân trang áp dụng lên danh sách ĐÃ GỘP NHÓM
+    const modalTotalPages = Math.ceil(groupedItems.length / itemsPerPage);
+    const modalCurrentItems = groupedItems.slice((modalPage - 1) * itemsPerPage, modalPage * itemsPerPage);
 
     const getPaginationRange = (currentPage, totalPages) => {
         const delta = 1;
@@ -240,12 +263,10 @@ export default function BuildPhone() {
                             
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 {activeRecipe.requiredParts.map((part, index) => {
-                                    // FIX: Khai báo các biến bị thiếu trong map
                                     const partKey = part.name; 
                                     const partName = part.name || "Linh kiện";
                                     const selectedItem = selectedParts[partKey];
 
-                                    // Lấy ảnh chung từ Item Type đầu tiên trong danh sách cho phép (để làm ảnh minh họa khi chưa chọn)
                                     const previewTypeId = part.acceptedItemTypes?.[0]?._id || part.acceptedItemTypes?.[0];
                                     const typeImage = itemTypesMap[previewTypeId]?.image;
 
@@ -267,7 +288,7 @@ export default function BuildPhone() {
                                                                     {selectedItem.name}
                                                                 </p>
                                                                 <p className="text-xs text-gray-500 mt-1">
-                                                                    Mã: {selectedItem.serialCode} | BH: {selectedItem.warrantyPeriod} tháng
+                                                                    Trạng thái: {selectedItem.origin === 'new' ? 'Mới 100%' : 'Bóc máy'} | BH: {selectedItem.warrantyPeriod} tháng
                                                                 </p>
                                                                 <p className="font-bold text-red-600 text-sm mt-0.5">{selectedItem.price.toLocaleString()} đ</p>
                                                             </div>
@@ -366,7 +387,7 @@ export default function BuildPhone() {
                                         <input type="text" placeholder={`Tìm kiếm...`} value={modalSearch} onChange={e => {setModalSearch(e.target.value); setModalPage(1);}} className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-lg outline-none text-sm" />
                                     </div>
                                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between sm:justify-end">
-                                        <span className="text-gray-500">Tìm thấy <strong>{modalFilteredItems.length}</strong> sản phẩm</span>
+                                        <span className="text-gray-500">Tìm thấy <strong>{groupedItems.length}</strong> mẫu linh kiện</span>
                                         {modalTotalPages > 1 && (
                                             <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
                                                 <button disabled={modalPage === 1} onClick={() => setModalPage(p => p - 1)} className="px-2 py-1 hover:bg-gray-200 disabled:opacity-50 rounded transition">&lt;</button>
@@ -382,23 +403,27 @@ export default function BuildPhone() {
                                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                                     {modalCurrentItems.length === 0 ? <div className="text-center py-20 text-gray-500">Không tìm thấy linh kiện phù hợp.</div> : (
                                         <div className="space-y-3">
-                                            {modalCurrentItems.map(item => {
-                                                const typeId = item.item_type?._id || item.item_type;
+                                            {/* 🌟 HIỂN THỊ DANH SÁCH ĐÃ GỘP NHÓM 🌟 */}
+                                            {modalCurrentItems.map((group, index) => {
+                                                const typeId = group.item_type?._id || group.item_type;
                                                 const typeImage = itemTypesMap[typeId]?.image;
                                                 return (
-                                                    <div key={item._id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-md transition bg-white group">
+                                                    <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-md transition bg-white">
                                                         <div className="flex items-center gap-4 flex-1">
                                                             <div className="w-16 h-16 bg-gray-50 rounded flex items-center justify-center border border-gray-100 flex-shrink-0">
                                                                 <img src={getImageUrl(typeImage)} alt="" className="max-w-full max-h-full object-contain p-1" />
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-bold text-gray-800 text-sm md:text-base group-hover:text-blue-700 transition">{item.name}</h4>
-                                                                <p className="text-xs text-gray-500">Mã SP: {item.serialCode} | Bảo hành: {item.warrantyPeriod} tháng</p>
-                                                                <div className="font-bold text-red-600 mt-1">{item.price.toLocaleString()} đ</div>
+                                                                <h4 className="font-bold text-gray-800 text-sm md:text-base">{group.name}</h4>
+                                                                <div className="text-xs text-gray-500 mt-1 flex gap-3">
+                                                                    <span className="bg-gray-100 px-2 py-0.5 rounded">{group.origin === 'new' ? 'Mới 100%' : 'Bóc máy'}</span>
+                                                                    <span className="flex items-center gap-1 text-emerald-600 font-semibold"><Package size={14}/> Sẵn có: {group.stockQuantity}</span>
+                                                                </div>
+                                                                <div className="font-bold text-red-600 mt-1">{group.price.toLocaleString()} đ</div>
                                                             </div>
                                                         </div>
-                                                        <button onClick={() => handleSelectItem(item)} className="flex items-center gap-1.5 px-4 py-2 bg-[#1e3a8a] hover:bg-blue-700 text-white font-semibold rounded-lg transition ml-4">
-                                                            <Plus size={16}/> <span className="hidden sm:inline">Thêm</span>
+                                                        <button onClick={() => handleSelectItem(group)} className="flex items-center gap-1.5 px-4 py-2 bg-[#1e3a8a] hover:bg-blue-700 text-white font-semibold rounded-lg transition ml-4">
+                                                            <Plus size={16}/> <span className="hidden sm:inline">Chọn</span>
                                                         </button>
                                                     </div>
                                                 );

@@ -9,6 +9,7 @@ const {
     getItemById,
     deleteItem,
     generateItemQRCode,
+    importBatch
 } = require("../controllers/itemController");
 
 router.get("/", authInternal, getItemsPaginatedAndSearch);
@@ -19,5 +20,5 @@ router.put("/update/:id", authInternal, updateItem);
 router.delete("/:id", authInternal, deleteItem);
 
 router.get("/:id/qr", generateItemQRCode);
-
+router.post('/import-batch', importBatch);
 module.exports = router;

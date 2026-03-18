@@ -2,6 +2,7 @@ import React from "react";
 import {BrowserRouter, Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ManagerLayout from "./layouts/ManagerLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import SaleLayout from "./layouts/SaleLayout";
 import TechLayout from "./layouts/TechLayout";
@@ -45,6 +46,9 @@ import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
 import CategoryPage from "./pages/customer/CategoryPage";
 import TechDecisionList from "./pages/technician/TechDecisionList";
 import AdminRecipe from "./pages/admin/AdminRecipe";
+
+import ManagerDashboard from "./pages/manager/ManagerDashboard";
+import ImportInventory from "./pages/manager/ImportInventory";
 const CustomerProfile = () => (
     <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -78,6 +82,8 @@ const RoleBasedLayout = ({children}) => {
     switch (role) {
         case "ADMIN":
             return <AdminLayout>{children}</AdminLayout>;
+        case "MANAGER": 
+            return <ManagerLayout>{children}</ManagerLayout>;
         case "SALE_STAFF":
             return <SaleLayout>{children}</SaleLayout>;
         case "TECHNICIAN":
@@ -378,6 +384,27 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+                {/* ================= MANAGER ROUTES ================= */}
+        <Route
+          path="/manager/dashboard"
+          element={
+            <PrivateRoute allowedRoles={["MANAGER"]}>
+              <ManagerLayout>
+                <ManagerDashboard />
+              </ManagerLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/manager/import_inventory"
+          element={
+            <PrivateRoute allowedRoles={["MANAGER"]}>
+              <ManagerLayout>
+                <ImportInventory/>
+              </ManagerLayout>
+            </PrivateRoute>
+          }
+        />
                 {/* ================= 404 NOT FOUND ================= */}
                 <Route
                     path="*"
