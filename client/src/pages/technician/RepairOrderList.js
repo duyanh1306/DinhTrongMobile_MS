@@ -55,10 +55,14 @@ const RepairOrderList = () => {
   const fetchStores = async () => {
     try {
       const response = await axiosClient.get('/stores');
-      setStores(response.data);
-    } catch (err) { console.error("Error fetching stores:", err); }
+      // Trích xuất đúng mảng data từ response
+      const storesData = response.data?.data || response.data || [];
+      setStores(Array.isArray(storesData) ? storesData : []);
+    } catch (err) { 
+      console.error("Error fetching stores:", err); 
+      setStores([]);
+    }
   };
-
   const fetchRepairOrders = async () => {
     try {
       setLoading(true);
@@ -72,7 +76,43 @@ const RepairOrderList = () => {
       setLoading(false);
     }
   };
+const submitValuationDetailed = async (req) => {
+    if(!valuation.phoneModelId) return toast.error("Vui lòng chọn dòng máy!");
+    if(!valuation.price) return toast.error("Vui lòng nhập giá thu mua!");
+    
+    // Gom các thông tin chi tiết thành 1 đoạn Note format chuẩn báo cáo
+    const reportNote = `[BÁO CÁO KỸ THUẬT]
+- Cấu hình: ${valuation.colorName || "N/A"} | ${valuation.capacity || "N/A"}
+- Ngoại hình: ${valuation.appearance || "Chưa đánh giá"}
+- Pin: ${valuation.battery || "Chưa đánh giá"}
+- Màn hình: ${valuation.screen || "Chưa đánh giá"}
+- Camera: ${valuation.camera || "Chưa đánh giá"}
+- Ghi chú lỗi: ${valuation.techNote || "Không có lỗi."}`;
 
+    try {
+      const payload = {
+        totalPrice: Number(valuation.price), 
+        status: "Pending",
+        note: reportNote,
+        tempPhoneData: {
+            phoneModelId: valuation.phoneModelId,
+            capacity: valuation.capacity, 
+            colorName: valuation.colorName
+            // ĐÃ BAY MÀU IMEI Ở ĐÂY
+        }
+      };
+
+      await axiosClient.put(`/purchase-orders/${req._id}`, payload);
+      
+      toast.success("Đã lưu báo cáo định giá chi tiết!");
+      setSelectedTradeIn(null);
+      // Xoá luôn imei trong state reset
+      setValuation({ price: "", techNote: "", phoneModelId: "", battery: "", appearance: "", screen: "", camera: "", capacity: "", colorName: "" });
+      fetchTradeInRequests();
+    } catch(err) { 
+      toast.error("Lỗi cập nhật báo cáo định giá"); 
+    }
+  };
   const fetchInProgressOrders = async () => {
     try {
       setLoading(true);
@@ -658,54 +698,104 @@ const RepairOrderList = () => {
         </div>
       )}
 
-      {/* ================================================================= */}
+  {/* ================================================================= */}
       {/* MODALS CỦA TAB TRADE IN */}
       {/* ================================================================= */}
       {selectedTradeIn && activeTab === "TRADE_IN" && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-0 rounded-2xl w-[500px] shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="p-6 border-b flex justify-between items-center bg-gray-50 sticky top-0 z-10">
-              <h3 className="text-xl font-bold text-gray-800">Định giá thiết bị</h3>
+          <div className="bg-white p-0 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b flex justify-between items-center bg-gray-50 sticky top-0 z-10">
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">Định giá chi tiết thiết bị</h3>
+                <p className="text-xs text-gray-500 mt-1">Khách hàng: {selectedTradeIn.customerName} - {selectedTradeIn.customerPhone}</p>
+              </div>
               <button onClick={() => setSelectedTradeIn(null)} className="text-gray-400 hover:text-red-500"><X size={24}/></button>
             </div>
 
-            <div className="p-6 space-y-5">
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                  <p className="text-sm text-orange-800 font-medium">Ghi chú từ Sale:</p>
-                  <p className="text-sm text-orange-600 italic mt-1">{selectedTradeIn.note || "Không có ghi chú"}</p>
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
+              {/* Ghi chú từ Sale */}
+              <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 mb-6 shadow-sm">
+                  <p className="text-xs text-orange-800 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <User size={14}/> Ghi chú tình trạng từ Sale:
+                  </p>
+                  <p className="text-sm text-orange-700 italic">{selectedTradeIn.note || "Sale không để lại ghi chú nào."}</p>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Dòng máy <span className="text-red-500">*</span></label>
-                <select value={valuation.phoneModelId} onChange={e => setValuation({...valuation, phoneModelId: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
-                  <option value="">-- Chọn dòng máy --</option>
-                  {phoneModels.map(pm => (<option key={pm._id} value={pm._id}>{pm.name}</option>))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Số IMEI thiết bị <span className="text-red-500">*</span></label>
-                <input type="text" placeholder="Bấm *#06# trên máy để xem" value={valuation.imei} onChange={e => setValuation({...valuation, imei: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50 font-mono" />
-              </div>
-
-              <div>
-                  <label className="block font-bold text-gray-700 mb-1">Kết quả test / Lý do trừ tiền</label>
-                  <textarea value={valuation.techNote} onChange={e => setValuation({...valuation, techNote: e.target.value})} className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500" placeholder="VD: Pin chai, vỏ móp, màn hình xước..." rows="3"></textarea>
-              </div>
-
-              <div>
-                  <label className="block font-bold text-gray-700 mb-1">CHỐT GIÁ THU MUA (VND) <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                      <DollarSign className="absolute left-3 top-3.5 text-gray-400" size={20}/>
-                      <input type="number" value={valuation.price} onChange={e => setValuation({...valuation, price: e.target.value})} className="w-full pl-10 pr-4 py-3 border-2 border-purple-200 rounded-xl outline-none focus:border-purple-600 text-xl font-black text-purple-700" placeholder="0" />
+              <div className="space-y-6">
+               {/* 1. Thông tin cơ bản */}
+                <div className="bg-white p-4 rounded-xl border shadow-sm">
+                  <h4 className="font-bold text-gray-700 border-b pb-2 mb-4 text-sm uppercase">1. Thông tin cấu hình</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Dòng máy <span className="text-red-500">*</span></label>
+                      <select value={valuation.phoneModelId} onChange={e => setValuation({...valuation, phoneModelId: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white">
+                        <option value="">-- Chọn dòng máy --</option>
+                        {phoneModels.map(pm => (<option key={pm._id} value={pm._id}>{pm.name}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Màu sắc</label>
+                      <input type="text" placeholder="VD: Đen, Titan..." value={valuation.colorName || ""} onChange={e => setValuation({...valuation, colorName: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Dung lượng / RAM</label>
+                      <input type="text" placeholder="VD: 256GB / 8GB RAM" value={valuation.capacity || ""} onChange={e => setValuation({...valuation, capacity: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                    </div>
                   </div>
+                </div>
+                {/* 2. Tình trạng linh kiện (Checklist) */}
+                <div className="bg-white p-4 rounded-xl border shadow-sm">
+                  <h4 className="font-bold text-gray-700 border-b pb-2 mb-4 text-sm uppercase">2. Tình trạng linh kiện & Ngoại hình</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Tình trạng Pin (%)</label>
+                      <input type="text" placeholder="VD: Pin zin 85%, Pin thay, Pin bảo trì..." value={valuation.battery || ""} onChange={e => setValuation({...valuation, battery: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Ngoại hình</label>
+                      <select value={valuation.appearance || ""} onChange={e => setValuation({...valuation, appearance: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                        <option value="">-- Đánh giá ngoại hình --</option>
+                        <option value="Đẹp keng 99%">Đẹp keng 99%</option>
+                        <option value="Xước lông mèo 98%">Xước dăm lông mèo 98%</option>
+                        <option value="Cấn móp nhẹ 95%">Cấn móp xước xát 95%</option>
+                        <option value="Vỏ xấu">Vỏ xấu cần thay</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Màn hình</label>
+                      <input type="text" placeholder="VD: Màn zin đẹp, Lưu ảnh nhẹ, Ép kính..." value={valuation.screen || ""} onChange={e => setValuation({...valuation, screen: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Camera & Cảm biến</label>
+                      <input type="text" placeholder="VD: Bụi cam, FaceID bình thường..." value={valuation.camera || ""} onChange={e => setValuation({...valuation, camera: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Chốt giá */}
+                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 shadow-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                    <div>
+                      <label className="block text-xs font-bold text-purple-900 mb-1">Chi tiết lỗi / Lý do trừ tiền</label>
+                      <textarea value={valuation.techNote} onChange={e => setValuation({...valuation, techNote: e.target.value})} className="w-full p-2.5 border border-purple-200 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white" placeholder="Ghi chú thêm về các chức năng bị lỗi..." rows="3"></textarea>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black text-purple-900 mb-1">CHỐT GIÁ THU MUA (VND) <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                            <DollarSign className="absolute left-3 top-3 text-gray-400" size={20}/>
+                            <input type="number" value={valuation.price} onChange={e => setValuation({...valuation, price: e.target.value})} className="w-full pl-10 pr-4 py-2.5 border-2 border-purple-300 rounded-lg outline-none focus:border-purple-600 text-2xl font-black text-purple-700 bg-white" placeholder="0" />
+                        </div>
+                        <p className="text-[10px] text-purple-600 mt-2 italic">* Giá này sẽ được báo lại cho Sale để chốt với Khách Hàng.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="p-4 border-t flex gap-3 bg-gray-50 sticky bottom-0">
-                <button onClick={() => setSelectedTradeIn(null)} className="flex-1 bg-white border border-gray-300 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100">Hủy</button>
-                <button onClick={submitValuation} className="flex-1 bg-purple-600 py-3 rounded-xl font-bold text-white shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2 transition-transform hover:-translate-y-1">
-                    <CheckCircle size={20}/> CHỐT GIÁ
+            <div className="p-4 border-t flex gap-3 bg-white sticky bottom-0">
+                <button onClick={() => setSelectedTradeIn(null)} className="flex-1 bg-white border border-gray-300 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition">Hủy bỏ</button>
+                <button onClick={() => submitValuationDetailed(selectedTradeIn)} className="flex-1 bg-purple-600 py-3 rounded-xl font-bold text-white shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2 transition-transform hover:-translate-y-1">
+                    <CheckCircle size={20}/> LƯU BÁO CÁO & CHỐT GIÁ
                 </button>
             </div>
           </div>
