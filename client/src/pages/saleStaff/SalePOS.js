@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Search, Settings, Send, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine } from "lucide-react";
 import { toast } from "react-toastify";
 
 export default function SalePOS() {
@@ -8,29 +8,27 @@ export default function SalePOS() {
   const [inventory, setInventory] = useState([]);
   const [cart, setCart] = useState([]);
   
-  // States cho Lọc và Phân trang
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("ALL"); // ALL, PHONE, ITEM
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12; // Số sản phẩm trên 1 trang
+  // State cho việc quét mã
+  const [scanInput, setScanInput] = useState("");
+  const scanInputRef = useRef(null);
 
   const [tradeInRequest, setTradeInRequest] = useState({ note: "" });
 
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
 
+  // Giữ focus vào ô quét mã vạch khi ở chế độ SALE
+  useEffect(() => {
+    if (orderType === "SALE" && scanInputRef.current) {
+      scanInputRef.current.focus();
+    }
+  }, [orderType]);
+
   useEffect(() => {
     fetchInventory();
     setCart([]);
-    setSearchQuery("");
-    setCategoryFilter("ALL");
-    setCurrentPage(1);
+    setScanInput("");
   }, [orderType]);
-
-  // Reset về trang 1 khi gõ tìm kiếm hoặc đổi bộ lọc
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, categoryFilter]);
 
   const fetchInventory = async () => {
     if (orderType !== "SALE") return;
@@ -50,7 +48,9 @@ export default function SalePOS() {
         isPhone: true, 
         displayPrice: p.sellingPrice, 
         displayName: p.phoneModelId?.name,
-        identifier: `Mã: ${p._id.substring(p._id.length - 6).toUpperCase()}` // Dùng 6 số cuối ID thay cho IMEI
+        // Lưu mã 6 số cuối để dùng khi quét
+        shortCode: p._id.substring(p._id.length - 6).toUpperCase(),
+        identifier: `Mã: ${p._id.substring(p._id.length - 6).toUpperCase()}` 
       }));
       
       const formattedItems = (Array.isArray(itemsData) ? itemsData : itemsData.data || []).map(i => ({ 
@@ -65,8 +65,39 @@ export default function SalePOS() {
     } catch (err) { toast.error("Lỗi kết nối kho"); }
   };
 
+  // LOGIC QUÉT MÃ VẠCH (Kích hoạt khi súng quét gõ Enter)
+  const handleScan = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const code = scanInput.trim().toUpperCase();
+      
+      if (!code) return;
+
+      // Tìm sản phẩm trong kho trùng với mã vừa quét (Tìm theo 6 số cuối của ID điện thoại hoặc Serial Code của linh kiện)
+      const foundProduct = inventory.find(item => {
+        if (item.isPhone) {
+          return item.shortCode === code || item._id.toUpperCase() === code;
+        } else {
+          return item.serialCode.toUpperCase() === code;
+        }
+      });
+
+      if (foundProduct) {
+        if (cart.find((c) => c._id === foundProduct._id)) {
+          toast.warning("Sản phẩm này đã có trong giỏ!");
+        } else {
+          addToCart(foundProduct);
+        }
+      } else {
+        toast.error(`Không tìm thấy sản phẩm có mã: ${code} (Hoặc máy không sẵn sàng bán)`);
+      }
+
+      // Quét xong tự động xóa text để chờ quét cái tiếp theo
+      setScanInput("");
+    }
+  };
+
   const addToCart = (product) => {
-    if (cart.find((item) => item._id === product._id)) return toast.info("Đã có trong giỏ");
     setCart([...cart, { 
       ...product, 
       phoneId: product.isPhone ? product._id : null, 
@@ -75,6 +106,7 @@ export default function SalePOS() {
       name: product.displayName, 
       identifier: product.identifier 
     }]);
+    toast.success("Đã thêm vào giỏ!");
   };
 
   const removeFromCart = (indexToRemove) => {
@@ -83,13 +115,11 @@ export default function SalePOS() {
 
   const calculateTotal = () => cart.reduce((sum, item) => sum + (item.price || 0), 0);
 
-  // HÀM VALIDATE KHÁCH HÀNG CHUNG
   const validateCustomer = () => {
     if (!customer.name.trim()) {
       toast.error("Vui lòng nhập tên khách hàng!");
       return false;
     }
-    // Regex check SĐT Việt Nam hợp lệ (Bắt đầu bằng 0, độ dài 10 số)
     const phoneRegex = /(0[3|5|7|8|9])+([0-9]{8})\b/;
     if (!phoneRegex.test(customer.phone)) {
       toast.error("Số điện thoại không hợp lệ! (Ví dụ: 0987654321)");
@@ -100,7 +130,7 @@ export default function SalePOS() {
 
   const handleSaleSubmit = async () => {
     if (!validateCustomer()) return;
-    if (cart.length === 0) return toast.error("Vui lòng chọn sản phẩm vào giỏ!");
+    if (cart.length === 0) return toast.error("Vui lòng quét sản phẩm vào giỏ!");
     if (!user) return toast.error("Vui lòng đăng nhập lại");
 
     const token = localStorage.getItem("token");
@@ -122,6 +152,7 @@ export default function SalePOS() {
         setCart([]); 
         setCustomer({name:"", phone:""}); 
         fetchInventory(); 
+        if(scanInputRef.current) scanInputRef.current.focus();
       } else {
         toast.error("Tạo đơn thất bại");
       }
@@ -164,25 +195,10 @@ export default function SalePOS() {
 
   const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
-  // LOGIC LỌC & PHÂN TRANG DANH SÁCH SẢN PHẨM
-  const filteredInventory = inventory.filter((item) => {
-    const matchesSearch = (item.displayName || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (item.identifier || "").toLowerCase().includes(searchQuery.toLowerCase());
-    
-    let matchesCategory = true;
-    if (categoryFilter === "PHONE") matchesCategory = item.isPhone;
-    if (categoryFilter === "ITEM") matchesCategory = !item.isPhone;
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
-  const currentItems = filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
   return (
     <div className="flex h-screen bg-gray-100 p-4 gap-4 overflow-hidden">
       
-      {/* CỘT TRÁI: DANH SÁCH MÁY / FORM THU CŨ */}
+      {/* CỘT TRÁI: FORM QUÉT MÃ / FORM THU CŨ */}
       <div className="w-2/3 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border">
         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
@@ -199,80 +215,34 @@ export default function SalePOS() {
         </div>
 
         {orderType === "SALE" ? (
-          <>
-            {/* Thanh tìm kiếm và bộ lọc */}
-            <div className="p-4 bg-white border-b flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Tìm tên máy, mã SN..." 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)} 
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-orange-500" 
-                />
-              </div>
-              <div className="flex items-center gap-2 bg-gray-50 border rounded-lg px-3">
-                <Filter size={18} className="text-gray-400"/>
-                <select 
-                  value={categoryFilter} 
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="bg-transparent py-2 outline-none font-medium text-gray-700"
-                >
-                  <option value="ALL">Tất cả sản phẩm</option>
-                  <option value="PHONE">Chỉ Điện thoại</option>
-                  <option value="ITEM">Chỉ Linh kiện</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Lưới sản phẩm */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {currentItems.map((item) => (
-                  <div key={item._id} onClick={() => addToCart(item)} className="border p-4 rounded-xl hover:border-orange-500 hover:shadow-md cursor-pointer transition-all bg-white flex flex-col h-full">
-                    <div className="flex justify-between mb-2 text-gray-400">
-                      {item.isPhone ? <Smartphone size={18} className="text-blue-500"/> : <Package size={18} className="text-emerald-500"/>}
-                      <span className="text-[10px] font-bold bg-gray-100 px-2 py-0.5 rounded text-gray-500">Sẵn sàng</span>
-                    </div>
-                    <p className="font-bold text-sm leading-tight flex-1">{item.displayName}</p>
-                    <p className="text-[10px] text-gray-400 font-mono mt-2 bg-gray-50 p-1 rounded text-center truncate" title={item.identifier}>{item.identifier}</p>
-                    <p className="text-orange-600 font-black mt-2 text-lg text-right">{formatCurrency(item.displayPrice)}</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
+            <div className="w-full max-w-xl bg-white p-8 rounded-3xl shadow-xl border border-orange-100 text-center">
+               <div className="mx-auto bg-orange-100 text-orange-600 w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                  <ScanLine size={48} />
+               </div>
+               <h3 className="text-2xl font-black text-gray-800 mb-2">Quét mã vạch sản phẩm</h3>
+               <p className="text-gray-500 mb-8 text-sm">Dùng súng quét tít mã trên máy/linh kiện, hoặc nhập tay và ấn Enter.</p>
+               
+               <div className="relative group">
+                  <input 
+                    ref={scanInputRef}
+                    type="text" 
+                    placeholder="Mã máy (6 số cuối) / Số Serial (SN)..." 
+                    value={scanInput} 
+                    onChange={(e) => setScanInput(e.target.value)} 
+                    onKeyDown={handleScan}
+                    className="w-full pl-6 pr-4 py-5 bg-gray-50 border-2 border-gray-200 rounded-2xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 text-xl font-mono text-center tracking-widest transition-all uppercase" 
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity">
+                      <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span>
                   </div>
-                ))}
-              </div>
-              {currentItems.length === 0 && (
-                 <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                    <Package size={40} className="mb-2 opacity-50"/>
-                    <p>Không tìm thấy sản phẩm nào</p>
-                 </div>
-              )}
+               </div>
             </div>
 
-            {/* Thanh Phân trang */}
-            {totalPages > 1 && (
-              <div className="p-3 border-t bg-gray-50 flex items-center justify-between">
-                <span className="text-sm text-gray-500">Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredInventory.length)} / {filteredInventory.length}</span>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                    disabled={currentPage === 1}
-                    className="p-1.5 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
-                  >
-                    <ChevronLeft size={20}/>
-                  </button>
-                  <span className="px-3 py-1.5 text-sm font-bold">{currentPage} / {totalPages}</span>
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                    disabled={currentPage === totalPages}
-                    className="p-1.5 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
-                  >
-                    <ChevronRight size={20}/>
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+            <div className="mt-8 text-center text-gray-400 text-sm">
+                <p>Kho đang có sẵn: <strong className="text-orange-600">{inventory.length}</strong> sản phẩm sẵn sàng bán.</p>
+            </div>
+          </div>
         ) : (
           <div className="p-8 flex-1 overflow-y-auto bg-purple-50 flex items-center justify-center">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-purple-100">
@@ -332,7 +302,7 @@ export default function SalePOS() {
                <ShoppingCart size={18} className="text-orange-600" /> Giỏ hàng ({cart.length})
              </h3>
              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                {cart.length === 0 && <p className="text-center text-sm text-gray-400 mt-10">Chưa có sản phẩm</p>}
+                {cart.length === 0 && <p className="text-center text-sm text-gray-400 mt-10">Dùng súng quét mã để thêm SP</p>}
                 {cart.map((item, i) => (
                   <div key={i} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-transparent hover:border-gray-200 transition-all">
                     <div className="flex-1 min-w-0 mr-2">
@@ -361,7 +331,7 @@ export default function SalePOS() {
         ) : (
            <div className="bg-white flex-1 p-6 rounded-xl shadow-sm border flex flex-col justify-center text-center">
              <h3 className="text-lg font-bold text-gray-800 mb-4">Gửi yêu cầu Kỹ Thuật</h3>
-             <p className="text-sm text-gray-500 mb-8">Kiểm tra kỹ SĐT khách hàng trước khi chuyển máy cho Kỹ thuật định giá.</p>
+             <p className="text-sm text-gray-500 mb-8">Vui lòng kiểm tra lại thông tin khách hàng và ghi chú trước khi chuyển cho Tech định giá.</p>
              <button onClick={handleSendToTech} className="w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-xl bg-purple-600 text-white hover:bg-purple-700 transition-transform hover:-translate-y-1">
                <Send size={20} /> CHUYỂN CHO TECH ĐỊNH GIÁ
              </button>

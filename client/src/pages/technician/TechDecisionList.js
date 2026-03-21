@@ -106,7 +106,7 @@ export default function TechDecisionList() {
           <div key={phone._id} className="bg-white p-6 rounded-xl shadow-sm border flex justify-between items-center">
             <div>
               <p className="font-bold text-lg">{phone.phoneModelId?.name || "Máy chưa rõ"}</p>
-              <p className="text-sm text-gray-500 font-mono">IMEI: {phone.imei}</p>
+              <p className="text-sm text-gray-500 font-mono">Mã máy: #{phone._id.substring(phone._id.length - 6).toUpperCase()}</p>
               <p className="text-xs mt-1 text-red-500 font-medium">Giá vốn nhập: {new Intl.NumberFormat('vi-VN').format(phone.importPrice)} đ</p>
             </div>
             <button 

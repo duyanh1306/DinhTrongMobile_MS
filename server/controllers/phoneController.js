@@ -1,7 +1,7 @@
 const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const QRCode = require('qrcode');
-
+const InventoryTransaction = require("../models/Inventory_transaction");
 // GET /api/phones/qrcode/:id
 const generatePhoneQRCode = async (req, res) => {
     try {
@@ -124,12 +124,22 @@ const handleTechDecision = async (req, res) => {
       return res.status(200).json({ message: "Đã chuyển máy vào kho (Sẵn sàng bán)", data: updatedPhone });
     } 
     
-    if (decision === "DISMANTLE") {
+if (decision === "DISMANTLE") {
       const phone = await Phone.findById(id);
       if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
 
       phone.status = "defective"; 
       await phone.save();
+
+      // 1. TẠO LOG TIÊU HAO (XUẤT XÁC MÁY CŨ RA KHỎI KHO)
+      await InventoryTransaction.create({
+        storeId: phone.storeId,
+        transactionType: "REPAIR_CONSUMPTION",
+        referenceType: "DISMANTLE_PHONE",
+        referenceId: phone._id,
+        phoneId: phone._id,
+        note: `Rã xác máy lấy linh kiện`
+      });
 
       if (parts && parts.length > 0) {
         const itemsToCreate = parts.map((p) => ({
@@ -147,11 +157,24 @@ const handleTechDecision = async (req, res) => {
           capacity: p.capacity || "",
           color: p.color || ""
         }));
-        await Item.insertMany(itemsToCreate);
-      }
-      return res.status(200).json({ message: "Đã rã máy và nhập linh kiện vào kho" });
-    }
+        
+        // Thêm vào bảng Item
+        const insertedItems = await Item.insertMany(itemsToCreate);
 
+        // 2. TẠO LOG NHẬP KHO (CHO TỪNG LINH KIỆN VỪA RÃ ĐƯỢC)
+        const itemLogs = insertedItems.map(item => ({
+            storeId: item.storeId,
+            transactionType: "INBOUND",
+            referenceType: "DISMANTLE_PARTS",
+            referenceId: phone._id, // Trỏ về ID máy gốc
+            itemId: item._id,
+            note: `Nhập kho linh kiện rã từ máy mã: ${phone._id.toString().slice(-6).toUpperCase()}`
+        }));
+        
+        await InventoryTransaction.insertMany(itemLogs);
+      }
+      return res.status(200).json({ message: "Đã rã máy và ghi log nhập/xuất kho" });
+    }
     res.status(400).json({ message: "Quyết định không hợp lệ" });
   } catch (error) {
     console.error("LỖI TECH DECISION:", error);

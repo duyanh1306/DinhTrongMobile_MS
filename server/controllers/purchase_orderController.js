@@ -135,19 +135,21 @@ const confirmPayment = async (req, res) => {
     const updatedOrder = await Purchase_order.findByIdAndUpdate(
       id,
       { status: "Completed" },
-      { new: true },
+      { new: true }
     );
 
     if (!updatedOrder) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+      return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng" });
     }
 
     const details = await Purchase_order_detail.find({ purchaseOrderId: id });
 
+    // Tạo mảng lưu log giao dịch
+    const transactionLogs = [];
+
     for (const detail of details) {
       const isSale = updatedOrder.orderType === "SALE";
+      // Bán ra -> Xuất (sold). Mua vào -> Chờ Tech (waiting_for_tech_decision)
       const newStatus = isSale ? "sold" : "waiting_for_tech_decision";
 
       if (detail.phoneId) {
@@ -157,29 +159,28 @@ const confirmPayment = async (req, res) => {
         await Item.findByIdAndUpdate(detail.itemId, { status: newStatus });
       }
 
-      const transactionData = {
+      // Chuẩn bị dữ liệu ghi Log
+      transactionLogs.push({
         storeId: updatedOrder.storeId,
-        transactionType: isSale ? "OUTBOUND" : "INBOUND",
-        referenceType: isSale ? "SaleOrder" : "PurchaseOrder",
+        transactionType: isSale ? "OUTBOUND" : "INBOUND", // Bán -> XUẤT, Mua -> NHẬP
+        referenceType: isSale ? "SALE_ORDER" : "PURCHASE_ORDER",
         referenceId: updatedOrder._id,
         phoneId: detail.phoneId || undefined,
         itemId: detail.itemId || undefined,
-        note: isSale
-          ? "Xuất bán máy cho khách hàng"
-          : "Nhập hàng từ khách/nhà cung cấp chờ Kỹ thuật duyệt",
-      };
-
-      const newTransaction = new InventoryTransaction(transactionData);
-      await newTransaction.save();
+        note: isSale ? `Xuất kho bán cho khách: ${updatedOrder.customerName}` : `Nhập kho thu mua máy của khách`
+      });
     }
 
-    res
-      .status(200)
-      .json({
+    // Insert một lượt toàn bộ log vào DB
+    if (transactionLogs.length > 0) {
+      await InventoryTransaction.insertMany(transactionLogs);
+    }
+
+    res.status(200).json({
         success: true,
-        message: "Xác nhận thành công",
+        message: "Xác nhận thành công & Đã ghi log kho",
         data: updatedOrder,
-      });
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: error.message });
@@ -196,28 +197,23 @@ const updatePurchaseOrder = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
 
-    if (status === "Cancelled" && order.orderType === "SALE") {
+    // XỬ LÝ KHI ĐƠN BỊ HỦY
+    if (status === "Cancelled") {
       const details = await Purchase_order_detail.find({ purchaseOrderId: id });
-
       const phoneIds = details.filter((d) => d.phoneId).map((d) => d.phoneId);
       const itemIds = details.filter((d) => d.itemId).map((d) => d.itemId);
 
-      if (phoneIds.length > 0) {
-        await Phone.updateMany(
-          { _id: { $in: phoneIds } },
-          { status: "in_stock" },
-        );
-      }
-      if (itemIds.length > 0) {
-        await Item.updateMany(
-          { _id: { $in: itemIds } },
-          { status: "in_stock" },
-        );
+      if (order.orderType === "SALE") {
+        // Đơn bán ra bị hủy -> Trả hàng lại kho
+        if (phoneIds.length > 0) await Phone.updateMany({ _id: { $in: phoneIds } }, { status: "in_stock" });
+        if (itemIds.length > 0) await Item.updateMany({ _id: { $in: itemIds } }, { status: "in_stock" });
+      } else if (order.orderType === "PURCHASE") {
+        // Đơn thu mua bị hủy (Khách chê giá rẻ không bán nữa) -> Xóa luôn cái điện thoại vừa tạo ảo
+        if (phoneIds.length > 0) await Phone.deleteMany({ _id: { $in: phoneIds } });
       }
     }
 
-    order.totalPrice =
-      totalPrice !== undefined ? Number(totalPrice) : order.totalPrice;
+    order.totalPrice = totalPrice !== undefined ? Number(totalPrice) : order.totalPrice;
     order.status = status;
     order.note = note !== undefined ? note : order.note;
     
@@ -227,22 +223,23 @@ const updatePurchaseOrder = async (req, res) => {
 
     await order.save();
 
+    // XỬ LÝ KHI TECH CHỐT GIÁ (Tạo máy vào kho chờ)
     if (status === "Pending" || status === "Pending_Payment") {
       const existingDetail = await Purchase_order_detail.findOne({
         purchaseOrderId: id,
       });
 
-      if (!existingDetail && order.tempPhoneData && order.tempPhoneData.imei) {
+      // KHÔNG check IMEI nữa, check phoneModelId
+      if (!existingDetail && order.tempPhoneData && order.tempPhoneData.phoneModelId) {
         const newPhone = new Phone({
-          imei: order.tempPhoneData.imei,
           phoneModelId: order.tempPhoneData.phoneModelId,
           storeId: order.storeId,
           importPrice: Number(totalPrice),
           sellingPrice: 0,
           status: "waiting_for_tech_decision",
           source: "customer_trade_in",
-          capacity: "N/A",
-          colorName: "Đang cập nhật",
+          capacity: order.tempPhoneData.capacity || "N/A",
+          colorName: order.tempPhoneData.colorName || "Đang cập nhật",
         });
         const savedPhone = await newPhone.save();
 
@@ -251,7 +248,7 @@ const updatePurchaseOrder = async (req, res) => {
           phoneId: savedPhone._id,
           purchasePrice: Number(totalPrice),
           type: "PHONE",
-          note: note,
+          note: note, // Ghi chú báo cáo tình trạng máy sẽ lưu vào đây
         });
         await newDetail.save();
       }

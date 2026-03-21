@@ -28,6 +28,4 @@ const phoneSchema = new Schema(
     },
     { timestamps: true }
 );
-
-// Đã bỏ dòng phoneSchema.index({ imei: 1 });
 module.exports = mongoose.models.Phone || mongoose.model("Phone", phoneSchema);
