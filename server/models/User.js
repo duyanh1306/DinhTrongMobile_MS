@@ -67,11 +67,6 @@ const userSchema = new mongoose.Schema(
             ref: "Role",
             required: true,
         },
-        storeId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Store",
-            required: false,
-        },
         status: {
             type: String,
             required: true,

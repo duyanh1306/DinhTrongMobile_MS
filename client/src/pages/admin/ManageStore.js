@@ -20,7 +20,11 @@ export default function ManageStore() {
       const res = await fetch("http://localhost:9999/api/stores");
       if (res.ok) {
         const data = await res.json();
-        setStores(data);
+        
+        // SỬA Ở ĐÂY: Trích xuất đúng mảng data, nếu không có thì trả về mảng rỗng []
+        const storesArray = Array.isArray(data) ? data : data.data || [];
+        setStores(storesArray);
+        
       }
     } catch (error) {
       toast.error("Lỗi khi tải danh sách cửa hàng: " + error.message);

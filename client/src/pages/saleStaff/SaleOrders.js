@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useReactToPrint } from "react-to-print";
+
 // Hàm hỗ trợ đọc số tiền thành chữ (Đơn giản gọn nhẹ)
 const docSoThanhChu = (so) => {
   if (so === 0) return "Không đồng";
@@ -51,6 +52,7 @@ const docSoThanhChu = (so) => {
   result = result.trim() + " đồng";
   return result.charAt(0).toUpperCase() + result.slice(1);
 };
+
 const InvoicePrint = ({ order, details, formatCurrency, contentRef }) => {
   return (
     <div
@@ -173,6 +175,7 @@ export default function SaleOrders() {
   // States cho Lọc và Phân trang
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, Pending, Completed, Cancelled
+  const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, SALE, PURCHASE
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -185,7 +188,7 @@ export default function SaleOrders() {
   // Reset về trang 1 khi đổi bộ lọc
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, typeFilter]);
 
   const fetchOrders = async () => {
     try {
@@ -312,7 +315,8 @@ export default function SaleOrders() {
   const filteredOrders = orders.filter((o) => {
     const matchesSearch = o.customerPhone?.includes(searchQuery) || o.customerName?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || o.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesType = typeFilter === "ALL" || o.orderType === typeFilter;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -328,7 +332,20 @@ export default function SaleOrders() {
         
         <div className="flex gap-3">
           <div className="flex items-center bg-white border rounded-lg px-3 focus-within:ring-2 focus-within:ring-orange-500">
-             <Filter size={18} className="text-gray-400" />
+             <Filter size={18} className="text-gray-400 mr-1" />
+             
+             {/* BỘ LỌC LOẠI ĐƠN */}
+             <select 
+               value={typeFilter} 
+               onChange={(e) => setTypeFilter(e.target.value)}
+               className="bg-transparent py-2 px-2 outline-none font-medium text-gray-600 border-r border-gray-200 mr-2"
+             >
+               <option value="ALL">Tất cả loại đơn</option>
+               <option value="SALE">Bán hàng</option>
+               <option value="PURCHASE">Thu mua</option>
+             </select>
+
+             {/* BỘ LỌC TRẠNG THÁI */}
              <select 
                value={statusFilter} 
                onChange={(e) => setStatusFilter(e.target.value)}
@@ -426,7 +443,7 @@ export default function SaleOrders() {
                     >
                         <Eye size={18} />
                     </button>
-                    {order.status === "Pending" && (
+                    {(order.status === "Pending" || order.status === "Pending_Payment") && (
                         <>
                         <button
                             onClick={() => handleConfirmPayment(order._id)}
