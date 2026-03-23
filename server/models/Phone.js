@@ -12,6 +12,10 @@ const phoneSchema = new Schema(
             enum: ['in_stock', 'sold', 'repairing', 'defective','waiting_for_tech_decision'], 
             default: 'in_stock' 
         },
+        serialCode: {
+            type: String,
+            required: true
+        },
         importPrice: { type: Number, required: true }, 
         sellingPrice: { type: Number, required: true }, 
         source: { 
@@ -28,6 +32,4 @@ const phoneSchema = new Schema(
     },
     { timestamps: true }
 );
-
-// Đã bỏ dòng phoneSchema.index({ imei: 1 });
 module.exports = mongoose.models.Phone || mongoose.model("Phone", phoneSchema);

@@ -16,88 +16,150 @@ import {
 import { toast } from "react-toastify";
 import { useReactToPrint } from "react-to-print";
 
+// Hàm hỗ trợ đọc số tiền thành chữ (Đơn giản gọn nhẹ)
+const docSoThanhChu = (so) => {
+  if (so === 0) return "Không đồng";
+  const chuSo = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+  const hang = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
+  let str = so.toString();
+  let result = "";
+  let hangCount = 0;
+
+  while (str.length > 0) {
+    let chunk = str.slice(-3);
+    str = str.slice(0, -3);
+    if (parseInt(chunk) !== 0) {
+      let chunkStr = "";
+      for (let i = 0; i < chunk.length; i++) {
+        let digit = parseInt(chunk[chunk.length - 1 - i]);
+        if (i === 0) chunkStr = chuSo[digit] + " " + chunkStr;
+        if (i === 1) chunkStr = chuSo[digit] + " mươi " + chunkStr;
+        if (i === 2) chunkStr = chuSo[digit] + " trăm " + chunkStr;
+      }
+      chunkStr = chunkStr.replace("không mươi", "lẻ");
+      chunkStr = chunkStr.replace("một mươi", "mười");
+      chunkStr = chunkStr.replace("mươi năm", "mươi lăm");
+      chunkStr = chunkStr.replace("mười năm", "mười lăm");
+      chunkStr = chunkStr.replace("mươi một", "mươi mốt");
+      
+      result = chunkStr.trim() + " " + hang[hangCount] + " " + result;
+    }
+    hangCount++;
+  }
+  
+  result = result.replace(/không trăm lẻ không/g, "");
+  result = result.replace(/không trăm lẻ/g, "lẻ");
+  result = result.trim() + " đồng";
+  return result.charAt(0).toUpperCase() + result.slice(1);
+};
+
 const InvoicePrint = ({ order, details, formatCurrency, contentRef }) => {
   return (
     <div
       ref={contentRef}
       className="p-8 bg-white text-black"
-      style={{ width: "80mm", fontSize: "12px", fontFamily: "monospace" }}
+      style={{ width: "80mm", fontSize: "11px", fontFamily: "monospace", lineHeight: "1.4" }}
     >
       <div className="text-center mb-4">
-        <h2 className="text-lg font-bold">DINHTRONGMOBILE</h2>
-        <p className="text-[10px]">HÓA ĐƠN GIAO DỊCH</p>
+        <h2 className="text-[16px] font-black uppercase tracking-wider mb-1">DINH TRONG MOBILE</h2>
+        <p className="text-[10px] leading-tight">Cơ sở: {order?.storeId?.name || "Chi nhánh chính"}</p>
+        <p className="text-[10px] leading-tight">ĐC: {order?.storeId?.address || "Hà Nội"}</p>
+        <p className="text-[10px] leading-tight mb-2">SĐT: {order?.storeId?.hotline || "0987.654.321"}</p>
+        <div className="border-b-2 border-black border-dashed pb-2">
+            <h3 className="text-[14px] font-bold uppercase mt-2">
+                Hóa Đơn {order?.orderType === "SALE" ? "Bán Hàng" : "Thu Mua"}
+            </h3>
+        </div>
       </div>
 
-      <div className="border-t border-b border-black border-dashed py-2 mb-4 text-[11px] space-y-1">
-        <p>
-          Mã đơn: #{order?._id.substring(order._id.length - 6).toUpperCase()}
-        </p>
-        <p>
-          {order?.orderType === "SALE" ? "Người mua" : "Khách hàng"}:{" "}
-          {order?.customerName}
-        </p>
-        <p>SĐT: {order?.customerPhone}</p>
-        <p>
-          Nhân viên:{" "}
-          {order?.createdBy?.fullName ||
-            order?.createdBy?.name ||
-            order?.createdBy?.username ||
-            "N/A"}
-        </p>
-        <p>Loại: {order?.orderType === "SALE" ? "BÁN RA" : "THU MUA"}</p>
-        <p>Ngày: {new Date().toLocaleString("vi-VN")}</p>
+      <div className="mb-4 text-[11px] space-y-1">
+        <p>Mã đơn: <strong>#{order?._id.substring(order._id.length - 6).toUpperCase()}</strong></p>
+        <p>Ngày: {new Date(order?.createdAt || new Date()).toLocaleString("vi-VN")}</p>
+        <p>Nhân viên: {order?.createdBy?.fullName || order?.createdBy?.name || order?.createdBy?.username || "N/A"}</p>
+        
+        <div className="mt-2 pt-2 border-t border-black border-dotted">
+            <p className="font-bold">Khách hàng: {order?.customerName}</p>
+            <p>SĐT: {order?.customerPhone}</p>
+        </div>
       </div>
 
-      <table className="w-full mb-4">
-        <thead>
-          <tr className="border-b border-black text-[11px]">
-            <th className="text-left pb-1">S.Phẩm</th>
-            <th className="text-center pb-1 w-8">SL</th>
-            <th className="text-right pb-1">Giá</th>
-          </tr>
-        </thead>
-        <tbody>
-          {details.map((d, idx) => (
-            <tr key={idx} className="border-b border-gray-300 border-dotted">
-              <td className="py-2 pr-1">
-                <div className="font-bold text-[11px]">
-                  {d.phoneId?.phoneModelId?.name ||
-                    d.itemId?.item_type?.name ||
-                    "SP"}
-                </div>
-                <div className="text-[9px] italic mt-0.5">
-                  {d.phoneId
-                    ? `Mã: ${d.phoneId._id.substring(d.phoneId._id.length - 6).toUpperCase()}`
-                    : `SN: ${d.itemId?.serialCode}`}
-                </div>
-                <div className="text-[9px] mt-0.5">
-                  Hạn BH:{" "}
-                  {d.warrantyExpireDate
-                    ? new Date(d.warrantyExpireDate).toLocaleDateString("vi-VN")
-                    : d.warranty
-                      ? "Tiêu chuẩn"
-                      : "Không"}
-                </div>
-              </td>
-              <td className="text-center align-top py-2 text-[11px]">1</td>
-              <td className="text-right align-top py-2 font-bold text-[11px]">
-                {formatCurrency(
-                  d.purchasePrice || d.phoneId?.sellingPrice || 0,
-                )}
-              </td>
+      <div className="border-t-2 border-black border-dashed pt-2 mb-2">
+        <table className="w-full text-left border-collapse">
+            <thead>
+            <tr className="border-b border-black text-[10px]">
+                <th className="pb-1 uppercase tracking-wider">S.Phẩm</th>
+                <th className="text-center pb-1 w-8 uppercase tracking-wider">SL</th>
+                <th className="text-right pb-1 uppercase tracking-wider">T.Tiền</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="border-t border-black pt-2 flex justify-between font-bold text-sm">
-        <span>TỔNG:</span>
-        <span>{formatCurrency(order?.totalPrice)}</span>
+            </thead>
+            <tbody>
+            {details.map((d, idx) => {
+                const price = d.purchasePrice || d.phoneId?.sellingPrice || 0;
+                return (
+                <tr key={idx} className="border-b border-gray-300 border-dotted">
+                <td className="py-2 pr-1">
+                    <div className="font-bold text-[11px] leading-tight">
+                    {d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || "Sản phẩm"}
+                    </div>
+                    
+                    <div className="text-[9px] mt-1 text-gray-600">
+                    {d.phoneId
+                        ? `Mã: ${d.phoneId._id.substring(d.phoneId._id.length - 6).toUpperCase()}`
+                        : `SN: ${d.itemId?.serialCode}`}
+                    </div>
+                    
+                    <div className="text-[9px] mt-0.5 font-medium">
+                    Giá: {formatCurrency(price)}
+                    </div>
+                    
+                    <div className="text-[9px] mt-0.5 text-gray-600 italic">
+                    Bảo hành: {d.warrantyExpireDate
+                        ? `Đến ${new Date(d.warrantyExpireDate).toLocaleDateString("vi-VN")}`
+                        : d.warranty ? "Tiêu chuẩn (Lỗi 1 đổi 1)" : "Không bảo hành"}
+                    </div>
+                </td>
+                <td className="text-center align-top py-2 text-[11px] font-bold">1</td>
+                <td className="text-right align-top py-2 font-bold text-[11px]">
+                    {formatCurrency(price)}
+                </td>
+                </tr>
+            )})}
+            </tbody>
+        </table>
       </div>
 
-      <div className="text-center mt-6 text-[10px]">
-        <p>Cảm ơn quý khách!</p>
-        <p>Hẹn gặp lại!</p>
+      <div className="border-t-2 border-black border-dashed pt-3 mb-6">
+        <div className="flex justify-between items-center font-black text-[13px] mb-1">
+          <span>TỔNG CỘNG:</span>
+          <span>{formatCurrency(order?.totalPrice)}</span>
+        </div>
+        <p className="text-[10px] text-right italic font-medium mt-1 mb-3 text-gray-700">
+           (Bằng chữ: {docSoThanhChu(order?.totalPrice || 0)})
+        </p>
+
+        <div className="text-[9px] italic border p-2 bg-gray-50 text-gray-600 mb-4 rounded-sm">
+           <p className="font-bold text-black mb-1 underline">Lưu ý:</p>
+           <p>- Hàng mua rồi miễn đổi trả nếu không do lỗi NSX.</p>
+           <p>- Vui lòng giữ lại hóa đơn để đối chiếu bảo hành.</p>
+           <p>- Không bảo hành rơi vỡ, vào nước, mất tem.</p>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-start text-center text-[10px] font-bold">
+         <div className="w-1/2">
+            <p>Khách hàng</p>
+            <p className="text-[8px] italic font-normal text-gray-500">(Ký & ghi rõ họ tên)</p>
+            <div className="h-16"></div>
+         </div>
+         <div className="w-1/2">
+            <p>Nhân viên</p>
+            <p className="text-[8px] italic font-normal text-gray-500">(Ký & ghi rõ họ tên)</p>
+            <div className="h-16"></div>
+         </div>
+      </div>
+
+      <div className="text-center mt-4 text-[10px] font-bold border-t border-black pt-2">
+        <p>Cảm ơn quý khách đã tin tưởng!</p>
       </div>
     </div>
   );
@@ -113,6 +175,7 @@ export default function SaleOrders() {
   // States cho Lọc và Phân trang
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, Pending, Completed, Cancelled
+  const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, SALE, PURCHASE
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -125,7 +188,7 @@ export default function SaleOrders() {
   // Reset về trang 1 khi đổi bộ lọc
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, typeFilter]);
 
   const fetchOrders = async () => {
     try {
@@ -252,7 +315,8 @@ export default function SaleOrders() {
   const filteredOrders = orders.filter((o) => {
     const matchesSearch = o.customerPhone?.includes(searchQuery) || o.customerName?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || o.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesType = typeFilter === "ALL" || o.orderType === typeFilter;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -268,7 +332,20 @@ export default function SaleOrders() {
         
         <div className="flex gap-3">
           <div className="flex items-center bg-white border rounded-lg px-3 focus-within:ring-2 focus-within:ring-orange-500">
-             <Filter size={18} className="text-gray-400" />
+             <Filter size={18} className="text-gray-400 mr-1" />
+             
+             {/* BỘ LỌC LOẠI ĐƠN */}
+             <select 
+               value={typeFilter} 
+               onChange={(e) => setTypeFilter(e.target.value)}
+               className="bg-transparent py-2 px-2 outline-none font-medium text-gray-600 border-r border-gray-200 mr-2"
+             >
+               <option value="ALL">Tất cả loại đơn</option>
+               <option value="SALE">Bán hàng</option>
+               <option value="PURCHASE">Thu mua</option>
+             </select>
+
+             {/* BỘ LỌC TRẠNG THÁI */}
              <select 
                value={statusFilter} 
                onChange={(e) => setStatusFilter(e.target.value)}
@@ -366,7 +443,7 @@ export default function SaleOrders() {
                     >
                         <Eye size={18} />
                     </button>
-                    {order.status === "Pending" && (
+                    {(order.status === "Pending" || order.status === "Pending_Payment") && (
                         <>
                         <button
                             onClick={() => handleConfirmPayment(order._id)}

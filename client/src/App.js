@@ -49,6 +49,9 @@ import AdminRecipe from "./pages/admin/AdminRecipe";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
+import ManagerTransferRequest from "./pages/manager/ManagerTransferRequest";
+import ManagerTransferRequestList from "./pages/manager/ManagerTransferRequestList";
+import ManagerTransferRequestDetail from "./pages/manager/ManagerTransferRequestDetail";
 const CustomerProfile = () => (
     <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -401,6 +404,36 @@ function App() {
             <PrivateRoute allowedRoles={["MANAGER"]}>
               <ManagerLayout>
                 <ImportInventory/>
+              </ManagerLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/manager/transfer_approvals"
+          element={
+            <PrivateRoute allowedRoles={["MANAGER"]}>
+              <ManagerLayout>
+                <ManagerTransferRequestList/>
+              </ManagerLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/manager/transfer_requests/"
+          element={
+            <PrivateRoute allowedRoles={["MANAGER"]}>
+              <ManagerLayout>
+                <ManagerTransferRequest/>
+              </ManagerLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/manager/transfer_requests/:id"
+          element={
+            <PrivateRoute allowedRoles={["MANAGER"]}>
+              <ManagerLayout>
+                <ManagerTransferRequestDetail/>
               </ManagerLayout>
             </PrivateRoute>
           }

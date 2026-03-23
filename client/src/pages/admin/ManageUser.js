@@ -9,6 +9,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Store // Thêm icon Store
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -17,6 +18,7 @@ import Swal from "sweetalert2";
 export default function ManageUser() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [stores, setStores] = useState([]); // State lưu danh sách cửa hàng
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("STAFF");
@@ -33,6 +35,7 @@ export default function ManageUser() {
     number: "",
     birthday: "",
     roleId: "",
+    storeId: "", // Thêm storeId
     status: "active",
     password: "",
   });
@@ -41,6 +44,7 @@ export default function ManageUser() {
   useEffect(() => {
     fetchUsers();
     fetchRoles();
+    fetchStores(); // Gọi API lấy cửa hàng
   }, []);
 
   useEffect(() => {
@@ -71,6 +75,22 @@ export default function ManageUser() {
     }
   };
 
+  // Hàm lấy danh sách cửa hàng
+  const fetchStores = async () => {
+    try {
+      const res = await fetch("http://localhost:9999/api/stores");
+      if (res.ok) {
+        const data = await res.json();
+        setStores(Array.isArray(data) ? data : data.data || []);
+      }
+    } catch (error) {
+      console.log("Lỗi tải cửa hàng", error);
+    }
+  };
+
+  const isStaffRole = (roleCode) => ["SALE_STAFF", "TECHNICIAN", "MANAGER"].includes(roleCode);
+  const isAdminRole = (roleCode) => roleCode === "ADMIN";
+
   const filteredUsers = users.filter((user) => {
     const matchName =
       user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,7 +100,7 @@ export default function ManageUser() {
     const roleCode = user.roleId?.id;
 
     if (selectedFilter === "STAFF") {
-      matchRole = roleCode === "SALE_STAFF" || roleCode === "TECHNICIAN";
+      matchRole = isStaffRole(roleCode);
     } else if (selectedFilter !== "ALL") {
       matchRole = roleCode === selectedFilter;
     }
@@ -162,6 +182,13 @@ export default function ManageUser() {
       isValid = false;
     }
 
+    // Validate Cửa hàng nếu vai trò là Nhân viên
+    const selectedRoleObj = roles.find(r => r._id === formData.roleId);
+    if (selectedRoleObj && isStaffRole(selectedRoleObj.id) && !formData.storeId) {
+        newErrors.storeId = "Vui lòng chọn Cửa hàng làm việc";
+        isValid = false;
+    }
+
     setErrors(newErrors);
     return isValid;
   };
@@ -175,6 +202,7 @@ export default function ManageUser() {
       number: "",
       birthday: "",
       roleId: staffRole ? staffRole._id : "",
+      storeId: "", // Reset storeId
       status: "active",
       password: "",
     });
@@ -195,6 +223,7 @@ export default function ManageUser() {
       number: user.number || "",
       birthday: user.birthday ? user.birthday.split("T")[0] : "",
       roleId: user.roleId?._id || "",
+      storeId: user.storeId || "", // Lấy storeId từ user
       status: user.status,
     });
     setErrors({});
@@ -210,6 +239,13 @@ export default function ManageUser() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    // Lọc bỏ storeId nếu không phải là nhân viên
+    const selectedRoleObj = roles.find(r => r._id === formData.roleId);
+    const submitData = { ...formData };
+    if (!isStaffRole(selectedRoleObj?.id)) {
+        submitData.storeId = null; 
+    }
+
     try {
       if (modalType === "UPDATE") {
         const res = await fetch(
@@ -217,7 +253,7 @@ export default function ManageUser() {
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(submitData),
           }
         );
         if (res.ok) {
@@ -232,7 +268,7 @@ export default function ManageUser() {
         const res = await fetch(`http://localhost:9999/api/users`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(submitData),
         });
         if (res.ok) {
           toast.success("Tạo tài khoản nhân viên thành công!");
@@ -355,10 +391,6 @@ export default function ManageUser() {
     }
   };
 
-  const isStaffRole = (roleCode) =>
-    roleCode === "SALE_STAFF" || roleCode === "TECHNICIAN";
-  const isAdminRole = (roleCode) => roleCode === "ADMIN";
-
   const getStatusText = (status) => {
     switch (status) {
       case "active":
@@ -408,7 +440,7 @@ export default function ManageUser() {
             className="px-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500 outline-none"
           >
             <option value="ALL">Tất cả người dùng</option>
-            <option value="STAFF">Nhân viên (Bán hàng & Kỹ thuật)</option>
+            <option value="STAFF">Nhân viên (Bán hàng, Kỹ thuật, Quản lý)</option>
             <option value="CUSTOMER">Khách hàng</option>
             <option value="ADMIN">Quản trị viên</option>
           </select>
@@ -419,14 +451,11 @@ export default function ManageUser() {
             <thead>
               <tr className="bg-gray-100 border-y border-gray-200">
                 <th className="p-3 font-semibold text-gray-700">Họ và tên</th>
-                <th className="p-3 font-semibold text-gray-700">
-                  Tên đăng nhập
-                </th>
+                <th className="p-3 font-semibold text-gray-700">Tên đăng nhập</th>
                 <th className="p-3 font-semibold text-gray-700">Vai trò</th>
+                <th className="p-3 font-semibold text-gray-700">Cửa hàng</th>
                 <th className="p-3 font-semibold text-gray-700">Trạng thái</th>
-                <th className="p-3 font-semibold text-gray-700 text-center">
-                  Hành động
-                </th>
+                <th className="p-3 font-semibold text-gray-700 text-center">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -443,6 +472,15 @@ export default function ManageUser() {
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
                       {user.roleId?.name || "Không rõ"}
                     </span>
+                  </td>
+                  <td className="p-3">
+                    {user.storeName ? (
+                        <span className="flex items-center gap-1 text-sm text-gray-600 font-medium">
+                            <Store size={14}/> {user.storeName}
+                        </span>
+                    ) : (
+                        <span className="text-gray-400 italic text-sm">-</span>
+                    )}
                   </td>
                   <td className="p-3">
                     <span
@@ -500,7 +538,7 @@ export default function ManageUser() {
               ))}
               {currentUsers.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="p-6 text-center text-gray-500">
+                  <td colSpan="6" className="p-6 text-center text-gray-500">
                     Không tìm thấy người dùng nào.
                   </td>
                 </tr>
@@ -579,6 +617,7 @@ export default function ManageUser() {
                   : "Cập nhật thông tin"}
             </h3>
 
+            {/* MODAL CHI TIẾT */}
             {modalType === "DETAIL" && selectedUser && (
               <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                 <div>
@@ -613,9 +652,7 @@ export default function ManageUser() {
                   <span className="text-gray-500 block mb-1">Ngày sinh</span>
                   <span className="font-medium text-gray-800">
                     {selectedUser.birthday
-                      ? new Date(selectedUser.birthday).toLocaleDateString(
-                          "vi-VN"
-                        )
+                      ? new Date(selectedUser.birthday).toLocaleDateString("vi-VN")
                       : "Trống"}
                   </span>
                 </div>
@@ -639,14 +676,14 @@ export default function ManageUser() {
                     {getStatusText(selectedUser.status)}
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-500 block mb-1">
-                    Loại xác thực
-                  </span>
-                  <span className="font-medium text-gray-800">
-                    {selectedUser.authType}
-                  </span>
-                </div>
+                {isStaffRole(selectedUser.roleId?.id) && (
+                    <div>
+                    <span className="text-gray-500 block mb-1">Nơi làm việc</span>
+                    <span className="font-medium text-gray-800">
+                        {selectedUser.storeName || "Chưa phân bổ"}
+                    </span>
+                    </div>
+                )}
                 <div className="col-span-2">
                   <span className="text-gray-500 block mb-1">Địa chỉ</span>
                   <span className="font-medium text-gray-800">
@@ -656,6 +693,7 @@ export default function ManageUser() {
               </div>
             )}
 
+            {/* MODAL TẠO / SỬA */}
             {(modalType === "CREATE_STAFF" || modalType === "UPDATE") && (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -674,11 +712,7 @@ export default function ManageUser() {
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       }`}
                     />
-                    {errors.fullName && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.fullName}
-                      </p>
-                    )}
+                    {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
                   </div>
 
                   <div>
@@ -692,20 +726,14 @@ export default function ManageUser() {
                       onChange={handleInputChange}
                       disabled={modalType === "UPDATE"}
                       className={`w-full px-3 py-2 border rounded-md ${
-                        modalType === "UPDATE"
-                          ? "bg-gray-100 cursor-not-allowed text-gray-500"
-                          : ""
+                        modalType === "UPDATE" ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""
                       } ${
                         errors.userName
                           ? "border-red-500 focus:ring-red-200"
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       }`}
                     />
-                    {errors.userName && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.userName}
-                      </p>
-                    )}
+                    {errors.userName && <p className="text-red-500 text-xs mt-1">{errors.userName}</p>}
                   </div>
 
                   <div>
@@ -723,11 +751,7 @@ export default function ManageUser() {
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       }`}
                     />
-                    {errors.email && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.email}
-                      </p>
-                    )}
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                   </div>
 
                   {modalType === "CREATE_STAFF" && (
@@ -746,18 +770,12 @@ export default function ManageUser() {
                             : "border-gray-300 focus:ring-blue-500 outline-none"
                         }`}
                       />
-                      {errors.password && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.password}
-                        </p>
-                      )}
+                      {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Số điện thoại
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
                     <input
                       type="text"
                       name="number"
@@ -769,11 +787,7 @@ export default function ManageUser() {
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       }`}
                     />
-                    {errors.number && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.number}
-                      </p>
-                    )}
+                    {errors.number && <p className="text-red-500 text-xs mt-1">{errors.number}</p>}
                   </div>
 
                   <div>
@@ -791,11 +805,7 @@ export default function ManageUser() {
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       }`}
                     />
-                    {errors.birthday && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.birthday}
-                      </p>
-                    )}
+                    {errors.birthday && <p className="text-red-500 text-xs mt-1">{errors.birthday}</p>}
                   </div>
 
                   <div>
@@ -808,8 +818,7 @@ export default function ManageUser() {
                       onChange={handleInputChange}
                       disabled={
                         modalType === "CREATE_STAFF" ||
-                        (modalType === "UPDATE" &&
-                          !isStaffRole(selectedUser?.roleId?.id))
+                        (modalType === "UPDATE" && !isStaffRole(selectedUser?.roleId?.id))
                       }
                       className={`w-full px-3 py-2 border rounded-md focus:ring-2 ${
                         errors.roleId
@@ -817,8 +826,7 @@ export default function ManageUser() {
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       } ${
                         modalType === "CREATE_STAFF" ||
-                        (modalType === "UPDATE" &&
-                          !isStaffRole(selectedUser?.roleId?.id))
+                        (modalType === "UPDATE" && !isStaffRole(selectedUser?.roleId?.id))
                           ? "bg-gray-100 cursor-not-allowed"
                           : ""
                       }`}
@@ -827,7 +835,7 @@ export default function ManageUser() {
                       {roles
                         .filter((r) =>
                           modalType === "CREATE_STAFF"
-                            ? r.id === "SALE_STAFF" || r.id === "TECHNICIAN"
+                            ? isStaffRole(r.id) // Lọc các role là staff
                             : true
                         )
                         .map((role) => (
@@ -836,26 +844,41 @@ export default function ManageUser() {
                           </option>
                         ))}
                     </select>
-                    {errors.roleId && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.roleId}
-                      </p>
-                    )}
+                    {errors.roleId && <p className="text-red-500 text-xs mt-1">{errors.roleId}</p>}
                   </div>
 
+                  {/* CHỈ HIỂN THỊ CHỌN CỬA HÀNG KHI ROLE LÀ NHÂN VIÊN */}
+                  {isStaffRole(roles.find(r => r._id === formData.roleId)?.id) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nơi làm việc (Cửa hàng) <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="storeId"
+                        value={formData.storeId}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 border rounded-md focus:ring-2 ${
+                          errors.storeId ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-blue-500 outline-none"
+                        }`}
+                      >
+                        <option value="">-- Chọn cửa hàng --</option>
+                        {stores.map(store => (
+                            <option key={store._id} value={store._id}>{store.name}</option>
+                        ))}
+                      </select>
+                      {errors.storeId && <p className="text-red-500 text-xs mt-1">{errors.storeId}</p>}
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Trạng thái
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
                     <select
                       name="status"
                       value={formData.status}
                       onChange={handleInputChange}
                       disabled={modalType === "CREATE_STAFF"}
                       className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${
-                        modalType === "CREATE_STAFF"
-                          ? "bg-gray-100 cursor-not-allowed text-gray-500"
-                          : "border-gray-300"
+                        modalType === "CREATE_STAFF" ? "bg-gray-100 cursor-not-allowed text-gray-500" : "border-gray-300"
                       }`}
                     >
                       <option value="active">Hoạt động</option>
@@ -877,9 +900,7 @@ export default function ManageUser() {
                     type="submit"
                     className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
                   >
-                    {modalType === "CREATE_STAFF"
-                      ? "Tạo nhân viên"
-                      : "Lưu thay đổi"}
+                    {modalType === "CREATE_STAFF" ? "Tạo nhân viên" : "Lưu thay đổi"}
                   </button>
                 </div>
               </form>

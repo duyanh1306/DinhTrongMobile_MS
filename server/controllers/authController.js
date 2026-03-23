@@ -3,6 +3,7 @@ const Role = require("../models/Role");
 const Otp = require("../models/Otp");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Store = require("../models/Store");
 const sendEmail = require("../utils/sendEmail");
 
 // Hàm kiểm tra mật khẩu: Tối thiểu 8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt
@@ -126,10 +127,30 @@ exports.login = async (req, res) => {
 
     const { password: _, ...userInfo } = user._doc;
 
+    // TÌM XEM NHÂN VIÊN NÀY THUỘC CỬA HÀNG NÀO (Bỏ qua CUSTOMER hoặc ADMIN TỔNG)
+    let userStoreId = null;
+    let userStoreName = null;
+    
+    // Nếu role không phải là CUSTOMER, thì đi tìm cửa hàng
+    if (user.roleId.id !== "CUSTOMER") {
+        const userStore = await Store.findOne({ staff: user._id });
+        if (userStore) {
+            userStoreId = userStore._id;
+            userStoreName = userStore.name;
+        }
+    }
+
+    // Ghép storeId vào userInfo để trả về cho Frontend (CỨU SỐNG TOÀN BỘ FRONTEND)
+    const finalUserInfo = {
+        ...userInfo,
+        storeId: userStoreId,
+        storeName: userStoreName
+    };
+
     res.status(200).json({
       message: "Đăng nhập thành công!",
       token,
-      user: userInfo,
+      user: finalUserInfo,
     });
 
   } catch (error) {
