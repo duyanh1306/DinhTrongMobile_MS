@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Settings } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag } from "lucide-react";
+
+const BASE_CODES = {
+    "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
+    "CAM-R": "Camera Sau", "CAM-F": "Camera Trước", "CPT": "Cụm chân sạc",
+    "SPK": "Loa ngoài", "FGL": "Mặt kính", "BGL": "Kính lưng", "OTH": "Khác"
+};
 
 export default function AdminItem() {
     const [items, setItems] = useState([]);
@@ -10,9 +16,9 @@ export default function AdminItem() {
     const [loading, setLoading] = useState(true);
     
     const [pagination, setPagination] = useState({ 
-        currentPage: 1, totalPages: 1, totalCount: 0, limit: 10, hasNextPage: false, hasPrevPage: false 
+        currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 
     });
-    // Đổi store thành storeId
+    
     const [filters, setFilters] = useState({ search: '', status: '', item_type: '', storeId: '' }); 
     
     const [showModal, setShowModal] = useState(false);
@@ -26,14 +32,12 @@ export default function AdminItem() {
     };
     const [formData, setFormData] = useState(initialFormState);
 
-    useEffect(() => {
-        fetchItemTypes();
-        fetchStores();
-    }, []);
+    const [expandedGroup, setExpandedGroup] = useState({});
+    const [expandedType, setExpandedType] = useState({});
 
-    useEffect(() => {
-        fetchItems();
-    }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
+    useEffect(() => { fetchItemTypes(); fetchStores(); }, []);
+
+    useEffect(() => { fetchItems(); }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
 
     useEffect(() => {
         const timeout = setTimeout(() => { 
@@ -46,67 +50,32 @@ export default function AdminItem() {
     const fetchItemTypes = async () => {
         try {
             const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`, { headers: { Authorization: `Bearer ${token}` } });
             setItemTypes(data.data || []);
-        } catch (error) { console.error("Lỗi tải loại linh kiện", error); }
+        } catch (error) {}
     };
 
     const fetchStores = async () => {
         try {
             const token = localStorage.getItem("token");
-            
-            // Gọi API lấy danh sách cửa hàng
-            const response = await axios.get(`http://localhost:9999/api/stores`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            // LƯU Ý Ở ĐÂY: Xử lý thông minh mọi cấu trúc API trả về
-            let storesData = [];
-            if (Array.isArray(response.data)) {
-                storesData = response.data; // Trường hợp API trả thẳng ra mảng
-            } else if (response.data && Array.isArray(response.data.data)) {
-                storesData = response.data.data; // Trường hợp API bọc trong object { data: [...] }
-            }
-            
-            setStores(storesData);
-            
-        } catch (error) { 
-            console.error("Lỗi tải cửa hàng:", error);
-            // Thử gọi đường dẫn dự phòng nếu đường dẫn trên bị lỗi 404
-            try {
-                const token = localStorage.getItem("token");
-                const response = await axios.get(`http://localhost:9999/api/stores/all`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const storesData = Array.isArray(response.data) ? response.data : (response.data.data || []);
-                setStores(storesData);
-            } catch (err) {
-                toast.error("Không thể tải danh sách kho/cửa hàng!");
-            }
-        }
+            const res = await axios.get(`http://localhost:9999/api/stores/all`, { headers: { Authorization: `Bearer ${token}` } });
+            setStores(Array.isArray(res.data) ? res.data : (res.data.data || []));
+        } catch (err) {}
     };
+
     const fetchItems = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
                 page: pagination.currentPage, limit: pagination.limit,
-                search: filters.search, status: filters.status, item_type: filters.item_type, 
-                storeId: filters.storeId // Truyền storeId chuẩn xác
+                search: filters.search, status: filters.status, item_type: filters.item_type, storeId: filters.storeId 
             });
-
-            const { data } = await axios.get(`http://localhost:9999/api/items?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const { data } = await axios.get(`http://localhost:9999/api/items?${params}`, { headers: { Authorization: `Bearer ${token}` } });
             setItems(data.data || []);
-            setPagination(data.pagination || { currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 });
-        } catch (error) {
-            toast.error("Lỗi tải danh sách linh kiện");
-        } finally {
-            setLoading(false);
-        }
+            if (data.pagination) setPagination(data.pagination);
+        } catch (error) { toast.error("Lỗi tải danh sách linh kiện"); } 
+        finally { setLoading(false); }
     };
 
     const handleDelete = async (id) => {
@@ -120,31 +89,19 @@ export default function AdminItem() {
         }
     };
 
-    const handlePageChange = (newPage) => { setPagination(prev => ({ ...prev, currentPage: newPage })); };
-
     const handleOpenModal = (item = null) => {
         if (item) {
-            setIsEditing(true);
-            setEditingId(item._id);
+            setIsEditing(true); setEditingId(item._id);
             setFormData({
-                name: item.name || '', 
-                serialCode: item.serialCode || '', 
-                item_type: item.item_type?._id || '',
-                status: item.status || 'in_stock', 
-                storeId: item.storeId?._id || item.storeId || '', 
-                origin: item.origin || 'new',
-                sourceDevice: item.sourceDevice || '', 
-                quality: item.quality || '', 
+                name: item.name || '', serialCode: item.serialCode || '', item_type: item.item_type?._id || '',
+                status: item.status || 'in_stock', storeId: item.storeId?._id || item.storeId || '', 
+                origin: item.origin || 'new', sourceDevice: item.sourceDevice || '', quality: item.quality || '', 
                 warrantyPeriod: item.warrantyPeriod || (item.origin === 'new' ? 12 : 3),
-                baseCost: item.baseCost || '', 
-                price: item.price || '',
-                ram: item.ram || '', 
-                capacity: item.capacity || '', 
-                color: item.color || ''
+                baseCost: item.baseCost || '', price: item.price || '',
+                ram: item.ram || '', capacity: item.capacity || '', color: item.color || ''
             });
         } else {
-            setIsEditing(false);
-            setEditingId(null);
+            setIsEditing(false); setEditingId(null);
             setFormData(initialFormState);
         }
         setShowModal(true);
@@ -163,11 +120,39 @@ export default function AdminItem() {
             }
             setShowModal(false);
             fetchItems();
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện");
-        }
+        } catch (error) { toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện"); }
     };
 
+    // 🌟 GỘP NHÓM THÀNH CÂY THƯ MỤC VÀ ĐẨY "KHÁC" XUỐNG CUỐI
+    const sortedGroupedData = useMemo(() => {
+        const result = {};
+        
+        items.forEach(item => {
+            const typeName = item.item_type?.name || 'Loại không xác định';
+            const typeCode = item.item_type?.code || 'OTH';
+            let base = 'OTH';
+            const parts = typeCode.split('-');
+            if (parts[0] === 'CAM') base = `CAM-${parts[1]}`;
+            else if (BASE_CODES[parts[0]]) base = parts[0];
+            else if (BASE_CODES[typeCode]) base = typeCode;
+
+            const baseLabel = BASE_CODES[base] || "Khác";
+
+            if (!result[baseLabel]) result[baseLabel] = {};
+            if (!result[baseLabel][typeName]) result[baseLabel][typeName] = [];
+            result[baseLabel][typeName].push(item);
+        });
+
+        // Sắp xếp để Nhóm "Khác" nằm cuối cùng
+        return Object.entries(result).sort(([groupA], [groupB]) => {
+            if (groupA === "Khác") return 1;
+            if (groupB === "Khác") return -1;
+            return groupA.localeCompare(groupB);
+        });
+    }, [items]);
+
+    const toggleGroup = (grp) => setExpandedGroup(prev => ({ ...prev, [grp]: !prev[grp] }));
+    const toggleType = (typ) => setExpandedType(prev => ({ ...prev, [typ]: !prev[typ] }));
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
     const selectedItemTypeObj = itemTypes.find(t => t._id === formData.item_type);
@@ -187,8 +172,8 @@ export default function AdminItem() {
                 </button>
             </div>
 
-            {/* BỘ LỌC */}
-            <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center">
+            {/* BỘ LỌC TÌM KIẾM */}
+            <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center border border-gray-100">
                 <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
@@ -197,16 +182,15 @@ export default function AdminItem() {
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                     />
                 </div>
-                <select value={filters.item_type} onChange={e => setFilters({...filters, item_type: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <select value={filters.item_type} onChange={e => setFilters({...filters, item_type: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
                     <option value="">Tất cả phân loại</option>
                     {itemTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                 </select>
-                {/* LỌC THEO KHO CHUẨN XÁC */}
-                <select value={filters.storeId} onChange={e => setFilters({...filters, storeId: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <select value={filters.storeId} onChange={e => setFilters({...filters, storeId: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
                     <option value="">Tất cả kho / cửa hàng</option>
                     {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
                 </select>
-                <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
                     <option value="">Tất cả trạng thái</option>
                     <option value="in_stock">Đang tồn kho</option>
                     <option value="sold">Đã bán</option>
@@ -214,80 +198,107 @@ export default function AdminItem() {
                 </select>
             </div>
 
-            {/* BẢNG DỮ LIỆU */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
+            {/* DANH SÁCH DẠNG CÂY */}
+            <div className="flex-1 overflow-y-auto pb-4">
                 {loading ? (
                     <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
+                ) : sortedGroupedData.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy linh kiện nào.</div>
                 ) : (
-                    <div className="overflow-x-auto flex-1">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-gray-600 border-b">
-                                <tr>
-                                    <th className="px-5 py-4 font-medium uppercase tracking-wider">Linh kiện / Serial</th>
-                                    <th className="px-5 py-4 font-medium uppercase tracking-wider">Phân loại & Thuộc tính</th>
-                                    <th className="px-5 py-4 font-medium uppercase tracking-wider">Giá vốn / Bán</th>
-                                    <th className="px-5 py-4 font-medium uppercase tracking-wider">Vị trí kho</th>
-                                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-right">Hành động</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {items.length === 0 ? (
-                                    <tr><td colSpan="5" className="py-12 text-center text-gray-500 text-base">Chưa có linh kiện nào trong kho</td></tr>
-                                ) : (
-                                    items.map((item) => (
-                                        <tr key={item._id} className="hover:bg-gray-50 transition">
-                                            <td className="px-5 py-4">
-                                                <div className="font-bold text-gray-800 text-sm">{item.name}</div>
-                                                <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block">{item.serialCode}</div>
-                                                <div className="mt-1.5">
-                                                    {item.origin === 'disassembled' ? <span className="inline-block bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Bóc máy</span> : <span className="inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Hàng mới</span>}
-                                                </div>
-                                            </td>
-                                            
-                                            <td className="px-5 py-4">
-                                                <span className="block font-medium text-blue-700 mb-1">{item.item_type?.name}</span>
-                                                <div className="text-xs text-gray-600 flex flex-col gap-0.5">
-                                                    {item.ram && <span>RAM: <strong className="text-gray-800">{item.ram}</strong></span>}
-                                                    {item.capacity && <span>ROM: <strong className="text-gray-800">{item.capacity}</strong></span>}
-                                                    {item.color && <span>Màu: <strong className="text-gray-800">{item.color}</strong></span>}
-                                                    {(!item.ram && !item.capacity && !item.color) && <span className="text-gray-400 italic">Bản tiêu chuẩn</span>}
-                                                </div>
-                                            </td>
+                    sortedGroupedData.map(([groupName, typesObj]) => (
+                        <div key={groupName} className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="bg-gray-50 p-4 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition" onClick={() => toggleGroup(groupName)}>
+                                <h2 className="text-lg font-bold text-gray-800 uppercase flex items-center gap-2">
+                                    <Tag className="text-blue-600" size={20}/> Nhóm: {groupName}
+                                </h2>
+                                {expandedGroup[groupName] ? <ChevronDown className="text-gray-500"/> : <ChevronRight className="text-gray-500"/>}
+                            </div>
 
-                                            <td className="px-5 py-4">
-                                                <div className="text-xs text-gray-400 line-through mb-0.5">{formatMoney(item.baseCost)}</div>
-                                                <div className="font-bold text-red-600">{formatMoney(item.price)}</div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                {/* ĐỌC THẲNG TỪ STOREID DO MONGOOSE TRẢ VỀ */}
-                                                {item.storeId?.name ? (
-                                                    <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">{item.storeId.name}</span>
-                                                ) : (
-                                                    <span className="italic text-gray-400">Chưa phân bổ kho</span>
-                                                )}
-                                            </td>
-                                            <td className="px-5 py-4 text-right">
-                                                <button onClick={() => handleOpenModal(item)} className="text-blue-600 hover:bg-blue-50 p-2 rounded transition mr-1"><Edit size={18}/></button>
-                                                <button onClick={() => handleDelete(item._id)} className="text-red-600 hover:bg-red-50 p-2 rounded transition"><Trash2 size={18}/></button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                            {expandedGroup[groupName] && (
+                                <div className="p-4 space-y-4 bg-gray-50/20">
+                                    {Object.entries(typesObj).map(([typeName, itemsList]) => (
+                                        <div key={typeName} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                            <div className="bg-blue-50/40 p-3 px-4 cursor-pointer flex justify-between items-center hover:bg-blue-100/50 transition" onClick={() => toggleType(typeName)}>
+                                                <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                                                    {typeName} <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full ml-2">Hiển thị {itemsList.length} món</span>
+                                                </h3>
+                                                {expandedType[typeName] ? <ChevronDown size={18} className="text-blue-500"/> : <ChevronRight size={18} className="text-blue-500"/>}
+                                            </div>
+
+                                            {expandedType[typeName] && (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                                        <thead className="bg-gray-50 text-gray-500 border-y border-gray-100">
+                                                            <tr>
+                                                                <th className="p-3 font-semibold">Tên & Mã Serial</th>
+                                                                <th className="p-3 font-semibold">Tình trạng / Thuộc tính</th>
+                                                                <th className="p-3 font-semibold">Giá vốn / Bán</th>
+                                                                <th className="p-3 font-semibold text-center">Vị trí & Trạng thái</th>
+                                                                <th className="p-3 font-semibold text-right">Thao tác</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100">
+                                                            {itemsList.map(item => (
+                                                                <tr key={item._id} className="hover:bg-blue-50/30 transition">
+                                                                    <td className="p-3">
+                                                                        <div className="font-bold text-gray-800 text-sm max-w-[250px] truncate" title={item.name}>{item.name}</div>
+                                                                        <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border">{item.serialCode}</div>
+                                                                    </td>
+                                                                    <td className="p-3 text-xs text-gray-600">
+                                                                        <div className="mb-1">
+                                                                            {item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Bóc máy</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Hàng mới</span>}
+                                                                        </div>
+                                                                        {(item.ram || item.capacity || item.color) ? (
+                                                                            <div className="flex gap-2">
+                                                                                {item.ram && <span>RAM: <strong>{item.ram}</strong></span>}
+                                                                                {item.capacity && <span>ROM: <strong>{item.capacity}</strong></span>}
+                                                                                {item.color && <span>Màu: <strong>{item.color}</strong></span>}
+                                                                            </div>
+                                                                        ) : <span className="text-gray-400 italic">Bản tiêu chuẩn</span>}
+                                                                    </td>
+                                                                    <td className="p-3">
+                                                                        <div className="text-xs text-gray-400 line-through mb-0.5">{formatMoney(item.baseCost)}</div>
+                                                                        <div className="font-bold text-red-600">{formatMoney(item.price)}</div>
+                                                                    </td>
+                                                                    <td className="p-3 text-center">
+                                                                        <div className="mb-1">
+                                                                            {item.storeId?.name ? <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-xs border border-blue-100">{item.storeId.name}</span> : <span className="italic text-gray-400 text-xs">Chưa phân bổ</span>}
+                                                                        </div>
+                                                                        <div>
+                                                                            {item.status === 'in_stock' ? <span className="text-green-600 font-bold text-xs">Sẵn sàng</span> : 
+                                                                            item.status === 'sold' ? <span className="text-gray-500 font-bold text-xs">Đã bán/Ráp</span> : 
+                                                                            <span className="text-yellow-600 font-bold text-xs">{item.status}</span>}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-3 flex justify-end gap-2">
+                                                                        <button onClick={() => handleOpenModal(item)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><Edit size={16}/></button>
+                                                                        <button onClick={() => handleDelete(item._id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition"><Trash2 size={16}/></button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))
                 )}
-                
-                <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto">
-                    <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold">{pagination.totalCount}</span></span>
-                    <div className="flex gap-2">
-                        <button disabled={!pagination.hasPrevPage} onClick={() => handlePageChange(pagination.currentPage - 1)} className="px-4 py-2 border bg-white disabled:opacity-40 transition text-sm">Trước</button>
-                        <button disabled={!pagination.hasNextPage} onClick={() => handlePageChange(pagination.currentPage + 1)} className="px-4 py-2 border bg-white disabled:opacity-40 transition text-sm">Sau</button>
-                    </div>
+            </div>
+
+            {/* 🌟 THANH PHÂN TRANG */}
+            <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
+                <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng tìm thấy: <span className="font-bold">{pagination.totalCount}</span></span>
+                <div className="flex gap-2">
+                    <button disabled={pagination.currentPage <= 1} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage - 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Trước</button>
+                    <button disabled={pagination.currentPage >= pagination.totalPages} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage + 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Sau</button>
                 </div>
             </div>
 
-            {/* MODAL NHẬP LIỆU */}
+            {/* MODAL THÊM SỬA */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -298,7 +309,6 @@ export default function AdminItem() {
 
                         <form onSubmit={handleSubmit} className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Cột 1 */}
                                 <div className="space-y-4">
                                     <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Thông tin cơ bản</h3>
                                     <div>
@@ -343,7 +353,6 @@ export default function AdminItem() {
                                         </div>
                                     )}
 
-                                    {/* MỞ LẠI CHỌN KHO ĐỂ BẠN TEST */}
                                     <div>
                                         <label className="block text-sm font-semibold mb-1">Cửa hàng / Kho chứa</label>
                                         <select value={formData.storeId} onChange={e => setFormData({...formData, storeId: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
@@ -362,7 +371,6 @@ export default function AdminItem() {
                                     </div>
                                 </div>
 
-                                {/* Cột 2 */}
                                 <div className="space-y-4">
                                     <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">2. Nguồn gốc & Giá cả</h3>
                                     <div>
@@ -377,11 +385,11 @@ export default function AdminItem() {
                                         <div className="bg-purple-50/50 p-4 rounded-xl space-y-4 border border-purple-100 shadow-inner">
                                             <div>
                                                 <label className="block text-sm font-semibold text-purple-900 mb-1">Bóc từ thiết bị nào?</label>
-                                                <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" placeholder="VD: iPhone 14 Pro vỡ màn" />
+                                                <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: iPhone 14 Pro vỡ màn" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-purple-900 mb-1">Chất lượng (Ngoại hình)</label>
-                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" placeholder="VD: 98% - Zin nguyên bản" />
+                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: 98% - Zin nguyên bản" />
                                             </div>
                                         </div>
                                     )}

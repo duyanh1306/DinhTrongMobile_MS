@@ -5,6 +5,12 @@ import axiosClient from "../../api/axiosClient";
 import { toast } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
 
+// 🌟 HÀM KIỂM TRA MÁY CŨ DỰA VÀO TÊN MODEL
+const checkIsUsedModel = (name) => {
+    const lowerName = name.toLowerCase();
+    return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
+};
+
 export default function Home() {
   const [newPhones, setNewPhones] = useState([]);
   const [usedPhones, setUsedPhones] = useState([]);
@@ -44,7 +50,6 @@ export default function Home() {
           });
           
           const availablePhones = allModelPhones.filter(p => p.status === 'in_stock');
-
           let startingPrice = Number(model.price) || 0;
           
           if (allModelPhones.length > 0) {
@@ -71,10 +76,11 @@ export default function Home() {
               stockCount: availablePhones.length,
               totalRecords: allModelPhones.length 
           };
-        }).filter(model => model.totalRecords > 0); // 🌟 CHỈ HIỆN KHI CỬA HÀNG ĐÃ TỪNG NHẬP MÁY NÀY
+        }).filter(model => model.totalRecords > 0); 
 
-        const newList = combinedData.filter(p => p.condition === 1 || p.condition === undefined);
-        const usedList = combinedData.filter(p => p.condition < 1);
+        // 🌟 LỌC DANH SÁCH BẰNG TÊN THAY VÌ CONDITION
+        const usedList = combinedData.filter(p => checkIsUsedModel(p.name));
+        const newList = combinedData.filter(p => !checkIsUsedModel(p.name));
 
         setNewPhones(newList);
         setUsedPhones(usedList);
@@ -102,7 +108,8 @@ export default function Home() {
 
     return (
       <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-        {isUsed && product.condition && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Cũ {Math.round(product.condition * 100)}%</span>}
+        {/* 🌟 ĐỔI TEM THÀNH "MÁY CŨ" THAY VÌ CŨ 99% VÌ KHÔNG CÒN CONDITION */}
+        {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
         {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
         
         <Link to={`/product/${product._id}`} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">

@@ -5,6 +5,11 @@ import axiosClient from "../../api/axiosClient";
 import { toast } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
 
+const checkIsUsedModel = (name) => {
+    const lowerName = name.toLowerCase();
+    return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
+};
+
 export default function CategoryPage() {
     const { type } = useParams();
     const navigate = useNavigate();
@@ -84,10 +89,11 @@ export default function CategoryPage() {
                         totalRecords: allModelPhones.length,
                         brandId: model.brand?._id || model.brand 
                     };
-                }).filter(model => model.totalRecords > 0); // 🌟 CHỈ HIỆN MÁY TỪNG TỒN TẠI Ở CỬA HÀNG
+                }).filter(model => model.totalRecords > 0); 
 
-                if (type === 'new') combinedData = combinedData.filter(p => p.condition === 1 || p.condition === undefined);
-                else if (type === 'used') combinedData = combinedData.filter(p => p.condition < 1);
+                // 🌟 LỌC THEO TÊN
+                if (type === 'new') combinedData = combinedData.filter(p => !checkIsUsedModel(p.name));
+                else if (type === 'used') combinedData = combinedData.filter(p => checkIsUsedModel(p.name));
 
                 setAllProducts(combinedData);
             } catch (error) {
@@ -152,11 +158,11 @@ export default function CategoryPage() {
         const defaultImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png";
         const displayPrice = product.price > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price) : "Đang cập nhật";
         const specs = product.specifications || {};
-        const isUsed = product.condition < 1;
+        const isUsed = checkIsUsedModel(product.name);
 
         return (
             <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-                {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Cũ {Math.round(product.condition * 100)}%</span>}
+                {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
                 {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
                 <Link to={`/product/${product._id}`} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
                     <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
