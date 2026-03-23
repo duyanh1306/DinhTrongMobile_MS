@@ -49,6 +49,8 @@ module.exports = {
   // Chỉ Admin
   authAdmin: checkRole(["ADMIN"]),
   
+  authManager: checkRole(["MANAGER"]),
+  
   // Chỉ Sale Staff
   authSaleStaff: checkRole(["SALE_STAFF"]),
   
@@ -59,11 +61,10 @@ module.exports = {
   authCustomer: checkRole(["CUSTOMER"]),
   
   // Ví dụ: Cho phép cả Admin và Sale Staff (dùng cho các chức năng quản lý đơn hàng)
-  authManagement: checkRole(["ADMIN", "SALE_STAFF"]),
+  authManagement: checkRole(["ADMIN", "MANAGER", "SALE_STAFF"]),
   
   // Ví dụ: Cho phép tất cả nhân viên nội bộ (trừ khách hàng)
-  authInternal: checkRole(["ADMIN", "SALE_STAFF", "TECHNICIAN"]),
-
+  authInternal: checkRole(["ADMIN", "MANAGER", "SALE_STAFF", "TECHNICIAN"]),
   // Hàm gốc nếu muốn tự custom ở route
   checkRole 
 };

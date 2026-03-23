@@ -10,21 +10,22 @@ export default function AdminLayout({ children }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Navbar onToggleSidebar={handleToggleSidebar} />
-      <main className="relative flex flex-1">
-        <div className={`${isSidebarOpen ? "" : "hidden"}`}>
-          <AdminSidebar />
+      <main className="relative flex flex-1 overflow-hidden">
+    
+        <div 
+          className={`transition-all duration-300 ease-in-out h-full ${
+            isSidebarOpen ? "w-64" : "w-0"
+          }`}
+        >
+          <div className="w-64 h-full"> 
+            <AdminSidebar />
+          </div>
         </div>
-        {/* Page content goes here */}
 
-        <div className="h-[90vh] w-full p-8 bg-gray-50 overflow-y-auto overflow-x-auto">
-          {children ? (
-            children
-          ) : (
-            <div className="p-4">No content available</div>
-          )}
+        <div className="flex-1 h-full p-8 bg-gray-50 overflow-y-auto overflow-x-auto">
+          {children ? children : <div className="p-4">No content available</div>}
         </div>
       </main>
-      
     </div>
   );
 }

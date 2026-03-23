@@ -37,7 +37,7 @@ const userSchema = new mongoose.Schema(
         },
         birthday: {
             type: Date,
-            required: true,
+            // required: true,
             validate: {
                 validator: function (value) {
                     if (!value) return false;

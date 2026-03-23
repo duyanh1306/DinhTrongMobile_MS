@@ -1,617 +1,365 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, ChevronLeft, ChevronRight, X, ChevronDown } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, ChevronRight, Tag } from "lucide-react";
+
+const BASE_CODES = {
+    "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
+    "CAM-R": "Camera Sau", "CAM-F": "Camera Trước", "CPT": "Cụm chân sạc",
+    "SPK": "Loa ngoài", "FGL": "Mặt kính", "BGL": "Kính lưng", "OTH": "Khác"
+};
 
 export default function AdminItemType() {
     const [itemTypes, setItemTypes] = useState([]);
+    const [recipes, setRecipes] = useState([]); 
     const [loading, setLoading] = useState(true);
-    const [pagination, setPagination] = useState({
-        currentPage: 1,
-        totalPages: 1,
-        totalCount: 0,
-        limit: 10,
-        hasNextPage: false,
-        hasPrevPage: false
+    const [searchKeyword, setSearchKeyword] = useState('');
+    
+    // 🌟 STATE PHÂN TRANG
+    const [pagination, setPagination] = useState({ 
+        currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 
     });
-    const [filters, setFilters] = useState({
-        search: '',
-        sortBy: 'name',
-        sortOrder: 'asc'
-    });
+    
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        code: '',
-        price: '',
-        baseCost: '',
-        compatiblePhoneModels: []
-    });
     const [editingId, setEditingId] = useState(null);
-    const [availablePhoneModels, setAvailablePhoneModels] = useState([]);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [expandedGroup, setExpandedGroup] = useState({});
 
-    useEffect(() => {
-        fetchItemType(true);
-    }, []); // Only run on initial mount
+    const [formData, setFormData] = useState({ name: '', baseCode: 'MB', subCode: '', image: '', linkedRecipes: [] });
+    const [tempLink, setTempLink] = useState({ recipeId: '', partName: '' }); 
+    const [imageFile, setImageFile] = useState(null);
+    const fileInputRef = useRef(null);
 
-    useEffect(() => {
-        if (!loading && pagination.currentPage) { // Only fetch if not initial load and pagination exists
-            fetchItemType(false);
-        }
-    }, [pagination.currentPage, filters.search, filters.sortBy, filters.sortOrder]);
-
-    const fetchPhoneModels = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/phone_models?limit=1000`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setAvailablePhoneModels(data.data || []);
-        } catch (error) {
-            console.error("Failed to fetch phone models:", error);
-            toast.error("Failed to load phone models");
-        }
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http') || url.startsWith('blob:')) return url;
+        return `http://localhost:9999${url}`;
     };
 
-    const fetchItemType = async (isInitialLoad = false) => {
+    useEffect(() => { fetchRecipes(); }, []);
+
+    // 🌟 GỌI API THEO PHÂN TRANG VÀ TÌM KIẾM
+    useEffect(() => { fetchItemType(); }, [pagination.currentPage]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => { 
+            setPagination(prev => ({...prev, currentPage: 1}));
+            fetchItemType(); 
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [searchKeyword]);
+
+    const fetchItemType = async () => {
         try {
-            if (isInitialLoad) {
-                setLoading(true);
-            }
+            setLoading(true);
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
-                page: pagination?.currentPage || 1,
-                limit: pagination?.limit || 10,
-                search: filters.search,
-                sortBy: filters.sortBy,
-                sortOrder: filters.sortOrder
+                page: pagination.currentPage, 
+                limit: pagination.limit,
+                search: searchKeyword
             });
-            
-            const { data } = await axios.get(`http://localhost:9999/api/item_types?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            
+
+            const { data } = await axios.get(`http://localhost:9999/api/item_types?${params}`, { headers: { Authorization: `Bearer ${token}` } });
             setItemTypes(data.data || []);
-            setPagination(data.pagination);
-        } catch (error) {
-            console.error("Fetch item types failed", error);
-            toast.error(error.response?.data?.message || "Failed to fetch item types");
-        } finally {
-            if (isInitialLoad) {
-                setLoading(false);
-            }
-        }
+            if (data.pagination) setPagination(data.pagination);
+        } catch (error) { toast.error("Lỗi tải dữ liệu"); } 
+        finally { setLoading(false); }
+    };
+
+    const fetchRecipes = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get("http://localhost:9999/api/recipes/all", { headers: { Authorization: `Bearer ${token}` } });
+            setRecipes(res.data.data || []);
+        } catch (err) { console.error("Lỗi tải công thức:", err); }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this item type?")) {
-            try {
-                const token = localStorage.getItem("token");
-                await axios.delete(`http://localhost:9999/api/item_types/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` },
+        if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
+        try {
+            const token = localStorage.getItem("token");
+            await axios.delete(`http://localhost:9999/api/item_types/delete/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            toast.success("Xóa thành công!");
+            fetchItemType();
+        } catch (error) { toast.error("Lỗi khi xóa danh mục"); }
+    };
+
+    const handleOpenModal = (itemType = null) => {
+        setImageFile(null); setTempLink({ recipeId: '', partName: '' });
+        if (itemType) {
+            setIsEditing(true); setEditingId(itemType._id);
+            let base = 'OTH'; let sub = itemType.code;
+            const parts = itemType.code.split('-');
+            if (parts[0] === 'CAM') { base = 'CAM-' + parts[1]; sub = parts.slice(2).join('-'); }
+            else if (BASE_CODES[parts[0]]) { base = parts[0]; sub = parts.slice(1).join('-'); }
+            else if (BASE_CODES[itemType.code]) { base = itemType.code; sub = ''; }
+
+            const existingLinks = [];
+            recipes.forEach(recipe => {
+                recipe.requiredParts.forEach(part => {
+                    const isLinked = part.acceptedItemTypes.some(type => (type._id || type) === itemType._id);
+                    if (isLinked) existingLinks.push({ recipeId: recipe._id, partName: part.name });
                 });
-                toast.success("Item type deleted successfully");
-                fetchItemType(false);
-            } catch (error) {
-                console.error("Delete failed", error);
-                toast.error(error.response?.data?.message || "Failed to delete item type");
+            });
+            setFormData({ name: itemType.name, baseCode: base, subCode: sub, image: itemType.image || '', linkedRecipes: existingLinks });
+        } else {
+            setIsEditing(false); setEditingId(null);
+            setFormData({ name: '', baseCode: 'MB', subCode: '', image: '', linkedRecipes: [] });
+        }
+        setShowModal(true);
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) { setImageFile(file); setFormData({ ...formData, image: URL.createObjectURL(file) }); }
+    };
+
+    const handleRecipeChange = (e) => {
+        const selectedRecipeId = e.target.value;
+        let autoPartName = '';
+        if (selectedRecipeId) {
+            const selectedRecipe = recipes.find(r => r._id === selectedRecipeId);
+            if (selectedRecipe) {
+                const baseLabel = BASE_CODES[formData.baseCode]?.toLowerCase() || '';
+                const typeName = formData.name.toLowerCase();
+                const matchedPart = selectedRecipe.requiredParts.find(p => {
+                    const pName = p.name.toLowerCase();
+                    return pName.includes(typeName) || (baseLabel && pName.includes(baseLabel));
+                });
+                if (matchedPart) autoPartName = matchedPart.name;
             }
         }
+        setTempLink({ recipeId: selectedRecipeId, partName: autoPartName });
     };
 
-    const handleSearchChange = (e) => {
-        setFilters(prev => ({ ...prev, search: e.target.value }));
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
+    const handleAddLink = () => {
+        if (!tempLink.recipeId || !tempLink.partName) return toast.warning("Vui lòng chọn Dòng Máy và Slot ghép!");
+        const isDuplicate = formData.linkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
+        if (isDuplicate) return toast.error("Công thức này đã có trong danh sách!");
+        setFormData({ ...formData, linkedRecipes: [...formData.linkedRecipes, tempLink] });
+        setTempLink({ recipeId: '', partName: '' }); 
     };
 
-    const handleSortChange = (field) => {
-        setFilters(prev => ({
-            ...prev,
-            sortBy: field,
-            sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc'
-        }));
-    };
-
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleAddItemType = () => {
-        setIsEditing(false);
-        setFormData({ 
-            name: '', 
-            code: '', 
-            price: '', 
-            baseCost: '', 
-            compatiblePhoneModels: [] 
-        });
-        setEditingId(null);
-        fetchPhoneModels();
-        setShowModal(true);
-    };
-
-    const handleEditItemType = (itemType) => {
-        setIsEditing(true);
-        setFormData({ 
-            name: itemType.name, 
-            code: itemType.code, 
-            price: itemType.price,
-            baseCost: itemType.baseCost,
-            compatiblePhoneModels: itemType.compatiblePhoneModels?.map(model => model._id) || []
-        });
-        setEditingId(itemType._id);
-        fetchPhoneModels();
-        setShowModal(true);
-    };
-
-    const handleCloseModal = () => {
-        setShowModal(false);
-        setFormData({ 
-            name: '', 
-            code: '', 
-            price: '', 
-            baseCost: '', 
-            compatiblePhoneModels: [] 
-        });
-        setIsEditing(false);
-        setEditingId(null);
-        setIsDropdownOpen(false);
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (isDropdownOpen && !event.target.closest('.phone-model-dropdown')) {
-                setIsDropdownOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isDropdownOpen]);
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handlePhoneModelsChange = (selectedModels) => {
-        setFormData(prev => ({ ...prev, compatiblePhoneModels: selectedModels }));
+    const handleRemoveLink = (idx) => {
+        const newLinks = [...formData.linkedRecipes];
+        newLinks.splice(idx, 1);
+        setFormData({ ...formData, linkedRecipes: newLinks });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const subUpper = formData.subCode.trim().toUpperCase();
+        const finalCode = formData.baseCode === 'OTH' ? subUpper : (subUpper ? `${formData.baseCode}-${subUpper}` : formData.baseCode);
+        if (!finalCode) return toast.warning("Mã Code không được để trống!");
+
         try {
             const token = localStorage.getItem("token");
+            const submitData = new FormData();
+            submitData.append('name', formData.name);
+            submitData.append('code', finalCode); 
             
-            const submitData = {
-                ...formData,
-                price: parseFloat(formData.price),
-                baseCost: parseFloat(formData.baseCost)
-            };
-            
-            if (isEditing) {
-                // Update existing item type
-                await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Item type updated successfully");
-            } else {
-                // Create new item type
-                await axios.post("http://localhost:9999/api/item_types/create", submitData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Item type created successfully");
+            let finalLinkedRecipes = [...formData.linkedRecipes];
+            if (tempLink.recipeId && tempLink.partName) {
+                const isDuplicate = finalLinkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
+                if (!isDuplicate) finalLinkedRecipes.push(tempLink);
             }
+            if (finalLinkedRecipes.length > 0) submitData.append('linkedRecipes', JSON.stringify(finalLinkedRecipes));
             
-            handleCloseModal();
-            fetchItemType(false);
-        } catch (error) {
-            console.error("Save failed", error);
-            toast.error(error.response?.data?.message || "Failed to save item type");
-        }
+            if (imageFile) submitData.append('image', imageFile);
+            else if (formData.image && !formData.image.startsWith('blob:')) submitData.append('image', formData.image); 
+
+            const config = { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data'} };
+
+            if (isEditing) {
+                await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, config);
+                toast.success("Cập nhật thành công");
+            } else {
+                await axios.post(`http://localhost:9999/api/item_types/create`, submitData, config);
+                toast.success("Thêm mới thành công");
+            }
+            setShowModal(false);
+            fetchItemType();
+        } catch (error) { toast.error(error.response?.data?.message || "Lỗi lưu dữ liệu"); }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-lg text-gray-600">Loading...</div>
-            </div>
-        );
-    }
+    // 🌟 GỘP NHÓM & SẮP XẾP "KHÁC" XUỐNG CUỐI
+    const sortedGroupedData = useMemo(() => {
+        const result = {};
+        itemTypes.forEach(type => {
+            let base = 'OTH';
+            const parts = type.code.split('-');
+            if (parts[0] === 'CAM') base = `CAM-${parts[1]}`;
+            else if (BASE_CODES[parts[0]]) base = parts[0];
+            else if (BASE_CODES[type.code]) base = type.code;
+
+            const baseLabel = BASE_CODES[base] || "Khác";
+            if (!result[baseLabel]) result[baseLabel] = [];
+            result[baseLabel].push(type);
+        });
+
+        // Sắp xếp object thành array, đẩy "Khác" xuống cuối
+        return Object.entries(result).sort(([groupA], [groupB]) => {
+            if (groupA === "Khác") return 1;
+            if (groupB === "Khác") return -1;
+            return groupA.localeCompare(groupB);
+        });
+    }, [itemTypes]);
+
+    const toggleGroup = (grp) => setExpandedGroup(prev => ({ ...prev, [grp]: !prev[grp] }));
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Package className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Manage Item Types</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Phân loại Linh Kiện</h1>
                 </div>
-                <button 
-                    onClick={handleAddItemType}
-                    className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                    <Plus size={20} />
-                    <span>Add Item Type</span>
+                <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition">
+                    <Plus size={20} /> <span>Thêm phân loại mới</span>
                 </button>
             </div>
 
-            {/* Search and Filters */}
-            <div className="bg-white rounded-xl shadow-sm p-6 flex-shrink-0">
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                            <input
-                                type="text"
-                                placeholder="Search item types or codes ..."
-                                value={filters.search}
-                                onChange={handleSearchChange}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Total: {pagination.totalCount} items</span>
-                    </div>
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div className="relative w-full md:w-1/2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input type="text" placeholder="Tìm theo tên danh mục hoặc mã code..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
             </div>
 
-            {/* Table Container - Takes remaining space */}
-            <div className="flex-1 flex flex-col min-h-0">
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-                    <div className="overflow-x-auto flex-1">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                            <tr>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('name')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Name</span>
-                                        {filters.sortBy === 'name' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
-                                </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('code')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Code</span>
-                                        {filters.sortBy === 'code' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
-                                </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('price')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Price</span>
-                                        {filters.sortBy === 'price' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
-                                </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => handleSortChange('baseCost')}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>Base Cost</span>
-                                        {filters.sortBy === 'baseCost' && (
-                                            <span>{filters.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Compatible Models
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                </th>
-                            </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                            {itemTypes.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                        <div className="flex flex-col items-center space-y-2">
-                                            <Package size={48} className="text-gray-300" />
-                                            <span>No item types found</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                itemTypes.map((itemType) => (
-                                    <tr key={itemType._id} className="hover:bg-gray-50 transition">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">
-                                                {itemType.name}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {itemType.code}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                ${itemType.price?.toFixed(2) || '0.00'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                ${itemType.baseCost?.toFixed(2) || '0.00'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-500 max-w-xs">
-                                                {itemType.compatiblePhoneModels?.length > 0 
-                                                    ? itemType.compatiblePhoneModels
-                                                        .slice(0, 3)
-                                                        .map(model => `${model.name} (${model.brand})`)
-                                                        .join(', ') + 
-                                                      (itemType.compatiblePhoneModels.length > 3 ? '...' : '')
-                                                    : '-'
-                                                }
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end space-x-2">
-                                                <button
-                                                    onClick={() => handleEditItemType(itemType)}
-                                                    className="text-blue-600 hover:text-blue-900 transition"
-                                                    title="Edit"
-                                                >
-                                                    <Edit size={16} />
-                                                </button>
-                                                {/*<button*/}
-                                                {/*    onClick={() => handleDelete(itemType._id)}*/}
-                                                {/*    className="text-red-600 hover:text-red-900 transition"*/}
-                                                {/*    title="Delete"*/}
-                                                {/*>*/}
-                                                {/*    <Trash2 size={16} />*/}
-                                                {/*</button>*/}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                            </tbody>
-                        </table>
-                    </div>
+            <div className="flex-1 overflow-y-auto pb-6">
+                {loading ? (
+                    <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
+                ) : sortedGroupedData.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy phân loại nào phù hợp.</div>
+                ) : (
+                    sortedGroupedData.map(([groupName, typesList]) => (
+                        <div key={groupName} className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="bg-gray-50 p-4 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition" onClick={() => toggleGroup(groupName)}>
+                                <h2 className="text-lg font-bold text-gray-800 uppercase flex items-center gap-2">
+                                    <Tag className="text-blue-600" size={20}/> {groupName} 
+                                    <span className="bg-white border text-xs px-2 py-0.5 rounded-full ml-2 text-gray-500">{typesList.length} phân loại</span>
+                                </h2>
+                                {expandedGroup[groupName] ? <ChevronDown className="text-gray-500"/> : <ChevronRight className="text-gray-500"/>}
+                            </div>
 
-                    {/* Pagination - Inside table container */}
-                    {pagination.totalPages > 1 && (
-                        <div className="border-t border-gray-200 p-6 bg-gray-50">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-600">
-                                    Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
-                                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
-                                    {pagination.totalCount} results
+                            {expandedGroup[groupName] && (
+                                <div className="bg-white divide-y divide-gray-100">
+                                    {typesList.map(item => (
+                                        <div key={item._id} className="p-3 pl-8 flex items-center justify-between hover:bg-blue-50/40 transition">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
+                                                    {item.image ? <img src={getImageUrl(item.image)} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300"/>}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{item.name}</p>
+                                                    <div className="flex items-center gap-2 mt-1 text-[12px]">
+                                                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded font-mono font-bold tracking-wider">{item.code}</span>
+                                                        <span className="text-gray-300">|</span>
+                                                        <span className="text-gray-500">
+                                                            Tồn kho: <strong className={item.stockCount > 0 ? "text-emerald-600 bg-emerald-50 px-1.5 rounded" : "text-red-500 bg-red-50 px-1.5 rounded"}>{item.stockCount || 0}</strong>
+                                                        </span> 
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleOpenModal(item)} className="text-blue-600 bg-blue-50 p-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition"><Edit size={16} /></button>
+                                                <button onClick={() => handleDelete(item._id)} className="text-red-500 bg-red-50 p-2.5 rounded-lg hover:bg-red-600 hover:text-white transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                        disabled={!pagination.hasPrevPage}
-                                        className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <ChevronLeft size={16} />
-                                        <span>Previous</span>
-                                    </button>
-                                    
-                                    {/* Page Numbers */}
-                                    <div className="flex items-center space-x-1">
-                                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                                            let pageNum;
-                                            if (pagination.totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.currentPage <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.currentPage >= pagination.totalPages - 2) {
-                                                pageNum = pagination.totalPages - 4 + i;
-                                            } else {
-                                                pageNum = pagination.currentPage - 2 + i;
-                                            }
-                                            
+                            )}
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* 🌟 THANH CHUYỂN TRANG */}
+            <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto rounded-xl shadow-sm border border-gray-200">
+                <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng tìm thấy: <span className="font-bold">{pagination.totalCount}</span> phân loại</span>
+                <div className="flex gap-2">
+                    <button disabled={pagination.currentPage <= 1} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage - 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Trước</button>
+                    <button disabled={pagination.currentPage >= pagination.totalPages} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage + 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Sau</button>
+                </div>
+            </div>
+
+            {/* MODAL THÊM SỬA */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-5 border-b bg-gray-50 flex-shrink-0">
+                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Sửa Danh Mục' : 'Thêm Danh Mục Mới'}</h2>
+                            <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24}/></button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold mb-1.5 text-gray-700">Tên danh mục hiển thị *</label>
+                                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl focus:border-blue-500 outline-none" placeholder="VD: Pin iPhone 13..." />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold mb-1.5 text-gray-700">Mã Code (Tự động nhóm) *</label>
+                                <div className="flex gap-2">
+                                    <select value={formData.baseCode} onChange={e => setFormData({...formData, baseCode: e.target.value})} className="w-1/2 border border-gray-300 p-2.5 rounded-xl focus:border-blue-500 outline-none bg-white text-gray-700">
+                                        {Object.entries(BASE_CODES).map(([code, label]) => <option key={code} value={code}>{label} ({code})</option>)}
+                                    </select>
+                                    <input type="text" value={formData.subCode} onChange={e => setFormData({...formData, subCode: e.target.value.toUpperCase()})} className="w-1/2 border border-gray-300 p-2.5 rounded-xl focus:border-blue-500 outline-none uppercase font-mono text-sm" placeholder={formData.baseCode === 'OTH' ? "Nhập mã..." : "Đuôi (VD: IP13)"} />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">Mã hệ thống thực tế: <strong className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded ml-1 border border-blue-200">{formData.baseCode === 'OTH' ? formData.subCode.toUpperCase() : (formData.subCode ? `${formData.baseCode}-${formData.subCode.toUpperCase()}` : formData.baseCode)}</strong></p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold mb-2 text-gray-700">Ảnh đại diện chung</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden relative group">
+                                        {formData.image ? <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" /> : <ImageIcon size={28} className="text-gray-300" />}
+                                        <div onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"><UploadCloud size={24} className="text-white" /></div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
+                                        <button type="button" onClick={() => fileInputRef.current.click()} className="px-4 py-2 border border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition w-full flex items-center justify-center gap-2"><UploadCloud size={18} /> Tải ảnh lên</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-5 border-t border-gray-100 mt-2">
+                                <label className="block text-sm font-bold mb-3 text-indigo-700 flex items-center gap-2"><LinkIcon size={18}/> Cấu hình máy ráp tương thích (Tùy chọn)</label>
+                                <div className="flex flex-col gap-2 mb-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-inner">
+                                    <div className="flex gap-2">
+                                        <select value={tempLink.recipeId} onChange={handleRecipeChange} className="w-1/2 border border-indigo-200 p-2.5 rounded-lg text-sm outline-none focus:border-indigo-500 bg-white">
+                                            <option value="">-- Chọn Dòng Máy --</option>
+                                            {recipes.map(r => <option key={r._id} value={r._id}>{r.phoneModelId?.name}</option>)}
+                                        </select>
+                                        <select value={tempLink.partName} onChange={e => setTempLink({...tempLink, partName: e.target.value})} className="w-1/2 border border-indigo-200 p-2.5 rounded-lg text-sm outline-none focus:border-indigo-500 bg-white" disabled={!tempLink.recipeId}>
+                                            <option value="">-- Chọn Slot ghép --</option>
+                                            {tempLink.recipeId && recipes.find(r => r._id === tempLink.recipeId)?.requiredParts.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <button type="button" onClick={handleAddLink} className="w-full py-2 bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-lg hover:bg-indigo-200 transition text-sm">+ Thêm vào danh sách</button>
+                                </div>
+                                {formData.linkedRecipes.length > 0 && (
+                                    <div className="space-y-2 mt-2">
+                                        {formData.linkedRecipes.map((link, idx) => {
+                                            const rName = recipes.find(r => r._id === link.recipeId)?.phoneModelId?.name;
                                             return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={`px-3 py-2 text-sm border rounded-md ${
-                                                        pagination.currentPage === pageNum
-                                                            ? 'bg-blue-600 text-white border-blue-600'
-                                                            : 'border-gray-300 hover:bg-gray-50'
-                                                    }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
+                                                <div key={idx} className="flex items-center justify-between text-xs text-gray-700 bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm">
+                                                    <span>Cho: <strong className="text-indigo-700">{rName}</strong> ➜ Slot: <strong>{link.partName}</strong></span>
+                                                    <button type="button" onClick={() => handleRemoveLink(idx)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition"><X size={14}/></button>
+                                                </div>
+                                            )
                                         })}
                                     </div>
-                                    
-                                    <button
-                                        onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                        disabled={!pagination.hasNextPage}
-                                        className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <span>Next</span>
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
+                                )}
                             </div>
                         </div>
-                    )}
-                </div>
-            </div>
 
-            {/* Add/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-semibold text-gray-800">
-                                {isEditing ? 'Edit Item Type' : 'Add Item Type'}
-                            </h2>
-                            <button
-                                onClick={handleCloseModal}
-                                className="text-gray-400 hover:text-gray-600 transition"
-                            >
-                                <X size={24} />
-                            </button>
+                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                            <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition">Hủy bỏ</button>
+                            <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition">{isEditing ? 'Lưu cập nhật' : 'Thêm danh mục'}</button>
                         </div>
-                        
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Name
-                                </label>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter item type name"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Code
-                                </label>
-                                <input
-                                    type="text"
-                                    name="code"
-                                    value={formData.code}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter item code"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Price
-                                </label>
-                                <input
-                                    type="number"
-                                    name="price"
-                                    value={formData.price}
-                                    onChange={handleInputChange}
-                                    required
-                                    step="0.01"
-                                    min="0"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter price"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Base Cost
-                                </label>
-                                <input
-                                    type="number"
-                                    name="baseCost"
-                                    value={formData.baseCost}
-                                    onChange={handleInputChange}
-                                    required
-                                    step="0.01"
-                                    min="0"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter base cost"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Compatible Phone Models
-                                </label>
-                                <div className="relative phone-model-dropdown">
-                                    <div 
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-h-[42px] flex items-center justify-between"
-                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    >
-                                        <div className="flex flex-wrap gap-1">
-                                            {formData.compatiblePhoneModels.length === 0 ? (
-                                                <span className="text-gray-500">Select phone models...</span>
-                                            ) : (
-                                                formData.compatiblePhoneModels.map(modelId => {
-                                                    const model = availablePhoneModels.find(m => m._id === modelId);
-                                                    return model ? (
-                                                        <span key={modelId} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                                                            {model.name} ({model.brand})
-                                                        </span>
-                                                    ) : null;
-                                                })
-                                            )}
-                                        </div>
-                                        <ChevronDown size={20} className="text-gray-400" />
-                                    </div>
-                                    
-                                    {isDropdownOpen && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                            {availablePhoneModels.length === 0 ? (
-                                                <div className="px-4 py-2 text-gray-500">No phone models available</div>
-                                            ) : (
-                                                availablePhoneModels.map(model => (
-                                                    <label
-                                                        key={model._id}
-                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData.compatiblePhoneModels.includes(model._id)}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    handlePhoneModelsChange([...formData.compatiblePhoneModels, model._id]);
-                                                                } else {
-                                                                    handlePhoneModelsChange(formData.compatiblePhoneModels.filter(id => id !== model._id));
-                                                                }
-                                                            }}
-                                                            className="mr-3"
-                                                        />
-                                                        <span className="text-sm">{model.name} ({model.brand})</span>
-                                                    </label>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Select phone models that are compatible with this item type.
-                                </p>
-                            </div>
-                            
-                            <div className="flex justify-end space-x-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseModal}
-                                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                                >
-                                    {isEditing ? 'Update' : 'Create'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    </form>
                 </div>
             )}
+            <style dangerouslySetInnerHTML={{__html: `.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }`}} />
         </div>
     );
 }

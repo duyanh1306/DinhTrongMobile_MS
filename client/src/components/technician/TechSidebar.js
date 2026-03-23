@@ -5,7 +5,10 @@ import {
   ClipboardList, 
   Cpu, 
   History,
-  User 
+  User,
+  Smartphone,
+  List,
+  PlayCircle,
 } from "lucide-react";
 
 export default function TechSidebar() {
@@ -14,17 +17,21 @@ export default function TechSidebar() {
 
   const items = [
     { text: "Dashboard", link: "/tech/dashboard", icon: <LayoutDashboard size={20} /> },
-    { text: "Tasks", link: "/tech/tasks", icon: <Wrench size={20} /> },
-    { text: "Parts Request", link: "/tech/components", icon: <Cpu size={20} /> },
-    { text: "Repair History", link: "/tech/history", icon: <History size={20} /> },
-    { text: "Intake Tickets", link: "/tech/tickets", icon: <ClipboardList size={20} /> },
     { text: "Profile", link: "/profile", icon: <User size={20} /> },
+    { text: "Hàng chờ", link: "/tech/repair-orders", icon: <List size={20} /> },
+    { text: "Hàng chờ quyết định", link: "/tech/decision-orders", icon: <List size={20} /> },
+    { text: "Đang sửa chữa", link: "/tech/repair-in-progress", icon: <PlayCircle size={20} /> },
+    { text: "Công việc", link: "/tech/tasks", icon: <Wrench size={20} /> },
+    { text: "Yêu cầu linh kện", link: "/tech/components", icon: <Cpu size={20} /> },
+    { text: "Lịch sử sửa chữa", link: "/tech/history", icon: <History size={20} /> },
+    { text: "Intake Tickets", link: "/tech/tickets", icon: <ClipboardList size={20} /> },
+    { text: "Ghép điện thoại", link: "/tech/assemble", icon: <Smartphone size={20}/>},
   ];
 
   return (
     <div className="h-screen w-64 bg-slate-800 text-white flex flex-col shadow-lg">
       <div className="text-xl font-bold p-6 border-b border-slate-700">
-        Technician
+        Kỹ thuật viên
       </div>
       <nav className="flex flex-col p-4 gap-2">
         {items.map((item, index) => {

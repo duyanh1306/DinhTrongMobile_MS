@@ -1,89 +1,141 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { toast } from 'react-toastify';
-import { FaLock, FaKey } from 'react-icons/fa';
+import { Eye, EyeOff } from 'lucide-react';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  
-  useEffect(() => {
-    const emailParam = searchParams.get('email');
-    if (emailParam) setEmail(emailParam);
-  }, [searchParams]);
+  const emailParams = searchParams.get('email') || ''; 
 
-  const handleSubmit = async (e) => {
+  const [step, setStep] = useState(1); // Mặc định ở Bước 1 (Nhập OTP)
+  const [otp, setOtp] = useState('');
+  const [passData, setPassData] = useState({ newPassword: '', confirmPassword: '' });
+  
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  const navigate = useNavigate();
+
+  const handlePassChange = (e) => setPassData({ ...passData, [e.target.name]: e.target.value });
+
+  const validatePassword = (password) => {
+    const regex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    return regex.test(password);
+  };
+
+  // --- BƯỚC 1: XÁC NHẬN OTP ---
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
+    if (otp.length < 6) return toast.error("Vui lòng nhập đủ 6 số OTP");
+    
+    setLoading(true);
     try {
-      await axiosClient.post('/users/reset-password', {
-        email,
-        otp,
-        newPassword
+      await axiosClient.post('/users/verify-otp-reset', { email: emailParams, otp });
+      toast.success("Mã hợp lệ! Vui lòng thiết lập mật khẩu mới.");
+      setStep(2); // Mã đúng thì cho qua Bước 2
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Mã OTP không chính xác");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- BƯỚC 2: CẬP NHẬT MẬT KHẨU MỚI ---
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    
+    if (!validatePassword(passData.newPassword)) {
+      return toast.error("Mật khẩu phải tối thiểu 8 ký tự, bao gồm chữ viết hoa và ký tự đặc biệt");
+    }
+    if (passData.newPassword !== passData.confirmPassword) {
+      return toast.error("Mật khẩu xác nhận không khớp");
+    }
+
+    setLoading(true);
+    try {
+      const res = await axiosClient.post('/users/reset-password', { 
+        email: emailParams, 
+        otp, 
+        newPassword: passData.newPassword 
       });
-      toast.success("Đổi mật khẩu thành công! Hãy đăng nhập lại.");
+      toast.success(res.data.message);
       navigate('/login');
     } catch (error) {
-      toast.error(error.response?.data?.message || "Đổi mật khẩu thất bại");
+      toast.error(error.response?.data?.message || "Đặt lại mật khẩu thất bại");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl">
-        <h2 className="text-2xl font-bold text-center text-primary mb-6">Đặt lại mật khẩu</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" value={email} disabled className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed" />
-          </div>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Đặt Lại Mật Khẩu</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {step === 1 
+              ? <>Chúng tôi đã gửi mã xác thực tới <br/><span className="font-semibold text-primary">{emailParams}</span></>
+              : "Vui lòng tạo một mật khẩu mới an toàn."
+            }
+          </p>
+        </div>
 
-          <div>
-             <label className="block text-sm font-medium text-gray-700 mb-1">Mã OTP (trong email)</label>
-             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaKey className="text-gray-400" />
-                </div>
-                <input 
-                    type="text" 
-                    required 
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" 
-                    placeholder="Nhập 6 số OTP" 
-                />
-             </div>
-          </div>
+        {/* --- FORM BƯỚC 1 --- */}
+        {step === 1 && (
+          <form onSubmit={handleVerifyOtp} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Mã OTP (6 số)</label>
+              <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} required maxLength="6"
+                className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-primary outline-none text-center tracking-widest font-bold text-lg" placeholder="000000" />
+            </div>
 
-          <div>
-             <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
-             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaLock className="text-gray-400" />
-                </div>
-                <input 
-                    type="password" 
-                    required 
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" 
-                    placeholder="Mật khẩu mới của bạn" 
-                />
-             </div>
-          </div>
+            <button type="submit" disabled={loading} className="w-full bg-primary text-white py-2.5 rounded-lg hover:bg-blue-600 transition font-semibold disabled:opacity-70 mt-2">
+              {loading ? "Đang kiểm tra..." : "Xác Nhận Mã OTP"}
+            </button>
+          </form>
+        )}
 
-          <button 
-            type="submit" 
-            className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition mt-4"
-          >
-            Xác nhận đổi mật khẩu
-          </button>
-        </form>
+        {/* --- FORM BƯỚC 2 --- */}
+        {step === 2 && (
+          <form onSubmit={handleResetPassword} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Mật khẩu mới</label>
+              <div className="relative mt-1">
+                <input type={showNewPass ? "text" : "password"} name="newPassword" value={passData.newPassword} onChange={handlePassChange} required
+                  className="w-full pl-4 pr-10 py-2 border rounded-lg focus:ring-primary outline-none" placeholder="••••••••" />
+                <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showNewPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Tối thiểu 8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Xác nhận mật khẩu</label>
+              <div className="relative mt-1">
+                <input type={showConfirmPass ? "text" : "password"} name="confirmPassword" value={passData.confirmPassword} onChange={handlePassChange} required
+                  className="w-full pl-4 pr-10 py-2 border rounded-lg focus:ring-primary outline-none" placeholder="••••••••" />
+                <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showConfirmPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full bg-primary text-white py-2.5 rounded-lg hover:bg-blue-600 transition font-semibold disabled:opacity-70 mt-2">
+              {loading ? "Đang xử lý..." : "Cập Nhật Mật Khẩu"}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-6 text-center">
+          <Link to="/login" className="text-sm text-gray-500 hover:text-primary font-medium">
+            Quay lại Đăng nhập
+          </Link>
+        </div>
+
       </div>
     </div>
   );

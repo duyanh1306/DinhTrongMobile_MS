@@ -1,35 +1,36 @@
-const Item_types = require("../models/Item_type");
+const Item_type = require("../models/Item_type"); // Đã sửa thành Item_type chuẩn
+const Recipe = require("../models/Recipe"); 
+const Item = require("../models/Item");
 
-// GET /api/item_types/all
 const getAllItemTypes = async (req, res) => {
     try {
-        const item_types = await Item_types.find()
-            .populate('compatiblePhoneModels', 'name brand')
+        const itemTypes = await Item_type.find().lean();
 
-        res.status(200).json({
-            success: true,
-            message: "Item types retrieved successfully",
-            data: item_types,
+        // Thuật toán đếm kho
+        const stockCounts = await Item.aggregate([
+            { $match: { status: 'in_stock' } },
+            { $group: { _id: '$item_type', count: { $sum: 1 } } }
+        ]);
+
+        const stockMap = {};
+        stockCounts.forEach(item => {
+            if(item._id) stockMap[item._id.toString()] = item.count;
         });
+
+        const typesWithStock = itemTypes.map(type => ({
+            ...type,
+            stockCount: stockMap[type._id.toString()] || 0
+        }));
+
+        res.status(200).json({ success: true, data: typesWithStock });
     } catch (error) {
-        console.error("Error getting all item types:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 };
 
-// GET /api/item_types
 const getItemTypePaginatedAndSearch = async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'name', sortOrder = 'asc' } = req.query;
-        
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
-        const skip = (pageNum - 1) * limitNum;
-        
         let searchQuery = {};
         if (search) {
             searchQuery = {
@@ -43,156 +44,125 @@ const getItemTypePaginatedAndSearch = async (req, res) => {
         const sortQuery = {};
         sortQuery[sortBy] = sortOrder === 'desc' ? -1 : 1;
         
-        const itemTypes = await Item_types
-            .find(searchQuery)
-            .populate('compatiblePhoneModels', 'name brand')
-            .sort(sortQuery)
-            .skip(skip)
-            .limit(limitNum);
-        
-        const totalCount = await Item_types.countDocuments(searchQuery);
-        
-        const totalPages = Math.ceil(totalCount / limitNum);
-        const hasNextPage = pageNum < totalPages;
-        const hasPrevPage = pageNum > 1;
-        
+        // Nếu Frontend truyền limit lớn (dạng cây), bỏ qua phân trang
+        let itemTypes = [];
+        if (parseInt(limit) >= 100) {
+            itemTypes = await Item_type.find(searchQuery).sort(sortQuery).lean();
+        } else {
+            const skip = (parseInt(page) - 1) * parseInt(limit);
+            itemTypes = await Item_type.find(searchQuery).sort(sortQuery).skip(skip).limit(parseInt(limit)).lean();
+        }
+
+        const stockCounts = await Item.aggregate([
+            { $match: { status: 'in_stock' } },
+            { $group: { _id: '$item_type', count: { $sum: 1 } } }
+        ]);
+
+        const stockMap = {};
+        stockCounts.forEach(item => {
+            if(item._id) stockMap[item._id.toString()] = item.count;
+        });
+
+        const typesWithStock = itemTypes.map(type => ({
+            ...type,
+            stockCount: stockMap[type._id.toString()] || 0
+        }));
+
+        const totalCount = await Item_type.countDocuments(searchQuery);
         res.status(200).json({
             success: true,
-            message: "Item types retrieved successfully",
-            data: itemTypes,
+            data: typesWithStock,
             pagination: {
-                currentPage: pageNum,
-                totalPages,
-                totalCount,
-                limit: limitNum,
-                hasNextPage,
-                hasPrevPage,
-                nextPage: hasNextPage ? pageNum + 1 : null,
-                prevPage: hasPrevPage ? pageNum - 1 : null
-            },
-            filters: {
-                search,
-                sortBy,
-                sortOrder
+                currentPage: parseInt(page), 
+                totalPages: Math.ceil(totalCount / parseInt(limit)), 
+                totalCount, 
+                limit: parseInt(limit)
             }
         });
     } catch (error) {
-        console.error("Error getting paginated item types:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// POST /api/item_types/create
 const createItemType = async (req, res) => {
     try {
-        const {
-            name,
-            code,
-            price,
-            baseCost,
-            compatiblePhoneModels
-        } = req.body;
+        const { name, code } = req.body;
+        if (!name || !code) return res.status(400).json({ success: false, message: "Thiếu các trường bắt buộc" });
 
-        if (
-            !name ||
-            !code ||
-            !price ||
-            !baseCost
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields",
-            });
-        }
-
-        const newItemType = new Item_types({
-            name,
-            code,
-            price,
-            baseCost,
-            compatiblePhoneModels
-        });
-
+        const imagePath = req.file ? req.file.path : (req.body.image || "");
+        const newItemType = new Item_type({ name, code, image: imagePath });
         const savedItemType = await newItemType.save();
 
-        res.status(201).json({
-            success: true,
-            message: "Item type created successfully",
-            data: savedItemType,
-        });
+        if (req.body.linkedRecipes) {
+            try {
+                const links = JSON.parse(req.body.linkedRecipes);
+                for (let link of links) {
+                    const recipe = await Recipe.findById(link.recipeId);
+                    if (recipe) {
+                        const part = recipe.requiredParts.find(p => p.name === link.partName);
+                        if (part) {
+                            const alreadyExists = part.acceptedItemTypes.some(id => id.toString() === savedItemType._id.toString());
+                            if (!alreadyExists) {
+                                part.acceptedItemTypes.push(savedItemType._id);
+                                await recipe.save();
+                            }
+                        }
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+        res.status(201).json({ success: true, data: savedItemType });
     } catch (error) {
-        console.error("Error creating item type:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                message: "Item_type with this name and code already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                message: error.message
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ message: "Loại linh kiện hoặc Mã đã tồn tại" });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// PUT /api/item_types/update/:id
 const updateItemType = async (req, res) => {
     try {
         const { id } = req.params;
+        const { name, code } = req.body;
 
-        const updated = await Item_types.findByIdAndUpdate(id, req.body, {
-            new: true,
-            runValidators: true,
-        })
-        if (!updated)
-            return res
-                .status(404)
-                .json({ success: false, message: "Item type not found" });
+        let updateData = { name, code };
+        if (req.file) updateData.image = req.file.path;
+        else if (req.body.image) updateData.image = req.body.image;
 
-        res.status(200).json({
-            success: true,
-            message: "Item types updated successfully",
-            data: updated,
-        });
+        const updated = await Item_type.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+        if (!updated) return res.status(404).json({ success: false, message: "Không tìm thấy" });
+
+        if (req.body.linkedRecipes) {
+            try {
+                const links = JSON.parse(req.body.linkedRecipes);
+                for (let link of links) {
+                    const recipe = await Recipe.findById(link.recipeId);
+                    if (recipe) {
+                        const part = recipe.requiredParts.find(p => p.name === link.partName);
+                        if (part) {
+                            const alreadyExists = part.acceptedItemTypes.some(itemTypeId => itemTypeId.toString() === updated._id.toString());
+                            if (!alreadyExists) {
+                                part.acceptedItemTypes.push(updated._id);
+                                await recipe.save();
+                            }
+                        }
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+        res.status(200).json({ success: true, data: updated });
     } catch (error) {
-        console.error("Error updating item tpye:", error);
-
-        if (error.code === 11000) {
-            return res.status(400).json({
-                message: "Item_type with this name and code already exists"
-            });
-        }
-
-        if (error.name === "ValidationError") {
-            return res.status(400).json({
-                message: error.message
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
+        if (error.code === 11000) return res.status(400).json({ message: "Loại linh kiện hoặc Mã đã tồn tại" });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-
-module.exports = {
-    getAllItemTypes,
-    getItemTypePaginatedAndSearch,
-    createItemType,
-    updateItemType
+// Hàm xóa
+const deleteItemType = async (req, res) => {
+    try {
+        await Item_type.findByIdAndDelete(req.params.id);
+        res.status(200).json({ success: true, message: "Deleted" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
+
+module.exports = { getAllItemTypes, getItemTypePaginatedAndSearch, createItemType, updateItemType, deleteItemType };

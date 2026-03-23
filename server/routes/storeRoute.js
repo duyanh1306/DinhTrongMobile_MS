@@ -7,7 +7,7 @@ const {
   updateStore,
   deleteStore,
 } = require("../controllers/storeController");
-
+router.get("/all", getAllStores);
 router.post("/", createStore);
 router.get("/", getAllStores);
 router.get("/:id", getStoreById);

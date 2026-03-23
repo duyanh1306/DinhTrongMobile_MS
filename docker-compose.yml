@@ -1,0 +1,52 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: mobile_server
+    ports:
+      - "9999:9999"
+    environment:
+      - NODE_ENV=development
+      - PORT=9999
+      - MONGODB_URI=mongodb://mongo:27017/dinh_trong_mobile
+    depends_on:
+      - mongo
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    networks:
+      - app-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: mobile_client
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://server:9999
+    depends_on:
+      - server
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:7.0
+    container_name: mobile_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=dinh_trong_mobile
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app-network
+
+volumes:
+  mongo_data:
+
+networks:
+  app-network:
+    driver: bridge
