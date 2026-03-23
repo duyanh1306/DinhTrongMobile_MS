@@ -12,9 +12,9 @@ const generateItemQRCode = async (req, res) => {
             return res.status(404).json({ success: false, message: "Item not found" });
         }
 
-        const qrText = item._id.toString();
+        const qrText = item.serialCode;
 
-        console.log('Generated QR Code for item ID:', qrText);
+        console.log('Generated QR Code for serial code:', qrText);
 
         const qrCodeImage = await QRCode.toBuffer(qrText, {
             type: 'png',
@@ -42,11 +42,11 @@ const getAllItems = async (req, res) => {
     try {
         const items = await Item.find()
             .populate('item_type', 'name code')
-            .populate('storeId', 'name location'); // Chú ý: trong file stores.json bạn dùng trường "location" chứ ko phải "address"
+            .populate('storeId', 'name location');
         
         res.status(200).json({
             success: true,
-            data: items, // Trả về thẳng dữ liệu gốc
+            data: items,
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

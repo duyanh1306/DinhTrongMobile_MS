@@ -13,8 +13,7 @@ const generatePhoneQRCode = async (req, res) => {
             return res.status(404).json({ success: false, message: "Phone not found" });
         }
 
-        // Just use the ObjectId string directly
-        const qrText = phone._id.toString();
+        const qrText = phone.serialCode;
 
         console.log('Generated QR Code for phone ID:', qrText);
 

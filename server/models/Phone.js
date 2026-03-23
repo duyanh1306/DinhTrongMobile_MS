@@ -12,6 +12,10 @@ const phoneSchema = new Schema(
             enum: ['in_stock', 'sold', 'repairing', 'defective','waiting_for_tech_decision'], 
             default: 'in_stock' 
         },
+        serialCode: {
+            type: String,
+            required: true
+        },
         importPrice: { type: Number, required: true }, 
         sellingPrice: { type: Number, required: true }, 
         source: { 
