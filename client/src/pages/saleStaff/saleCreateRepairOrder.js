@@ -11,7 +11,7 @@ export default function SaleCreateRepairOrder() {
       toast.error("Vui lòng nhập tên khách hàng!");
       return false;
     }
-    if (!/(0[3|5|7|8|9])+([0-9]{8})\b/.test(customer.phone)) {
+    if (customer.phone && !/(0[3|5|7|8|9])+([0-9]{8})\b/.test(customer.phone)) {
       toast.error("Số điện thoại không hợp lệ! (Ví dụ: 0987654321)");
       return false;
     }
@@ -105,7 +105,7 @@ export default function SaleCreateRepairOrder() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Số điện thoại <span className="text-red-500">*</span>
+                    Số điện thoại
                   </label>
                   <input
                     type="text"
