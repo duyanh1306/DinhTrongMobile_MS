@@ -13,3 +13,5 @@ export const items = [
     { text: "Yêu cầu linh kện", link: "/tech/components", icon: <Cpu size={20} /> },
     { text: "Ghép/gỡ điện thoại", link: "/tech/assemble", icon: <Smartphone size={20}/>},
   ];
+
+  

@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
 import { Wrench } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
+import { fetchRepairOrders } from "../../api/repairOrder";
 import "react-toastify/dist/ReactToastify.css";
-
-// Import shared components
 import LoadingSpinner from "../../components/technician/shared/LoadingSpinner";
 import TabNavigation from "../../components/technician/TabNavigation";
-
-// Import Trade-In components
 import TradeInTab from "../../components/technician/trade-in/TradeInTab";
-
-// Import Waiting Decision components
 import WaitingDecisionTab from "../../components/technician/waiting-decision/WaitingDecisionTab";
-
-// Import Repair Orders components
 import RepairOrdersTab from "../../components/technician/repair-orders/RepairOrdersTab";
 
 const RepairOrderList = () => {
@@ -32,7 +25,6 @@ const RepairOrderList = () => {
     price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" 
   });
 
-  // State Checklist linh kiện
   const initialChecklist = {
     screen: { name: "Màn hình", status: "OK", detail: "95%" },
     battery: { name: "Pin", status: "OK", detail: "95%" },
@@ -42,7 +34,6 @@ const RepairOrderList = () => {
   };
   const [checklist, setChecklist] = useState(initialChecklist);
 
-  // Kiểm tra xem đã điền đủ thông tin cơ bản chưa để mở khóa Checklist
   const isBasicInfoFilled = valuation.phoneModelId && valuation.colorName && valuation.capacity && valuation.ram;
 
   // =========================================================================
@@ -114,15 +105,14 @@ const RepairOrderList = () => {
     }
     if(!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
     
-    // Tự động tạo báo cáo từ Checklist
     const checklistStr = Object.values(checklist)
       .map(item => `- ${item.name}: ${item.status === 'OK' ? 'Hoạt động tốt' : `Kém/Hỏng (${item.detail})`}`)
       .join('\n');
 
     const reportNote = `[BÁO CÁO KỸ THUẬT]
-- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM
-${checklistStr}
-- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
+    - Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM
+    ${checklistStr}
+    - Ghi chú thêm: ${valuation.techNote || "Không có"}`;
 
     try {
       const payload = {
@@ -133,7 +123,7 @@ ${checklistStr}
           phoneModelId: valuation.phoneModelId, 
           capacity: valuation.capacity, 
           colorName: valuation.colorName,
-          ram: valuation.ram // Gửi thêm RAM xuống Backend
+          ram: valuation.ram
         }
       };
 
@@ -230,6 +220,20 @@ ${checklistStr}
       const response = await axiosClient.get(`/repair-orders/${order._id}/details`);
       setOrderDetails(response.data);
     } catch (err) { setOrderDetails([]); }
+  };
+
+  const handleOrderUpdate = async () => {
+    if (selectedOrder) {
+      try {
+        const response = await axiosClient.get(`/repair-orders/${selectedOrder._id}/details`);
+        setOrderDetails(response.data);
+        // Also update the selected order to reflect any changes
+        const orderResponse = await axiosClient.get(`/repair-orders/${selectedOrder._id}`);
+        setSelectedOrder(orderResponse.data);
+      } catch (err) {
+        setOrderDetails([]);
+      }
+    }
   };
 
   const acceptRepairOrder = async (orderId) => {
@@ -343,6 +347,7 @@ ${checklistStr}
           onAccept={acceptRepairOrder}
           onCancel={cancelRepairOrder}
           onCloseDetailsModal={() => setShowDetailsModal(false)}
+          onOrderUpdate={handleOrderUpdate}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import FilterPanel from "./FilterPanel";
 import RepairOrdersTable from "./RepairOrdersTable";
 import RepairDetailsModal from "./RepairDetailsModal";
@@ -17,8 +17,16 @@ const RepairOrdersTab = ({
   onViewDetails, 
   onAccept, 
   onCancel,
-  onCloseDetailsModal
+  onCloseDetailsModal,
+  onOrderUpdate
 }) => {
+
+  useEffect(() => {
+    if (showDetailsModal && selectedOrder) {
+        onOrderUpdate();
+    }
+  }, [showDetailsModal, selectedOrder]);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <FilterPanel 
@@ -38,11 +46,13 @@ const RepairOrdersTab = ({
         onCancel={onCancel}
       />
 
-      <RepairDetailsModal 
+      <RepairDetailsModal
+        key={`modal-${selectedOrder?._id}-${orderDetails?.length || 0}`}
         selectedOrder={selectedOrder}
         orderDetails={orderDetails}
         showDetailsModal={showDetailsModal}
         onClose={onCloseDetailsModal}
+        onOrderUpdate={onOrderUpdate}
       />
     </div>
   );

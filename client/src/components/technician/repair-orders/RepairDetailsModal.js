@@ -1,13 +1,102 @@
-import React from "react";
-import { X, User, Phone, Store } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, User, Phone, Store, ChevronDown, Loader2 } from "lucide-react";
 import dayjs from "dayjs";
+import { getAllRepairServices, updateRepairOrderDetail } from "../../../api/repairOrder";
 
 const RepairDetailsModal = ({ 
   selectedOrder, 
   orderDetails, 
   showDetailsModal, 
-  onClose 
+  onClose,
+  onOrderUpdate
 }) => {
+  const [availableServices, setAvailableServices] = useState([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [updatingService, setUpdatingService] = useState(null);
+  const [openDropdowns, setOpenDropdowns] = useState({});
+
+  useEffect(() => {
+    if (showDetailsModal) {
+      fetchAvailableServices();
+    }
+  }, [showDetailsModal]);
+
+  const fetchAvailableServices = async () => {
+    setLoadingServices(true);
+    try {
+      const response = await getAllRepairServices();
+      if (response.success && response.data) {
+        setAvailableServices(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch repair services:', error);
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
+  const handleServiceChange = async (detailIndex, newServiceId, isChecked) => {
+    const detail = orderDetails[detailIndex];
+    if (!detail || !selectedOrder) return;
+
+    setUpdatingService(detailIndex);
+    try {
+
+      const currentServiceIds = Array.isArray(detail.serviceId)
+        ? detail.serviceId.map(s => s._id || s)
+        : (detail.serviceId?._id ? [detail.serviceId._id] : []);
+
+      const updatedServices = isChecked
+        ? [...currentServiceIds, newServiceId]
+        : currentServiceIds.filter(id => id !== newServiceId);
+      
+      const updateData = {
+        serviceId: updatedServices.length > 0 ? updatedServices : null
+      };
+
+      const response = await updateRepairOrderDetail(selectedOrder._id, updateData);
+
+      if (response.success) {
+        if (onOrderUpdate) {
+          onOrderUpdate();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update service:', error);
+    } finally {
+      setUpdatingService(null);
+      setOpenDropdowns({ ...openDropdowns, [detailIndex]: false });
+    }
+  };
+
+  useEffect(() => {
+    if (!showDetailsModal) {
+      setOpenDropdowns({});
+    }
+  }, [showDetailsModal]);
+
+  const calculateTotalPrice = () => {
+    if (!orderDetails || orderDetails.length === 0) return 0;
+    
+    return orderDetails.reduce((total, detail) => {
+      if (detail.serviceId) {
+        if (Array.isArray(detail.serviceId)) {
+          total += detail.serviceId.reduce((sum, s) => sum + (s.price || 0), 0);
+        } else {
+          total += detail.serviceId.price || 0;
+        }
+      }
+      
+      if (detail.itemIds && detail.itemIds.length > 0) {
+        total += detail.itemIds.reduce((sum, item) => sum + (item.price || 0), 0);
+      }
+      
+      return total;
+    }, 0);
+  };
+
+  const totalPrice = calculateTotalPrice();
+
   if (!showDetailsModal || !selectedOrder) return null;
 
   return (
@@ -68,14 +157,47 @@ const RepairDetailsModal = ({
               <div className="space-y-3">
                 {orderDetails.map((detail, index) => (
                   <div key={index} className="border rounded-lg p-4 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                       {detail.serviceId && (
                         <div>
                           <span className="text-sm text-gray-500">Dịch vụ:</span>
-                          <p className="font-medium">{detail.serviceId.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {detail.serviceId.price?.toLocaleString('vi-VN') || 0} đ
-                          </p>
+                          <div className="relative mt-2 border rounded-md p-3 bg-white">
+                            {loadingServices ? (
+                              <div className="text-center py-2">
+                                <Loader2 className="w-4 h-4 inline animate-spin mr-2" />
+                                Đang tải dịch vụ...
+                              </div>
+                            ) : availableServices.length > 0 ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {availableServices.map((service) => {
+                                  const currentServiceIds = Array.isArray(detail.serviceId) 
+                                    ? detail.serviceId.map(s => s._id || s)
+                                    : (detail.serviceId?._id ? [detail.serviceId._id] : []);
+                                  const isChecked = currentServiceIds.includes(service._id);
+                                  
+                                  return (
+                                    <label key={service._id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => handleServiceChange(index, service._id, e.target.checked)}
+                                        disabled={updatingService === index}
+                                        className="w-4 h-4 cursor-pointer"
+                                      />
+                                      <div className="flex-1">
+                                        <span className="font-medium text-gray-900">{service.name}</span>
+                                        <span className="text-xs text-gray-500 ml-2">
+                                          {service.price?.toLocaleString('vi-VN') || 0} đ
+                                        </span>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-gray-500 text-sm">Không có dịch vụ nào</p>
+                            )}
+                          </div>
                         </div>
                       )}
                       {detail.targetPhoneId && (
@@ -118,7 +240,7 @@ const RepairDetailsModal = ({
         <div className="p-6 border-t bg-gray-50 flex justify-between items-center">
           <span className="text-lg font-semibold text-gray-700">Tổng cộng:</span>
           <span className="text-2xl font-black text-blue-600">
-            {selectedOrder.totalPrice?.toLocaleString('vi-VN') || 0} đ
+            {totalPrice.toLocaleString('vi-VN')}
           </span>
         </div>
       </div>
