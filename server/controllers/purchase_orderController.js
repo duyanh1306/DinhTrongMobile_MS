@@ -192,11 +192,9 @@ const updatePurchaseOrder = async (req, res) => {
       const itemIds = details.filter((d) => d.itemId).map((d) => d.itemId);
 
       if (order.orderType === "SALE") {
-        // Đơn bán ra bị hủy -> Trả hàng lại kho
         if (phoneIds.length > 0) await Phone.updateMany({ _id: { $in: phoneIds } }, { status: "in_stock" });
         if (itemIds.length > 0) await Item.updateMany({ _id: { $in: itemIds } }, { status: "in_stock" });
       } else if (order.orderType === "PURCHASE") {
-        // Đơn thu mua bị hủy (Khách chê giá rẻ không bán nữa) -> Xóa luôn cái điện thoại vừa tạo ảo
         if (phoneIds.length > 0) await Phone.deleteMany({ _id: { $in: phoneIds } });
       }
     }
@@ -217,18 +215,25 @@ const updatePurchaseOrder = async (req, res) => {
         purchaseOrderId: id,
       });
 
-      // KHÔNG check IMEI nữa, check phoneModelId
-      if (!existingDetail && order.tempPhoneData && order.tempPhoneData.phoneModelId) {
+      if (!existingDetail && tempPhoneData && tempPhoneData.phoneModelId) {
+        
+        // TẠO AUTO SERIAL CODE ĐỂ VƯỢT QUA VALIDATION (Vì serialCode là bắt buộc)
+        const autoSerialCode = `PH-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`;
+
         const newPhone = new Phone({
-          phoneModelId: order.tempPhoneData.phoneModelId,
+          serialCode: autoSerialCode, // Đã đổi imei thành serialCode
+          phoneModelId: tempPhoneData.phoneModelId,
           storeId: order.storeId,
           importPrice: Number(totalPrice),
           sellingPrice: 0,
           status: "waiting_for_tech_decision",
           source: "customer_trade_in",
-          capacity: order.tempPhoneData.capacity || "N/A",
-          colorName: order.tempPhoneData.colorName || "Đang cập nhật",
+          capacity: tempPhoneData.capacity || "Chưa rõ",
+          colorName: tempPhoneData.colorName || "Chưa rõ",
+          grade: "Cũ Đẹp", // Set grade mặc định cho máy thu cũ
+          // Không thêm 'ram' và 'imei' vào đây nữa vì Schema không có
         });
+        
         const savedPhone = await newPhone.save();
 
         const newDetail = new Purchase_order_detail({
@@ -236,7 +241,7 @@ const updatePurchaseOrder = async (req, res) => {
           phoneId: savedPhone._id,
           purchasePrice: Number(totalPrice),
           type: "PHONE",
-          note: note, // Ghi chú báo cáo tình trạng máy sẽ lưu vào đây
+          note: note, 
         });
         await newDetail.save();
       }
@@ -244,7 +249,7 @@ const updatePurchaseOrder = async (req, res) => {
 
     res.status(200).json({ message: "Cập nhật thành công", data: order });
   } catch (error) {
-    console.log("Lỗi UPDATE Purchase Order:", error);
+    console.log("🔥 Lỗi UPDATE Purchase Order:", error);
     res.status(500).json({ message: error.message });
   }
 };
