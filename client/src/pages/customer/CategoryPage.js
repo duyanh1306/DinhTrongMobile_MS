@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Smartphone, Cpu, HardDrive, Filter, ArrowUp, ArrowDown, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
+import { Smartphone, HardDrive, Filter, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import { toast } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
-
-const checkIsUsedModel = (name) => {
-    const lowerName = name.toLowerCase();
-    return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
-};
 
 export default function CategoryPage() {
     const { type } = useParams();
@@ -56,51 +51,56 @@ export default function CategoryPage() {
                 const phones = phonesRes.data.data || [];
                 setBrands(brandsRes.data.data || []);
 
-                let combinedData = phoneModels.map(model => {
+                let combinedData = [];
+
+                phoneModels.forEach(model => {
                     const allModelPhones = phones.filter(p => {
                         const pStoreId = p.storeId?._id || p.storeId;
                         const pModelId = p.phoneModelId?._id || p.phoneModelId;
                         return (String(pModelId) === String(model._id)) && (String(pStoreId) === String(activeStore));
                     });
-                    const availablePhones = allModelPhones.filter(p => p.status === 'in_stock');
-
-                    let startingPrice = Number(model.price) || 0;
-                    if (allModelPhones.length > 0) {
-                        const validPrices = allModelPhones.map(p => {
-                                const sp = Number(p.sellingPrice);
-                                if (sp > 0) return sp;
-                                const ip = Number(p.importPrice);
-                                if (ip > 0) return ip * 1.15;
-                                return 0;
-                            }).filter(price => !isNaN(price) && price > 0);
-                            
-                        if (validPrices.length > 0) startingPrice = Math.min(...validPrices);
-                    }
-
-                    let displayImage = model.image;
-                    const phoneWithImage = allModelPhones.find(p => p.specificImages && p.specificImages.length > 0);
-                    if (phoneWithImage) displayImage = phoneWithImage.specificImages[0];
-
-                    return {
-                        ...model,
-                        image: displayImage,
-                        price: startingPrice,
-                        stockCount: availablePhones.length,
-                        totalRecords: allModelPhones.length,
-                        brandId: model.brand?._id || model.brand 
+          
+                    if (allModelPhones.length === 0) return;
+          
+                    const newPhonesPhysical = allModelPhones.filter(p => p.grade === 'Mới');
+                    const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới');
+          
+                    const getStartingPrice = (physicalList) => {
+                        const validPrices = physicalList.map(p => p.sellingPrice || (p.importPrice * 1.15)).filter(price => !isNaN(price) && price > 0);
+                        return validPrices.length > 0 ? Math.min(...validPrices) : (model.price || 0);
                     };
-                }).filter(model => model.totalRecords > 0); 
-
-                // 🌟 LỌC THEO TÊN
-                if (type === 'new') combinedData = combinedData.filter(p => !checkIsUsedModel(p.name));
-                else if (type === 'used') combinedData = combinedData.filter(p => checkIsUsedModel(p.name));
+          
+                    const getDisplayImage = (physicalList) => {
+                        const phoneWithImg = physicalList.find(p => p.specificImages && p.specificImages.length > 0);
+                        return phoneWithImg ? phoneWithImg.specificImages[0] : model.image;
+                    };
+          
+                    if ((type === 'new' || !type) && newPhonesPhysical.length > 0) {
+                        combinedData.push({
+                            ...model,
+                            image: getDisplayImage(newPhonesPhysical),
+                            price: getStartingPrice(newPhonesPhysical),
+                            stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                            isUsedCard: false,
+                            brandId: model.brand?._id || model.brand 
+                        });
+                    }
+          
+                    if ((type === 'used' || !type) && usedPhonesPhysical.length > 0) {
+                        combinedData.push({
+                            ...model,
+                            image: getDisplayImage(usedPhonesPhysical),
+                            price: getStartingPrice(usedPhonesPhysical),
+                            stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                            isUsedCard: true,
+                            brandId: model.brand?._id || model.brand 
+                        });
+                    }
+                });
 
                 setAllProducts(combinedData);
-            } catch (error) {
-                toast.error("Không thể tải dữ liệu.");
-            } finally {
-                setLoading(false);
-            }
+            } catch (error) { toast.error("Không thể tải dữ liệu."); } 
+            finally { setLoading(false); }
         };
 
         fetchAllData();
@@ -138,9 +138,7 @@ export default function CategoryPage() {
     const processedProducts = useMemo(() => {
         let result = [...allProducts];
         if (filterBrand) result = result.filter(p => p.brandId === filterBrand);
-        
         if (filterInStock) result = result.filter(p => p.stockCount > 0);
-        
         if (appliedMinPrice !== null || appliedMaxPrice !== null) {
             result = result.filter(p => {
                 if (p.price === 0) return false; 
@@ -158,17 +156,16 @@ export default function CategoryPage() {
         const defaultImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png";
         const displayPrice = product.price > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price) : "Đang cập nhật";
         const specs = product.specifications || {};
-        const isUsed = checkIsUsedModel(product.name);
 
         return (
             <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-                {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
+                {product.isUsedCard && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
                 {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
-                <Link to={`/product/${product._id}`} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
+                <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
                     <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
                 </Link>
                 <div className="flex-1 flex flex-col">
-                    <Link to={`/product/${product._id}`}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4></Link>
+                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4></Link>
                     <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
                     <div className="flex flex-wrap gap-2 mt-auto mb-4">
                         <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><Smartphone size={12} className="text-gray-400" /> {specs.screenSize || "N/A"}</div>
@@ -192,11 +189,7 @@ export default function CategoryPage() {
                     </div>
                     <div className="relative inline-block z-20">
                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={18} />
-                        <select
-                            value={selectedStore}
-                            onChange={handleStoreChange}
-                            className="appearance-none bg-[#e01a22] text-white text-sm font-bold py-2 pl-9 pr-8 rounded-lg outline-none cursor-pointer hover:bg-red-700 transition shadow-md"
-                        >
+                        <select value={selectedStore} onChange={handleStoreChange} className="appearance-none bg-[#e01a22] text-white text-sm font-bold py-2 pl-9 pr-8 rounded-lg outline-none cursor-pointer hover:bg-red-700 transition shadow-md">
                             {stores.map(s => <option key={s._id} value={s._id} className="bg-white text-gray-800">{s.name} - {s.location || s.address}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={16} />
@@ -248,7 +241,7 @@ export default function CategoryPage() {
 
                 {processedProducts.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                        {processedProducts.map(product => (<ProductCard key={product._id} product={product} />))}
+                        {processedProducts.map((product, idx) => (<ProductCard key={idx} product={product} />))}
                     </div>
                 ) : (
                     <div className="text-center bg-white rounded-2xl py-20 border border-dashed border-gray-300">
