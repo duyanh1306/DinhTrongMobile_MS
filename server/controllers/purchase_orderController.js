@@ -220,8 +220,8 @@ const updatePurchaseOrder = async (req, res) => {
         // TẠO AUTO SERIAL CODE ĐỂ VƯỢT QUA VALIDATION (Vì serialCode là bắt buộc)
         const autoSerialCode = `PH-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`;
 
-        const newPhone = new Phone({
-          serialCode: autoSerialCode, // Đã đổi imei thành serialCode
+       const newPhone = new Phone({
+          serialCode: autoSerialCode, 
           phoneModelId: tempPhoneData.phoneModelId,
           storeId: order.storeId,
           importPrice: Number(totalPrice),
@@ -230,8 +230,8 @@ const updatePurchaseOrder = async (req, res) => {
           source: "customer_trade_in",
           capacity: tempPhoneData.capacity || "Chưa rõ",
           colorName: tempPhoneData.colorName || "Chưa rõ",
-          grade: "Cũ Đẹp", // Set grade mặc định cho máy thu cũ
-          // Không thêm 'ram' và 'imei' vào đây nữa vì Schema không có
+          grade: "Cũ Đẹp",
+          notes: note // <--- BẮT BUỘC PHẢI CÓ DÒNG NÀY ĐỂ KÉO BÁO CÁO VÀO MÁY
         });
         
         const savedPhone = await newPhone.save();
