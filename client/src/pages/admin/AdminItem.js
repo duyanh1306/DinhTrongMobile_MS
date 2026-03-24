@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag, QrCode } from "lucide-react";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -98,6 +98,97 @@ export default function AdminItem() {
                 toast.success("Xóa thành công");
                 fetchItems();
             } catch (error) { toast.error("Xóa thất bại"); }
+        }
+    };
+
+    const handleGenerateQR = async (itemId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`http://localhost:9999/api/items/${itemId}/qr`, {
+                headers: { Authorization: `Bearer ${token}` },
+                responseType: "blob",
+            });
+
+            const blob = new Blob([response.data], { type: "image/png" });
+            const qrUrl = window.URL.createObjectURL(blob);
+
+            // Use hidden iframe to keep printing stable across browsers.
+            const iframe = document.createElement("iframe");
+            iframe.style.position = "fixed";
+            iframe.style.right = "0";
+            iframe.style.bottom = "0";
+            iframe.style.width = "0";
+            iframe.style.height = "0";
+            iframe.style.border = "0";
+            iframe.setAttribute("aria-hidden", "true");
+            document.body.appendChild(iframe);
+
+            const iframeDoc = iframe.contentWindow?.document;
+            if (!iframeDoc || !iframe.contentWindow) {
+                document.body.removeChild(iframe);
+                window.URL.revokeObjectURL(qrUrl);
+                toast.error("Không thể khởi tạo chế độ in.");
+                return;
+            }
+
+            iframeDoc.open();
+            iframeDoc.write(`
+              <!doctype html>
+              <html>
+                <head>
+                  <meta charset="utf-8" />
+                  <title>Print QR</title>
+                  <style>
+                    @page { margin: 0; }
+                    html, body {
+                      margin: 0;
+                      padding: 0;
+                      width: 100%;
+                      height: 100%;
+                      background: #fff;
+                    }
+                    body {
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    img {
+                      width: 180px;
+                      height: 180px;
+                      object-fit: contain;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                </body>
+              </html>
+            `);
+            iframeDoc.close();
+
+            const img = iframeDoc.getElementById("qr-print-image");
+            if (img) {
+                img.onload = () => {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(qrUrl);
+                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    }, 500);
+                };
+                img.onerror = () => {
+                    window.URL.revokeObjectURL(qrUrl);
+                    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    toast.error("Không thể tải ảnh QR để in.");
+                };
+            } else {
+                window.URL.revokeObjectURL(qrUrl);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                toast.error("Không thể chuẩn bị nội dung in.");
+            }
+        } catch (error) {
+            toast.error("Lỗi khi tạo mã QR");
+            console.error("Item QR generation error:", error);
         }
     };
 
@@ -262,6 +353,7 @@ export default function AdminItem() {
                                                         <thead className="bg-gray-50 text-gray-500 border-y border-gray-100">
                                                             <tr>
                                                                 <th className="p-3 font-semibold">Tên & Mã Serial</th>
+                                                                <th className="p-3 font-semibold text-center">QR</th>
                                                                 <th className="p-3 font-semibold">Tình trạng / Thuộc tính</th>
                                                                 <th className="p-3 font-semibold">Giá vốn / Bán</th>
                                                                 <th className="p-3 font-semibold text-center">Vị trí & Trạng thái</th>
@@ -274,6 +366,15 @@ export default function AdminItem() {
                                                                     <td className="p-3">
                                                                         <div className="font-bold text-gray-800 text-sm max-w-[250px] truncate" title={item.name}>{item.name}</div>
                                                                         <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border">{item.serialCode}</div>
+                                                                    </td>
+                                                                    <td className="p-3 text-center">
+                                                                        <button
+                                                                            onClick={() => handleGenerateQR(item._id)}
+                                                                            className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"
+                                                                            title="In mã QR"
+                                                                        >
+                                                                            <QrCode size={16} />
+                                                                        </button>
                                                                     </td>
                                                                     <td className="p-3 text-xs text-gray-600">
                                                                         <div className="mb-1">
