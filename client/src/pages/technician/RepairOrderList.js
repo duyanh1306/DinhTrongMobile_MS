@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
 import { Wrench } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
-import { fetchRepairOrders } from "../../api/repairOrder";
+import { fetchRepairOrders, completeRepairOrder } from "../../api/repairOrder";
 import "react-toastify/dist/ReactToastify.css";
 import LoadingSpinner from "../../components/technician/shared/LoadingSpinner";
 import TabNavigation from "../../components/technician/TabNavigation";
@@ -254,6 +254,15 @@ const RepairOrderList = () => {
     } catch (error) { toast.error("Không thể hủy đơn"); }
   };
 
+  const completeRepairOrderHandler = async (orderId) => {
+    try {
+      const response = await axiosClient.put(`/repair-orders/${orderId}/complete`);
+      const updateOrderStatus = (orderList) => orderList.map(order => order._id === orderId ? { ...order, status: "Completed" } : order);
+      setOrders(updateOrderStatus(orders)); setFilteredOrders(updateOrderStatus(filteredOrders));
+      toast.success(response.data.message);
+    } catch (error) { toast.error("Không thể hoàn thành đơn"); }
+  };
+
   // =========================================================================
   // RENDER
   // =========================================================================
@@ -346,6 +355,7 @@ const RepairOrderList = () => {
           onViewDetails={handleViewDetails}
           onAccept={acceptRepairOrder}
           onCancel={cancelRepairOrder}
+          onComplete={completeRepairOrderHandler}
           onCloseDetailsModal={() => setShowDetailsModal(false)}
           onOrderUpdate={handleOrderUpdate}
         />

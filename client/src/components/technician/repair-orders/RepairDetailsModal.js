@@ -8,12 +8,14 @@ const RepairDetailsModal = ({
   orderDetails, 
   showDetailsModal, 
   onClose,
-  onOrderUpdate
+  onOrderUpdate,
+  onAccept
 }) => {
   const [availableServices, setAvailableServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [updatingService, setUpdatingService] = useState(null);
   const [openDropdowns, setOpenDropdowns] = useState({});
+  const isReadonly = selectedOrder?.status !== "Pending";
 
   useEffect(() => {
     if (showDetailsModal) {
@@ -36,6 +38,9 @@ const RepairDetailsModal = ({
   };
 
   const handleServiceChange = async (detailIndex, newServiceId, isChecked) => {
+
+    if (isReadonly) return;
+
     const detail = orderDetails[detailIndex];
     if (!detail || !selectedOrder) return;
 
@@ -170,7 +175,7 @@ const RepairDetailsModal = ({
                             ) : availableServices.length > 0 ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 {availableServices.map((service) => {
-                                  const currentServiceIds = Array.isArray(detail.serviceId) 
+                                  const currentServiceIds = Array.isArray(detail.serviceId)
                                     ? detail.serviceId.map(s => s._id || s)
                                     : (detail.serviceId?._id ? [detail.serviceId._id] : []);
                                   const isChecked = currentServiceIds.includes(service._id);
@@ -181,7 +186,7 @@ const RepairDetailsModal = ({
                                         type="checkbox"
                                         checked={isChecked}
                                         onChange={(e) => handleServiceChange(index, service._id, e.target.checked)}
-                                        disabled={updatingService === index}
+                                        disabled={updatingService === index || isReadonly}
                                         className="w-4 h-4 cursor-pointer"
                                       />
                                       <div className="flex-1">
@@ -233,15 +238,28 @@ const RepairDetailsModal = ({
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-4 italic">Không có chi tiết dịch vụ</p>
+              <p className="text-gray-500 text-sm">Không có chi tiết dịch vụ nào</p>
             )}
           </div>
         </div>
         <div className="p-6 border-t bg-gray-50 flex justify-between items-center">
-          <span className="text-lg font-semibold text-gray-700">Tổng cộng:</span>
-          <span className="text-2xl font-black text-blue-600">
-            {totalPrice.toLocaleString('vi-VN')}
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-lg font-semibold text-gray-700">Tổng cộng:</span>
+            <span className="text-2xl font-black text-blue-600">
+              {totalPrice.toLocaleString('vi-VN')}
+            </span>
+          </div>
+          {selectedOrder.status === "Pending" && onAccept && (
+            <button
+              onClick={() => {
+                onAccept(selectedOrder._id);
+                onClose();
+              }}
+              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Thực hiện
+            </button>
+          )}
         </div>
       </div>
     </div>

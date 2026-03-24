@@ -17,6 +17,7 @@ const RepairOrdersTab = ({
   onViewDetails, 
   onAccept, 
   onCancel,
+  onComplete,
   onCloseDetailsModal,
   onOrderUpdate
 }) => {
@@ -44,6 +45,7 @@ const RepairOrdersTab = ({
         onViewDetails={onViewDetails}
         onAccept={onAccept}
         onCancel={onCancel}
+        onComplete={onComplete}
       />
 
       <RepairDetailsModal
@@ -53,6 +55,9 @@ const RepairOrdersTab = ({
         showDetailsModal={showDetailsModal}
         onClose={onCloseDetailsModal}
         onOrderUpdate={onOrderUpdate}
+        onAccept={onAccept}
+        onCancel={onCancel}
+        onComplete={onComplete}
       />
     </div>
   );
