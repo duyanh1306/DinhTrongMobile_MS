@@ -10,9 +10,11 @@ const {
   updateRepairOrderDetailsWithTransfer,
   completeRepairOrder,
   acceptRepairOrder,
-  cancelRepairOrder
+  cancelRepairOrder,
+  createRepairOrder
 } = require("../controllers/repair_orderController");
 
+router.post("/", createRepairOrder);
 router.get("/", getAllRepairOrders);
 router.get("/filter", getFilteredRepairOrders);
 router.get("/by-status", getFilteredRepairOrders);

@@ -41,17 +41,20 @@ import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import BuildPhone from "./pages/customer/BuildPhone";
-import OrderDetail from "./pages/customer/OrderDetail";
+import OrderDetail from "./pages/customer/OrderDetail"
+import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
 import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
 import CategoryPage from "./pages/customer/CategoryPage";
 import TechDecisionList from "./pages/technician/TechDecisionList";
 import AdminRecipe from "./pages/admin/AdminRecipe";
+import ManageStaffStore from "./pages/admin/ManageStaffStore";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
 import ManagerTransferRequest from "./pages/manager/ManagerTransferRequest";
 import ManagerTransferRequestList from "./pages/manager/ManagerTransferRequestList";
 import ManagerTransferRequestDetail from "./pages/manager/ManagerTransferRequestDetail";
+import ManagerStaff from "./pages/manager/ManagerStaff";
 const CustomerProfile = () => (
     <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
 );
@@ -85,7 +88,7 @@ const RoleBasedLayout = ({children}) => {
     switch (role) {
         case "ADMIN":
             return <AdminLayout>{children}</AdminLayout>;
-        case "MANAGER": 
+        case "MANAGER":
             return <ManagerLayout>{children}</ManagerLayout>;
         case "SALE_STAFF":
             return <SaleLayout>{children}</SaleLayout>;
@@ -98,39 +101,39 @@ const RoleBasedLayout = ({children}) => {
 };
 
 function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/product/:id" element={<PhoneDetail />} />
-        <Route path="/search" element={<SearchResults />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/build-phone" element={<BuildPhone />} />
-        <Route path="/order-history" element={<OrderHistory />} />
-        <Route path="/order-detail/:id" element={<OrderDetail />} />
-        <Route path="/category/:type" element={<CategoryPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/verify-otp" element={<VerifyOtp />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/login-success" element={<LoginSuccess />} />
+    return (
+        <BrowserRouter>
+            <Routes>
+                {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
+                <Route path="/" element={<Navigate to="/login" replace/>}/>
+                <Route path="/home" element={<Home/>}/>
+                <Route path="/product/:id" element={<PhoneDetail/>}/>
+                <Route path="/search" element={<SearchResults/>}/>
+                <Route path="/cart" element={<Cart/>}/>
+                <Route path="/build-phone" element={<BuildPhone/>}/>
+                <Route path="/order-history" element={<OrderHistory/>}/>
+                <Route path="/order-detail/:id" element={<OrderDetail/>}/>
+                <Route path="/category/:type" element={<CategoryPage/>}/>
+                <Route path="/login" element={<Login/>}/>
+                <Route path="/register" element={<Register/>}/>
+                <Route path="/verify-otp" element={<VerifyOtp/>}/>
+                <Route path="/forgot-password" element={<ForgotPassword/>}/>
+                <Route path="/reset-password" element={<ResetPassword/>}/>
+                <Route path="/login-success" element={<LoginSuccess/>}/>
 
-        {/* ================= ADMIN ROUTES ================= */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <PrivateRoute allowedRoles={["ADMIN"]}>
-              <AdminLayout>
-                <AdminDashboard />
-              </AdminLayout>
-            </PrivateRoute>
-          }
-        />
-         
-        <Route
+                {/* ================= ADMIN ROUTES ================= */}
+                <Route
+                    path="/admin/dashboard"
+                    element={
+                        <PrivateRoute allowedRoles={["ADMIN"]}>
+                            <AdminLayout>
+                                <AdminDashboard/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
+
+                <Route
                     path="/admin/phone_brands"
                     element={
                         <PrivateRoute allowedRoles={['ADMIN']}>
@@ -140,7 +143,7 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-         <Route
+                <Route
                     path="/admin/phones"
                     element={
                         <PrivateRoute allowedRoles={['ADMIN']}>
@@ -271,6 +274,16 @@ function App() {
                     }
                 />
                 <Route
+                    path="/admin/stores/:storeId/staff"
+                    element={
+                        <PrivateRoute allowedRoles={["ADMIN"]}>
+                            <AdminLayout>
+                                <ManageStaffStore/>
+                            </AdminLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
                     path="/admin/users"
                     element={
                         <PrivateRoute allowedRoles={["ADMIN"]}>
@@ -312,6 +325,16 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+                <Route
+                    path="/sale/repair-orders"
+                    element={
+                        <PrivateRoute allowedRoles={["SALE_STAFF"]}>
+                            <SaleLayout>
+                                <SaleCreateRepairOrder/>
+                            </SaleLayout>
+                        </PrivateRoute>
+                    }
+                />
                 {/* ================= TECHNICIAN ROUTES ================= */}
                 <Route
                     path="/tech/dashboard"
@@ -344,7 +367,7 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-<Route
+                <Route
                     path="/tech/decision-orders"
                     element={
                         <PrivateRoute allowedRoles={["TECHNICIAN"]}>
@@ -388,56 +411,66 @@ function App() {
                     }
                 />
                 {/* ================= MANAGER ROUTES ================= */}
-        <Route
-          path="/manager/dashboard"
-          element={
-            <PrivateRoute allowedRoles={["MANAGER"]}>
-              <ManagerLayout>
-                <ManagerDashboard />
-              </ManagerLayout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/manager/import_inventory"
-          element={
-            <PrivateRoute allowedRoles={["MANAGER"]}>
-              <ManagerLayout>
-                <ImportInventory/>
-              </ManagerLayout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/manager/transfer_approvals"
-          element={
-            <PrivateRoute allowedRoles={["MANAGER"]}>
-              <ManagerLayout>
-                <ManagerTransferRequestList/>
-              </ManagerLayout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/manager/transfer_requests/"
-          element={
-            <PrivateRoute allowedRoles={["MANAGER"]}>
-              <ManagerLayout>
-                <ManagerTransferRequest/>
-              </ManagerLayout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/manager/transfer_requests/:id"
-          element={
-            <PrivateRoute allowedRoles={["MANAGER"]}>
-              <ManagerLayout>
-                <ManagerTransferRequestDetail/>
-              </ManagerLayout>
-            </PrivateRoute>
-          }
-        />
+                <Route
+                    path="/manager/dashboard"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerDashboard/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/staffs"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerStaff/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/import_inventory"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ImportInventory/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/transfer_approvals"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerTransferRequestList/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/transfer_requests/"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerTransferRequest/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/transfer_requests/:id"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerTransferRequestDetail/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
                 {/* ================= 404 NOT FOUND ================= */}
                 <Route
                     path="*"
