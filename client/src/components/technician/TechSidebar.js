@@ -19,7 +19,6 @@ export default function TechSidebar() {
     { text: "Dashboard", link: "/tech/dashboard", icon: <LayoutDashboard size={20} /> },
     { text: "Profile", link: "/profile", icon: <User size={20} /> },
     { text: "Hàng chờ", link: "/tech/repair-orders", icon: <List size={20} /> },
-    { text: "Hàng chờ quyết định", link: "/tech/decision-orders", icon: <List size={20} /> },
     { text: "Đang sửa chữa", link: "/tech/repair-in-progress", icon: <PlayCircle size={20} /> },
     { text: "Công việc", link: "/tech/tasks", icon: <Wrench size={20} /> },
     { text: "Yêu cầu linh kện", link: "/tech/components", icon: <Cpu size={20} /> },
