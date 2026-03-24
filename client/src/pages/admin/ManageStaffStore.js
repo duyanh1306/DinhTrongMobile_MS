@@ -249,10 +249,6 @@ export default function ManageStaffStore() {
   };
 
   const openChangeStoreModal = (user) => {
-    if (user.roleId?.id === "MANAGER") {
-      toast.warning("Không thể đổi cửa hàng cho tài khoản Quản lý.");
-      return;
-    }
     setSelectedUser(user);
     setTargetStoreId("");
     setModalType("CHANGE_STORE");
@@ -536,15 +532,13 @@ export default function ManageStaffStore() {
                     >
                       <Key size={18} />
                     </button>
-                    {user.roleId?.id !== "MANAGER" && (
-                      <button
-                        onClick={() => openChangeStoreModal(user)}
-                        className="text-indigo-500 hover:text-indigo-700 transition"
-                        title="Đổi cửa hàng"
-                      >
-                        <Repeat size={18} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => openChangeStoreModal(user)}
+                      className="text-indigo-500 hover:text-indigo-700 transition"
+                      title="Đổi cửa hàng"
+                    >
+                      <Repeat size={18} />
+                    </button>
                     <button
                       onClick={() => handleBanUser(user)}
                       className="text-red-500 hover:text-red-700 transition"
