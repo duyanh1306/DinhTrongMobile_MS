@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Edit, Wrench, CheckCircle, ShoppingCart, ChevronLeft, Search, Plus, X, Filter, Trash2, Package } from "lucide-react";
+import { Edit, Wrench, CheckCircle, ShoppingCart, ChevronLeft, Search, Plus, X, Filter, Trash2, Package, MapPin, ChevronDown } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast } from "react-toastify";
@@ -14,6 +14,9 @@ export default function BuildPhone() {
 
     const [selectedRecipe, setSelectedRecipe] = useState("");
     const [selectedParts, setSelectedParts] = useState({}); 
+
+    const [stores, setStores] = useState([]);
+    const [selectedStore, setSelectedStore] = useState(localStorage.getItem('selectedStoreId') || "");
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentPartType, setCurrentPartType] = useState(null); 
@@ -30,14 +33,30 @@ export default function BuildPhone() {
     useEffect(() => {
         const fetchBuildData = async () => {
             try {
-                const [recipesRes, itemsRes, itemTypesRes] = await Promise.all([
+                setLoading(true);
+                const [recipesRes, itemsRes, itemTypesRes, storesRes] = await Promise.all([
                     axiosClient.get('/recipes/all'),
                     axiosClient.get('/items/all'),
-                    axiosClient.get('/item_types/all').catch(() => ({ data: { data: [] } }))
+                    axiosClient.get('/item_types/all').catch(() => ({ data: { data: [] } })),
+                    axiosClient.get('/stores/all') 
                 ]);
                 
+                const storeData = storesRes.data.data || storesRes.data || [];
+                setStores(storeData);
+
+                let activeStore = selectedStore;
+                if (!activeStore && storeData.length > 0) {
+                    activeStore = storeData[0]._id;
+                    setSelectedStore(activeStore);
+                    localStorage.setItem('selectedStoreId', activeStore);
+                }
+
                 setRecipes(recipesRes.data.data || []);
-                const availableItems = (itemsRes.data.data || []).filter(i => i.status === 'in_stock');
+                
+                const availableItems = (itemsRes.data.data || []).filter(i => {
+                    const iStoreId = i.storeId?._id || i.storeId;
+                    return i.status === 'in_stock' && String(iStoreId) === String(activeStore);
+                });
                 setAllItems(availableItems);
 
                 const typesMap = {};
@@ -53,7 +72,18 @@ export default function BuildPhone() {
             }
         };
         fetchBuildData();
-    }, []);
+    }, [selectedStore]);
+
+    const handleStoreChange = (e) => {
+        const storeId = e.target.value;
+        setSelectedStore(storeId);
+        localStorage.setItem('selectedStoreId', storeId);
+        if (Object.keys(selectedParts).length > 0) {
+            setSelectedParts({}); 
+            toast.info("Đã đổi cửa hàng. Vui lòng chọn lại linh kiện do tồn kho khác nhau!");
+        }
+        window.dispatchEvent(new Event('storeChanged'));
+    };
 
     const handleRecipeChange = (e) => {
         setSelectedRecipe(e.target.value);
@@ -74,9 +104,7 @@ export default function BuildPhone() {
     };
 
     const handleSelectItem = (itemGroup) => {
-        // 🌟 LẤY ITEM ĐẦU TIÊN TRONG NHÓM ĐỂ THÊM VÀO GIỎ HÀNG
         const actualItemToSelect = itemGroup.itemsList[0]; 
-
         setSelectedParts(prev => ({
             ...prev,
             [currentPartType.id]: actualItemToSelect
@@ -124,10 +152,9 @@ export default function BuildPhone() {
         
         let filtered = allItems.filter(i => {
             const typeId = i.item_type?._id || i.item_type;
-            return currentPartType.acceptedTypes.some(acc => (acc._id || acc) === typeId);
+            return currentPartType.acceptedTypes.some(acc => String(acc._id || acc) === String(typeId));
         });
 
-        // 🌟 LOẠI TRỪ CÁC ITEM ĐÃ ĐƯỢC CHỌN VÀO SLOT KHÁC ĐỂ TRÁNH TRÙNG
         const alreadySelectedIds = Object.values(selectedParts).map(item => item._id);
         filtered = filtered.filter(i => !alreadySelectedIds.includes(i._id));
 
@@ -146,30 +173,26 @@ export default function BuildPhone() {
         return filtered;
     }, [currentPartType, allItems, modalSearch, modalPriceFilter, modalCapacityFilter, modalRamFilter, modalColorFilter, selectedParts]);
 
-    // 🌟 THUẬT TOÁN GỘP NHÓM (GROUPING) 🌟
     const groupedItems = useMemo(() => {
         const groups = {};
         modalFilteredItems.forEach(item => {
             const typeId = item.item_type?._id || item.item_type;
-            // Tạo chữ ký: Cùng loại + Cùng giá + Cùng tình trạng + Cùng cấu hình = 1 Nhóm
             const signature = `${typeId}-${item.price}-${item.origin}-${item.color || ''}-${item.capacity || ''}-${item.ram || ''}-${item.quality || ''}`;
             
             if (!groups[signature]) {
                 groups[signature] = {
-                    ...item, // Lấy thông tin hiển thị của đại diện đầu tiên
+                    ...item, 
                     stockQuantity: 1,
-                    itemsList: [item] // Chứa danh sách các item thực tế bên trong
+                    itemsList: [item] 
                 };
             } else {
                 groups[signature].stockQuantity += 1;
                 groups[signature].itemsList.push(item);
             }
         });
-        // Trả về mảng các nhóm
         return Object.values(groups);
     }, [modalFilteredItems]);
 
-    // Phân trang áp dụng lên danh sách ĐÃ GỘP NHÓM
     const modalTotalPages = Math.ceil(groupedItems.length / itemsPerPage);
     const modalCurrentItems = groupedItems.slice((modalPage - 1) * itemsPerPage, modalPage * itemsPerPage);
 
@@ -216,7 +239,8 @@ export default function BuildPhone() {
             image: activeRecipe.phoneModelId.image,
             price: totalPrice,
             quantity: 1,
-            selectedParts: selectedPartIds
+            selectedParts: selectedPartIds,
+            storeId: selectedStore // 🌟 GỬI KÈM STORE ID ĐỂ BIẾT NÓ ĐƯỢC RÁP Ở ĐÂU 🌟
         };
 
         try {
@@ -238,11 +262,24 @@ export default function BuildPhone() {
     return (
         <CustomerLayout>
             <div className="max-w-7xl mx-auto py-8 px-4">
-                <div className="mb-6 pb-4 border-b border-gray-200">
-                    <Link to="/home" className="text-blue-600 hover:underline flex items-center gap-1 text-sm font-medium mb-2 w-max"><ChevronLeft size={16}/> Về trang chủ</Link>
-                    <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                        <Wrench className="text-blue-600" size={32} /> Xây Dựng Cấu Hình Máy
-                    </h1>
+                <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 pb-4 border-b border-gray-200 gap-4">
+                    <div>
+                        <Link to="/home" className="text-blue-600 hover:underline flex items-center gap-1 text-sm font-medium mb-2 w-max"><ChevronLeft size={16}/> Về trang chủ</Link>
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                            <Wrench className="text-blue-600" size={32} /> Xây Dựng Cấu Hình Máy
+                        </h1>
+                    </div>
+                    <div className="relative inline-block z-20">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={18} />
+                        <select
+                            value={selectedStore}
+                            onChange={handleStoreChange}
+                            className="appearance-none bg-[#e01a22] text-white text-sm font-bold py-2 pl-9 pr-8 rounded-lg outline-none cursor-pointer hover:bg-red-700 transition shadow-md"
+                        >
+                            {stores.map(s => <option key={s._id} value={s._id} className="bg-white text-gray-800">{s.name} - {s.location || s.address}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={16} />
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 max-w-xl">
@@ -359,7 +396,6 @@ export default function BuildPhone() {
                                         ))}
                                     </div>
                                 </div>
-                                {/* Filter ROM, RAM, Color */}
                                 {[
                                     { label: 'Dung lượng (ROM)', list: availableCapacities, state: modalCapacityFilter, setter: setModalCapacityFilter },
                                     { label: 'Dung lượng RAM', list: availableRams, state: modalRamFilter, setter: setModalRamFilter },
@@ -401,9 +437,10 @@ export default function BuildPhone() {
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                                    {modalCurrentItems.length === 0 ? <div className="text-center py-20 text-gray-500">Không tìm thấy linh kiện phù hợp.</div> : (
+                                    {modalCurrentItems.length === 0 ? (
+                                        <div className="text-center py-20 text-gray-500 font-semibold">Cửa hàng này hiện chưa có sẵn loại linh kiện này! Vui lòng chọn cửa hàng khác.</div>
+                                    ) : (
                                         <div className="space-y-3">
-                                            {/* 🌟 HIỂN THỊ DANH SÁCH ĐÃ GỘP NHÓM 🌟 */}
                                             {modalCurrentItems.map((group, index) => {
                                                 const typeId = group.item_type?._id || group.item_type;
                                                 const typeImage = itemTypesMap[typeId]?.image;

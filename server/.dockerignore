@@ -1,0 +1,5 @@
+node_modules
+npm-bebug.log
+.git
+.gitignore
+README.md

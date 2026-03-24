@@ -1,35 +1,56 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Smartphone, Cpu, HardDrive } from "lucide-react";
+import { Smartphone, Cpu, HardDrive, MapPin, ChevronDown } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import { toast } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
+
+// 🌟 HÀM KIỂM TRA MÁY CŨ DỰA VÀO TÊN MODEL
+const checkIsUsedModel = (name) => {
+    const lowerName = name.toLowerCase();
+    return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
+};
 
 export default function Home() {
   const [newPhones, setNewPhones] = useState([]);
   const [usedPhones, setUsedPhones] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [stores, setStores] = useState([]);
+  const [selectedStore, setSelectedStore] = useState(localStorage.getItem('selectedStoreId') || "");
 
   useEffect(() => {
     const fetchAndCombineData = async () => {
       try {
-        const [modelsRes, phonesRes] = await Promise.all([
+        setLoading(true);
+        const [modelsRes, phonesRes, storesRes] = await Promise.all([
           axiosClient.get('/phone_models/all'),
-          axiosClient.get('/phones/all')
+          axiosClient.get('/phones/all'),
+          axiosClient.get('/stores/all')
         ]);
+
+        const storeData = storesRes.data.data || storesRes.data || [];
+        setStores(storeData);
+
+        let activeStore = selectedStore;
+        if (!activeStore && storeData.length > 0) {
+            activeStore = storeData[0]._id;
+            setSelectedStore(activeStore);
+            localStorage.setItem('selectedStoreId', activeStore);
+        }
 
         const phoneModels = modelsRes.data.data || [];
         const phones = phonesRes.data.data || [];
 
         const combinedData = phoneModels.map(model => {
-          const allModelPhones = phones.filter(p => 
-            (p.phoneModelId?._id === model._id || p.phoneModelId === model._id)
-          );
+          const allModelPhones = phones.filter(p => {
+              const pStoreId = p.storeId?._id || p.storeId;
+              const pModelId = p.phoneModelId?._id || p.phoneModelId;
+              return (String(pModelId) === String(model._id)) && (String(pStoreId) === String(activeStore));
+          });
           
           const availablePhones = allModelPhones.filter(p => p.status === 'in_stock');
-
-          // CƠ CHẾ LẤY GIÁ MỚI: Chống lỗi NaN và lấy giá dự phòng từ Model
-          let startingPrice = Number(model.price) || Number(model.sellingPrice) || 0;
+          let startingPrice = Number(model.price) || 0;
           
           if (allModelPhones.length > 0) {
             const validPrices = allModelPhones
@@ -39,28 +60,31 @@ export default function Home() {
                 const ip = Number(p.importPrice);
                 if (ip > 0) return ip * 1.15;
                 return 0;
-              })
-              .filter(price => !isNaN(price) && price > 0);
+              }).filter(price => !isNaN(price) && price > 0);
               
-            if (validPrices.length > 0) {
-              startingPrice = Math.min(...validPrices);
-            }
+            if (validPrices.length > 0) startingPrice = Math.min(...validPrices);
           }
 
-          return {
-            ...model,
-            price: startingPrice,
-            stockCount: availablePhones.length
-          };
-        });
+          let displayImage = model.image;
+          const phoneWithImage = allModelPhones.find(p => p.specificImages && p.specificImages.length > 0);
+          if (phoneWithImage) displayImage = phoneWithImage.specificImages[0];
 
-        const newList = combinedData.filter(p => p.condition === 1 || p.condition === undefined);
-        const usedList = combinedData.filter(p => p.condition < 1);
+          return { 
+              ...model, 
+              image: displayImage, 
+              price: startingPrice, 
+              stockCount: availablePhones.length,
+              totalRecords: allModelPhones.length 
+          };
+        }).filter(model => model.totalRecords > 0); 
+
+        // 🌟 LỌC DANH SÁCH BẰNG TÊN THAY VÌ CONDITION
+        const usedList = combinedData.filter(p => checkIsUsedModel(p.name));
+        const newList = combinedData.filter(p => !checkIsUsedModel(p.name));
 
         setNewPhones(newList);
         setUsedPhones(usedList);
       } catch (error) {
-        console.error("Lỗi lấy danh sách sản phẩm:", error);
         toast.error("Không thể tải dữ liệu.");
       } finally {
         setLoading(false);
@@ -68,41 +92,32 @@ export default function Home() {
     };
 
     fetchAndCombineData();
-  }, []);
+  }, [selectedStore]);
+
+  const handleStoreChange = (e) => {
+      const storeId = e.target.value;
+      setSelectedStore(storeId);
+      localStorage.setItem('selectedStoreId', storeId);
+      window.dispatchEvent(new Event('storeChanged'));
+  };
 
   const ProductCard = ({ product, isUsed }) => {
     const defaultImage = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-15-pro-max_3.png";
-
-    const displayPrice = product.price > 0 
-        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price) 
-        : "Đang cập nhật";
-    
+    const displayPrice = product.price > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price) : "Đang cập nhật";
     const specs = product.specifications || {};
 
     return (
       <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-        {isUsed && product.condition && (
-          <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Cũ {Math.round(product.condition * 100)}%</span>
-        )}
-
-        {product.stockCount === 0 && (
-          <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>
-        )}
-
+        {/* 🌟 ĐỔI TEM THÀNH "MÁY CŨ" THAY VÌ CŨ 99% VÌ KHÔNG CÒN CONDITION */}
+        {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
+        {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
+        
         <Link to={`/product/${product._id}`} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
-          <img 
-            src={product.image || defaultImage} 
-            alt={product.name} 
-            className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" 
-          />
+          <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
         </Link>
-
         <div className="flex-1 flex flex-col">
-          <Link to={`/product/${product._id}`}>
-            <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">{product.name}</h4>
-          </Link>
+          <Link to={`/product/${product._id}`}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">{product.name}</h4></Link>
           <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
-
           <div className="flex flex-wrap gap-2 mt-auto mb-4">
             <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><Smartphone size={12} className="text-gray-400" /> {specs.screenSize || "N/A"}</div>
             <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><HardDrive size={12} className="text-gray-400" /> {specs.internalStorage || "N/A"}</div>
@@ -113,11 +128,21 @@ export default function Home() {
     );
   };
 
-  if (loading) return <CustomerLayout><div className="min-h-[60vh] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#007bff]"></div><p className="text-gray-500 font-medium mt-4">Đang tải dữ liệu sản phẩm...</p></div></CustomerLayout>;
+  if (loading) return <CustomerLayout><div className="min-h-[60vh] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#007bff]"></div></div></CustomerLayout>;
 
   return (
     <CustomerLayout>
       <div className="w-full pb-10">
+        <div className="flex justify-end mb-4 mt-2 pr-4 lg:pr-0">
+            <div className="relative inline-block z-20">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={18} />
+                <select value={selectedStore} onChange={handleStoreChange} className="appearance-none bg-[#e01a22] text-white text-sm font-bold py-2 pl-9 pr-8 rounded-lg outline-none cursor-pointer hover:bg-red-700 transition shadow-md">
+                    {stores.map(s => <option key={s._id} value={s._id} className="bg-white text-gray-800">{s.name} - {s.location || s.address}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={16} />
+            </div>
+        </div>
+
         <div className="bg-gradient-to-r from-blue-800 to-blue-500 text-white rounded-2xl overflow-hidden mb-12 shadow-lg relative">
           <div className="py-12 px-8 flex flex-col md:flex-row items-center z-10 relative">
               <div className="md:w-3/5 space-y-4">
@@ -145,8 +170,12 @@ export default function Home() {
           </div>
         )}
 
-        {newPhones.length === 0 && usedPhones.length === 0 && (
-          <div className="text-center text-gray-500 py-10 bg-white rounded-xl border border-dashed border-gray-300">Chưa có sản phẩm nào trong hệ thống.</div>
+        {newPhones.length === 0 && usedPhones.length === 0 && !loading && (
+            <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-300">
+                <Smartphone className="mx-auto h-16 w-16 text-gray-300 mb-4"/>
+                <h3 className="text-lg font-bold text-gray-700">Cửa hàng này hiện chưa có sản phẩm nào!</h3>
+                <p className="text-gray-500">Vui lòng chọn cửa hàng khác ở trên góc phải.</p>
+            </div>
         )}
       </div>
     </CustomerLayout>

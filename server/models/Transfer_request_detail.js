@@ -8,11 +8,11 @@ const transferRequestDetailSchema = new Schema(
       ref: "Transfer_request",
       required: true,
     },
-    itemId: {
+    itemId: [{
       type: Schema.Types.ObjectId,
       ref: "Item",
-      required: true,
-    },
+      // required: true,
+    }],
     status: {
       type: String,
       default: "PENDING", 

@@ -3,14 +3,13 @@ import axiosClient from "../../api/axiosClient";
 import { 
   Calendar, User, Phone, Store, CheckCircle, Clock, XCircle, AlertCircle, 
   Eye, Filter, Play, Ban, Wrench, Calculator, DollarSign, X, 
-  Settings, Hammer, Scissors, Save, Plus, Trash2, Package 
+  Settings, Hammer, Scissors, Save, Plus, Trash2, Package, Smartphone 
 } from "lucide-react";
 import dayjs from "dayjs";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const RepairOrderList = () => {
-  // SET TAB MẶC ĐỊNH LÀ ĐỊNH GIÁ THU MUA
   const [activeTab, setActiveTab] = useState("TRADE_IN"); 
 
   // =========================================================================
@@ -19,10 +18,27 @@ const RepairOrderList = () => {
   const [tradeInRequests, setTradeInRequests] = useState([]);
   const [selectedTradeIn, setSelectedTradeIn] = useState(null);
   const [phoneModels, setPhoneModels] = useState([]);
-  const [valuation, setValuation] = useState({ price: "", techNote: "", phoneModelId: "", imei: "", battery: "", appearance: "", screen: "", camera: "", capacity: "", colorName: "" });
+  
+  // State Thông tin cơ bản
+  const [valuation, setValuation] = useState({ 
+    price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" 
+  });
+
+  // State Checklist linh kiện
+  const initialChecklist = {
+    screen: { name: "Màn hình", status: "OK", detail: "95%" },
+    battery: { name: "Pin", status: "OK", detail: "95%" },
+    camera: { name: "Camera & FaceID", status: "OK", detail: "95%" },
+    mainboard: { name: "Mainboard", status: "OK", detail: "95%" },
+    casing: { name: "Vỏ / Ngoại hình", status: "OK", detail: "95%" },
+  };
+  const [checklist, setChecklist] = useState(initialChecklist);
+
+  // Kiểm tra xem đã điền đủ thông tin cơ bản chưa để mở khóa Checklist
+  const isBasicInfoFilled = valuation.phoneModelId && valuation.colorName && valuation.capacity && valuation.ram;
 
   // =========================================================================
-  // STATE: WAITING DECISION (CHỜ QUYẾT ĐỊNH XỬ LÝ - TÂN TRANG / RÃ XÁC)
+  // STATE: WAITING DECISION & REPAIR ORDERS 
   // =========================================================================
   const [waitingPhones, setWaitingPhones] = useState([]);
   const [selectedDecisionPhone, setSelectedDecisionPhone] = useState(null);
@@ -31,9 +47,6 @@ const RepairOrderList = () => {
   const [sellForm, setSellForm] = useState({ sellingPrice: "", capacity: "", colorName: "" });
   const [dismantleParts, setDismantleParts] = useState([]);
 
-  // =========================================================================
-  // STATE: REPAIR ORDERS (KHÁCH CHỜ SỬA CHỮA)
-  // =========================================================================
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [stores, setStores] = useState([]);
@@ -80,30 +93,51 @@ const RepairOrderList = () => {
     } catch (err) { setError("Lỗi lấy danh sách định giá"); } finally { setLoading(false); }
   };
 
+  const handleChecklistChange = (key, field, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: value }
+    }));
+  };
+
   const submitValuationDetailed = async (req) => {
-    if(!valuation.phoneModelId) return toast.error("Vui lòng chọn dòng máy!");
-    if(!valuation.price) return toast.error("Vui lòng nhập giá thu mua!");
+    if(!valuation.phoneModelId || !valuation.colorName || !valuation.capacity || !valuation.ram) {
+      return toast.error("Vui lòng điền đủ thông tin Dòng máy, Màu sắc, Dung lượng và RAM!");
+    }
+    if(!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
     
-    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: ${valuation.colorName || "N/A"} | ${valuation.capacity || "N/A"}\n- Ngoại hình: ${valuation.appearance || "Chưa đánh giá"}\n- Pin: ${valuation.battery || "Chưa đánh giá"}\n- Màn hình: ${valuation.screen || "Chưa đánh giá"}\n- Camera: ${valuation.camera || "Chưa đánh giá"}\n- Ghi chú lỗi: ${valuation.techNote || "Không có lỗi."}`;
+    // Tự động tạo báo cáo từ Checklist
+    const checklistStr = Object.values(checklist)
+      .map(item => `- ${item.name}: ${item.status === 'OK' ? 'Hoạt động tốt' : `Kém/Hỏng (${item.detail})`}`)
+      .join('\n');
+
+    const reportNote = `[BÁO CÁO KỸ THUẬT]
+- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM
+${checklistStr}
+- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
 
     try {
       const payload = {
         totalPrice: Number(valuation.price), 
         status: "Pending",
         note: reportNote,
-        tempPhoneData: { phoneModelId: valuation.phoneModelId, capacity: valuation.capacity, colorName: valuation.colorName }
+        tempPhoneData: { 
+          phoneModelId: valuation.phoneModelId, 
+          capacity: valuation.capacity, 
+          colorName: valuation.colorName,
+          ram: valuation.ram // Gửi thêm RAM xuống Backend
+        }
       };
 
       await axiosClient.put(`/purchase-orders/${req._id}`, payload);
       toast.success("Đã lưu báo cáo định giá chi tiết!");
       setSelectedTradeIn(null);
-      setValuation({ price: "", techNote: "", phoneModelId: "", battery: "", appearance: "", screen: "", camera: "", capacity: "", colorName: "" });
       fetchTradeInRequests();
     } catch(err) { toast.error("Lỗi cập nhật báo cáo định giá"); }
   };
 
   // =========================================================================
-  // FUNCTIONS: WAITING DECISION (CHỜ QUYẾT ĐỊNH XỬ LÝ)
+  // CÁC HÀM CỦA WAITING DECISION VÀ REPAIR (GIỮ NGUYÊN)
   // =========================================================================
   const fetchWaitingPhones = async () => {
     try {
@@ -137,15 +171,8 @@ const RepairOrderList = () => {
         if (dismantleParts.length === 0) return toast.error("Vui lòng thêm ít nhất 1 linh kiện!");
         if (dismantleParts.some(p => !p.itemTypeId || !p.name)) return toast.error("Vui lòng nhập Loại và Tên cho tất cả linh kiện!");
     }
-
     try {
-      const payload = {
-        decision,
-        ...sellForm,
-        parts: dismantleParts,
-        phoneName: selectedDecisionPhone.phoneModelId?.name
-      };
-
+      const payload = { decision, ...sellForm, parts: dismantleParts, phoneName: selectedDecisionPhone.phoneModelId?.name };
       await axiosClient.put(`/phones/${selectedDecisionPhone._id}/tech-decision`, payload);
       toast.success("Xử lý thành công! Máy/Linh kiện đã vào kho.");
       setSelectedDecisionPhone(null);
@@ -153,15 +180,12 @@ const RepairOrderList = () => {
     } catch (err) { toast.error("Lỗi cập nhật quyết định"); }
   };
 
-  // =========================================================================
-  // FUNCTIONS: REPAIR ORDERS (SỬA CHỮA)
-  // =========================================================================
   const fetchStores = async () => {
     try {
       const response = await axiosClient.get('/stores');
       const storesData = response.data?.data || response.data || [];
       setStores(Array.isArray(storesData) ? storesData : []);
-    } catch (err) { console.error("Error fetching stores:", err); setStores([]); }
+    } catch (err) { setStores([]); }
   };
 
   const fetchRepairOrders = async () => {
@@ -181,12 +205,10 @@ const RepairOrderList = () => {
       if (filters.status !== 'ALL') queryParams.append('status', filters.status);
       if (filters.type !== 'ALL') queryParams.append('type', filters.type);
       if (filters.storeId !== 'ALL') queryParams.append('storeId', filters.storeId);
-      
       const url = queryParams.toString() ? `/repair-orders/filter?${queryParams.toString()}` : '/repair-orders';
       const response = await axiosClient.get(url);
       setFilteredOrders(response.data);
-      setError(null);
-    } catch (err) { setError("Không thể tải danh sách lọc"); } finally { setFilterLoading(false); }
+    } catch (err) { setError("Lỗi lọc đơn"); } finally { setFilterLoading(false); }
   };
 
   const handleFilterChange = (filterType, value) => setFilters(prev => ({ ...prev, [filterType]: value }));
@@ -208,7 +230,7 @@ const RepairOrderList = () => {
       const updateOrderStatus = (orderList) => orderList.map(order => order._id === orderId ? { ...order, status: "In Progress" } : order);
       setOrders(updateOrderStatus(orders)); setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success(response.data.message);
-    } catch (error) { toast.error(error.response?.data?.message || "Không thể chấp nhận đơn"); }
+    } catch (error) { toast.error("Không thể chấp nhận đơn"); }
   };
 
   const cancelRepairOrder = async (orderId) => {
@@ -217,7 +239,7 @@ const RepairOrderList = () => {
       const updateOrderStatus = (orderList) => orderList.map(order => order._id === orderId ? { ...order, status: "Cancelled" } : order);
       setOrders(updateOrderStatus(orders)); setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success(response.data.message);
-    } catch (error) { toast.error(error.response?.data?.message || "Không thể hủy đơn"); }
+    } catch (error) { toast.error("Không thể hủy đơn"); }
   };
 
   const getStatusColor = (status) => {
@@ -265,7 +287,6 @@ const RepairOrderList = () => {
     <div className="space-y-6">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
 
-      {/* HEADER & TABS ĐÃ ĐƯỢC SẮP XẾP LẠI */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-2">
         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Wrench className="text-blue-600" /> Quản lý Hàng chờ Kỹ thuật
@@ -300,22 +321,6 @@ const RepairOrderList = () => {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
-          <p>{error}</p>
-          <button 
-            onClick={() => {
-              if (activeTab === "TRADE_IN") fetchTradeInRequests();
-              else if (activeTab === "WAITING_DECISION") fetchWaitingPhones();
-              else fetchRepairOrders();
-            }}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 font-bold text-sm"
-          >
-            Thử lại
-          </button>
-        </div>
-      )}
-
       {/* ================================================================= */}
       {/* TAB 1: TRADE IN (ĐỊNH GIÁ THU MUA) */}
       {/* ================================================================= */}
@@ -323,7 +328,7 @@ const RepairOrderList = () => {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
             <div className="flex items-center gap-4">
-              <div className="bg-purple-100 p-3 rounded-full"><Wrench className="w-8 h-8 text-purple-600" /></div>
+              <div className="bg-purple-100 p-3 rounded-full"><Calculator className="w-8 h-8 text-purple-600" /></div>
               <div>
                 <h3 className="text-lg font-semibold text-purple-900">Danh sách cần định giá</h3>
                 <p className="text-purple-700">Tổng số: {tradeInRequests.length} máy đang chờ Kỹ thuật test và chốt giá</p>
@@ -363,7 +368,11 @@ const RepairOrderList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <button 
-                          onClick={() => { setSelectedTradeIn(req); setValuation({price: "", techNote: "", phoneModelId: "", battery: "", appearance: "", screen: "", camera: "", capacity: "", colorName: ""}); }} 
+                          onClick={() => { 
+                            setSelectedTradeIn(req); 
+                            setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" }); 
+                            setChecklist(initialChecklist);
+                          }} 
                           className="text-purple-700 bg-purple-100 hover:bg-purple-200 px-4 py-2 rounded-lg inline-flex items-center gap-2 font-bold transition-colors"
                         >
                           <Calculator className="w-4 h-4" /> Định giá
@@ -376,7 +385,7 @@ const RepairOrderList = () => {
             </div>
             {!loading && tradeInRequests.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                <Wrench className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <Calculator className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>Không có yêu cầu định giá nào đang chờ...</p>
               </div>
             )}
@@ -542,7 +551,7 @@ const RepairOrderList = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredOrders.map((order, index) => (
                     <tr key={order._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">#{String(index + 1).padStart(4, '0')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{String(index + 1).padStart(4, '0')}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4" /> {dayjs(order.repairOrderDate).format('DD/MM/YYYY HH:mm')}
@@ -594,20 +603,20 @@ const RepairOrderList = () => {
 
 
       {/* ================================================================= */}
-      {/* MODALS CỦA TAB TRADE IN (ĐỊNH GIÁ) */}
+      {/* MODALS CỦA TAB TRADE IN (ĐỊNH GIÁ) - ĐÃ CẬP NHẬT FORM MỚI */}
       {/* ================================================================= */}
       {selectedTradeIn && activeTab === "TRADE_IN" && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-0 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white p-0 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-5 border-b flex justify-between items-center bg-gray-50 sticky top-0 z-10">
               <div>
                 <h3 className="text-xl font-bold text-gray-800">Định giá chi tiết thiết bị</h3>
-                <p className="text-xs text-gray-500 mt-1">Khách hàng: {selectedTradeIn.customerName} - {selectedTradeIn.customerPhone}</p>
+                <p className="text-xs text-gray-500 mt-1">Khách hàng: <span className="font-bold text-purple-600">{selectedTradeIn.customerName} - {selectedTradeIn.customerPhone}</span></p>
               </div>
               <button onClick={() => setSelectedTradeIn(null)} className="text-gray-400 hover:text-red-500 bg-white p-1 border rounded-md shadow-sm"><X size={20}/></button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
               <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 mb-6 shadow-sm">
                   <p className="text-xs text-orange-800 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                     <User size={14}/> Ghi chú tình trạng từ Sale:
@@ -616,10 +625,14 @@ const RepairOrderList = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="bg-white p-4 rounded-xl border shadow-sm">
-                  <h4 className="font-bold text-gray-700 border-b pb-2 mb-4 text-sm uppercase">1. Thông tin cấu hình</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
+                
+                {/* BƯỚC 1: NHẬP CẤU HÌNH CƠ BẢN */}
+                <div className="bg-white p-5 rounded-xl border shadow-sm">
+                  <h4 className="font-bold text-purple-700 border-b pb-2 mb-4 text-sm uppercase flex items-center gap-2">
+                    <Smartphone size={18}/> 1. Thông tin cấu hình cơ bản
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="col-span-2 md:col-span-1">
                       <label className="block text-xs font-bold text-gray-600 mb-1">Dòng máy <span className="text-red-500">*</span></label>
                       <select value={valuation.phoneModelId} onChange={e => setValuation({...valuation, phoneModelId: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white">
                         <option value="">-- Chọn dòng máy --</option>
@@ -627,66 +640,95 @@ const RepairOrderList = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1">Màu sắc</label>
-                      <input type="text" placeholder="VD: Đen, Titan..." value={valuation.colorName || ""} onChange={e => setValuation({...valuation, colorName: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Màu sắc <span className="text-red-500">*</span></label>
+                      <input type="text" placeholder="VD: Đen, Titan..." value={valuation.colorName} onChange={e => setValuation({...valuation, colorName: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1">Dung lượng / RAM</label>
-                      <input type="text" placeholder="VD: 256GB / 8GB RAM" value={valuation.capacity || ""} onChange={e => setValuation({...valuation, capacity: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border shadow-sm">
-                  <h4 className="font-bold text-gray-700 border-b pb-2 mb-4 text-sm uppercase">2. Tình trạng linh kiện & Ngoại hình</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1">Tình trạng Pin (%)</label>
-                      <input type="text" placeholder="VD: Pin zin 85%, Pin thay, Pin bảo trì..." value={valuation.battery || ""} onChange={e => setValuation({...valuation, battery: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Dung lượng <span className="text-red-500">*</span></label>
+                      <input type="text" placeholder="VD: 256GB" value={valuation.capacity} onChange={e => setValuation({...valuation, capacity: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1">Ngoại hình</label>
-                      <select value={valuation.appearance || ""} onChange={e => setValuation({...valuation, appearance: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm">
-                        <option value="">-- Đánh giá ngoại hình --</option>
-                        <option value="Đẹp keng 99%">Đẹp keng 99%</option>
-                        <option value="Xước lông mèo 98%">Xước dăm lông mèo 98%</option>
-                        <option value="Cấn móp nhẹ 95%">Cấn móp xước xát 95%</option>
-                        <option value="Vỏ xấu">Vỏ xấu cần thay</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1">Màn hình</label>
-                      <input type="text" placeholder="VD: Màn zin đẹp, Lưu ảnh nhẹ, Ép kính..." value={valuation.screen || ""} onChange={e => setValuation({...valuation, screen: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1">Camera & Cảm biến</label>
-                      <input type="text" placeholder="VD: Bụi cam, FaceID bình thường..." value={valuation.camera || ""} onChange={e => setValuation({...valuation, camera: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                      <label className="block text-xs font-bold text-gray-600 mb-1">RAM <span className="text-red-500">*</span></label>
+                      <input type="text" placeholder="VD: 8GB" value={valuation.ram} onChange={e => setValuation({...valuation, ram: e.target.value})} className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 shadow-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                    <div>
-                      <label className="block text-xs font-bold text-purple-900 mb-1">Chi tiết lỗi / Lý do trừ tiền</label>
-                      <textarea value={valuation.techNote} onChange={e => setValuation({...valuation, techNote: e.target.value})} className="w-full p-2.5 border border-purple-200 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white" placeholder="Ghi chú thêm về các chức năng bị lỗi..." rows="3"></textarea>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-black text-purple-900 mb-1">CHỐT GIÁ THU MUA (VND) <span className="text-red-500">*</span></label>
-                        <div className="relative">
-                            <DollarSign className="absolute left-3 top-3 text-gray-400" size={20}/>
-                            <input type="number" value={valuation.price} onChange={e => setValuation({...valuation, price: e.target.value})} className="w-full pl-10 pr-4 py-2.5 border-2 border-purple-300 rounded-lg outline-none focus:border-purple-600 text-2xl font-black text-purple-700 bg-white" placeholder="0" />
+                {/* BƯỚC 2: CHECKLIST (Chỉ hiện khi đã nhập đủ cấu hình) */}
+                {isBasicInfoFilled && (
+                  <div className="bg-white p-5 rounded-xl border shadow-sm animate-in fade-in zoom-in duration-300">
+                    <h4 className="font-bold text-purple-700 border-b pb-2 mb-4 text-sm uppercase flex items-center gap-2">
+                      <CheckCircle size={18}/> 2. Đánh giá tình trạng linh kiện
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      {Object.keys(checklist).map(key => (
+                        <div key={key} className={`flex flex-col md:flex-row md:items-center justify-between p-3 rounded-lg border transition-colors ${checklist[key].status === "FAULTY" ? "bg-red-50/50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                           <span className="font-bold text-gray-700 mb-2 md:mb-0 w-full md:w-1/4">{checklist[key].name}</span>
+                           
+                           <div className="flex items-center gap-6 w-full md:w-1/2">
+                              <label className="flex items-center gap-2 cursor-pointer group">
+                                <input type="radio" className="w-4 h-4 text-green-600 focus:ring-green-500 cursor-pointer" checked={checklist[key].status === "OK"} onChange={() => handleChecklistChange(key, "status", "OK")} />
+                                <span className="text-sm font-bold text-gray-600 group-hover:text-green-600 transition-colors">Ổn định</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer group">
+                                <input type="radio" className="w-4 h-4 text-red-600 focus:ring-red-500 cursor-pointer" checked={checklist[key].status === "FAULTY"} onChange={() => { handleChecklistChange(key, "status", "FAULTY"); handleChecklistChange(key, "detail", "95%"); }} />
+                                <span className="text-sm font-bold text-gray-600 group-hover:text-red-600 transition-colors">Kém / Hỏng</span>
+                              </label>
+                           </div>
+
+                           <div className="w-full md:w-1/4 mt-2 md:mt-0 flex justify-end">
+                             {checklist[key].status === "FAULTY" ? (
+                               <select value={checklist[key].detail} onChange={e => handleChecklistChange(key, "detail", e.target.value)} className="w-full p-2 text-sm border-2 border-red-300 rounded outline-none focus:ring-2 focus:ring-red-500 bg-white font-medium text-red-700">
+                                 <option value="95%">Xước xát / Khá (95%)</option>
+                                 <option value="90%">Xấu / Trung bình (90%)</option>
+                                 <option value="80%">Rất tã / Kém (80%)</option>
+                                 <option value="Hỏng hẳn">Hỏng hẳn (Cần thay)</option>
+                               </select>
+                             ) : (
+                               <div className="w-full p-2 text-sm text-center text-green-600 font-bold bg-green-50 rounded border border-green-200">
+                                 100%
+                               </div>
+                             )}
+                           </div>
                         </div>
-                        <p className="text-[10px] text-purple-600 mt-2 italic">* Giá này sẽ được báo lại cho Sale để chốt với Khách Hàng.</p>
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* BƯỚC 3: CHỐT GIÁ (Chỉ hiện khi đã nhập đủ cấu hình) */}
+                {isBasicInfoFilled && (
+                  <div className="bg-purple-50 p-5 rounded-xl border border-purple-200 shadow-sm animate-in fade-in zoom-in duration-500 delay-100">
+                    <h4 className="font-bold text-purple-700 border-b border-purple-200 pb-2 mb-4 text-sm uppercase flex items-center gap-2">
+                      <DollarSign size={18}/> 3. Tổng kết & Chốt giá
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <div>
+                        <label className="block text-xs font-bold text-purple-900 mb-2">Ghi chú lỗi chi tiết (Nếu có)</label>
+                        <textarea value={valuation.techNote} onChange={e => setValuation({...valuation, techNote: e.target.value})} className="w-full p-3 border border-purple-200 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white" placeholder="Ghi chú thêm về các chức năng bị lỗi để Sale giải thích cho khách..." rows="4"></textarea>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-black text-purple-900 mb-2">CHỐT GIÁ THU MUA (VND) <span className="text-red-500">*</span></label>
+                          <div className="relative">
+                              <DollarSign className="absolute left-4 top-4 text-purple-400" size={24}/>
+                              <input type="number" value={valuation.price} onChange={e => setValuation({...valuation, price: e.target.value})} className="w-full pl-12 pr-4 py-3 border-2 border-purple-300 rounded-xl outline-none focus:border-purple-600 text-3xl font-black text-purple-700 bg-white" placeholder="0" />
+                          </div>
+                          <p className="text-xs text-purple-600 mt-2 italic font-medium">* Giá này sẽ được tạo thành Báo cáo để Sale báo lại cho Khách Hàng.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="p-5 border-t flex justify-end gap-4 bg-white rounded-b-2xl">
                 <button onClick={() => setSelectedTradeIn(null)} className="px-8 py-3 bg-white border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition">Hủy bỏ</button>
-                <button onClick={() => submitValuationDetailed(selectedTradeIn)} className="px-8 py-3 bg-purple-600 rounded-xl font-black text-white shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2 transition-transform hover:-translate-y-1">
+                <button 
+                  onClick={() => submitValuationDetailed(selectedTradeIn)} 
+                  disabled={!isBasicInfoFilled}
+                  className={`px-8 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 transition-all ${isBasicInfoFilled ? "bg-purple-600 shadow-lg hover:bg-purple-700 hover:-translate-y-1 shadow-purple-200" : "bg-gray-300 cursor-not-allowed"}`}
+                >
                     <CheckCircle size={20}/> LƯU BÁO CÁO & CHỐT GIÁ
                 </button>
             </div>

@@ -129,10 +129,26 @@ export default function ManagerTransferRequest() {
 
     try {
       const token = localStorage.getItem("token");
+      // Group scanned items by their item_type to create itemType array
+      const itemTypesMap = {};
+      scannedItems.forEach(item => {
+        const itemTypeId = item.item_type?._id || item.item_type;
+        const itemTypeName = item.item_type?.name || "Unknown";
+
+        if (!itemTypesMap[itemTypeId]) {
+          itemTypesMap[itemTypeId] = {
+            itemTypes: itemTypeId,
+            quantity: 0
+          };
+        }
+        itemTypesMap[itemTypeId].quantity += 1;
+      });
+
       const requestData = {
         ...formData,
         requestedBy: user._id || user.id,
-        items: scannedItems.map(item => item._id)
+        items: scannedItems.map(item => item._id),
+        itemType: Object.values(itemTypesMap)
       };
 
       const response = await fetch("http://localhost:9999/api/transfer-requests", {
@@ -647,7 +663,7 @@ export default function ManagerTransferRequest() {
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Save size={16} />
-              {loading ? "Đang tạo..." : "Tạo yêu cầu"}
+              {loading ? "Đang tạo..." : "Tạo đơn"}
             </button>
           </div>
         </form>
