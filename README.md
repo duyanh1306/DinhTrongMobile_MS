@@ -36,7 +36,7 @@ docker-compose up
 Khi muốn update code mới và muốn build lại website:
 
 ```bash
-$ docker-compose up -d --build
+docker-compose up -d --build
 ```
 
 Lần đầu tiên chạy sẽ mất một chút thời gian để tải và build các image. Sau đó, bạn sẽ thấy các dịch vụ khởi động:
