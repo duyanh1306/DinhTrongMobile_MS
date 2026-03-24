@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Smartphone, Search, ChevronRight, ChevronDown, X, MapPin, Tag, Image as ImageIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Smartphone, Search, ChevronRight, ChevronDown, X, MapPin, Tag, Image as ImageIcon, QrCode } from "lucide-react";
 
 // 🌟 ĐÃ KHAI BÁO ĐẦY ĐỦ CÁC TRƯỜNG CHỨA ẢNH ĐỂ TRÁNH LỖI UNDEFINED
 const initialFormState = {
@@ -112,6 +112,96 @@ export default function AdminPhone() {
             toast.success("Xóa máy thành công!");
             fetchPhones();
         } catch (error) { toast.error("Lỗi khi xóa máy"); }
+    };
+
+    const handleGenerateQR = async (phoneId, serialCode) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`http://localhost:9999/api/phones/qrcode/${phoneId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                responseType: 'blob'
+            });
+
+            const blob = new Blob([response.data], { type: "image/png" });
+            const qrUrl = window.URL.createObjectURL(blob);
+            // Use a hidden iframe instead of popup window to avoid browser crashes.
+            const iframe = document.createElement("iframe");
+            iframe.style.position = "fixed";
+            iframe.style.right = "0";
+            iframe.style.bottom = "0";
+            iframe.style.width = "0";
+            iframe.style.height = "0";
+            iframe.style.border = "0";
+            iframe.setAttribute("aria-hidden", "true");
+            document.body.appendChild(iframe);
+
+            const iframeDoc = iframe.contentWindow?.document;
+            if (!iframeDoc || !iframe.contentWindow) {
+                document.body.removeChild(iframe);
+                window.URL.revokeObjectURL(qrUrl);
+                toast.error("Không thể khởi tạo chế độ in.");
+                return;
+            }
+
+            iframeDoc.open();
+            iframeDoc.write(`
+              <!doctype html>
+              <html>
+                <head>
+                  <meta charset="utf-8" />
+                  <title>Print QR</title>
+                  <style>
+                    @page { margin: 0; }
+                    html, body {
+                      margin: 0;
+                      padding: 0;
+                      width: 100%;
+                      height: 100%;
+                      background: #fff;
+                    }
+                    body {
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    img {
+                      width: 180px;
+                      height: 180px;
+                      object-fit: contain;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                </body>
+              </html>
+            `);
+            iframeDoc.close();
+
+            const img = iframeDoc.getElementById("qr-print-image");
+            if (img) {
+                img.onload = () => {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(qrUrl);
+                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    }, 500);
+                };
+                img.onerror = () => {
+                    window.URL.revokeObjectURL(qrUrl);
+                    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    toast.error("Không thể tải ảnh QR để in.");
+                };
+            } else {
+                window.URL.revokeObjectURL(qrUrl);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                toast.error("Không thể chuẩn bị nội dung in.");
+            }
+        } catch (error) {
+            toast.error("Lỗi khi tạo mã QR");
+            console.error("QR Code generation error:", error);
+        }
     };
 
     const handleGenerateSerial = () => {
@@ -286,6 +376,7 @@ export default function AdminPhone() {
                                                             <tr>
                                                                 <th className="p-3 font-semibold">Ảnh</th>
                                                                 <th className="p-3 font-semibold">Serial Code</th>
+                                                                <th className="p-3 font-semibold">QR</th>
                                                                 <th className="p-3 font-semibold">Màu / ROM</th>
                                                                 <th className="p-3 font-semibold">Hình thức</th>
                                                                 <th className="p-3 font-semibold">Giá bán</th>
@@ -306,6 +397,15 @@ export default function AdminPhone() {
                                                                         </div>
                                                                     </td>
                                                                     <td className="p-3 font-mono font-bold text-gray-700">{phone.serialCode}</td>
+                                                                    <td className="p-3">
+                                                                        <button 
+                                                                            onClick={() => handleGenerateQR(phone._id, phone.serialCode)}
+                                                                            className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"
+                                                                            title="In mã QR"
+                                                                        >
+                                                                            <QrCode size={16} />
+                                                                        </button>
+                                                                    </td>
                                                                     <td className="p-3"><span className="text-gray-800 font-medium">{phone.colorName}</span> - <span className="text-gray-500">{phone.capacity}</span></td>
                                                                     <td className="p-3"><span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">{phone.grade}</span></td>
                                                                     <td className="p-3 text-red-600 font-bold">{formatMoney(phone.sellingPrice)}</td>
