@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Wrench, AlertCircle, CheckSquare, Calendar, Clock, User, Phone, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
-import { formatPrice, formatDate, getStatusColor, getStatusBadge, getStatusText } from "../../utils";
+import { formatDate, getStatusBadge, getStatusText } from "../../utils";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 
@@ -9,6 +9,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function TechDashboard() {
   const [repairOrders, setRepairOrders] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
@@ -20,6 +21,7 @@ export default function TechDashboard() {
 
   useEffect(() => {
     fetchRepairOrders();
+    fetchTechnicians();
   }, []);
 
   const fetchRepairOrders = async () => {
@@ -34,6 +36,15 @@ export default function TechDashboard() {
       setError('Không thể tải dữ liệu đơn sửa chữa');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTechnicians = async () => {
+    try {
+      const response = await axiosClient.get('/users');
+        setTechnicians(response.data);
+    } catch (err) {
+      console.error('Error fetching technicians:', err);
     }
   };
 
@@ -285,24 +296,33 @@ export default function TechDashboard() {
               {/* Assigned Vendor */}
               <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 flex flex-col min-h-[320px] transition-all duration-200 hover:shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-gray-800 text-base">Assigned Vendor</h4>
-                  <span className="text-xs text-gray-400">{repairOrders.filter(o => o.technicianName).length} người được giao</span>
+                  <h4 className="font-bold text-gray-800 text-base">Nhân viên</h4>
+                  <span className="text-xs text-gray-400">{technicians.length} kỹ thuật viên</span>
                 </div>
                 <div className="flex flex-col gap-4">
-                  {repairOrders.filter(o => o.technicianName).slice(0, 3).map((order, idx) => (
-                    <div key={order._id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50/40 transition-all border border-gray-50 shadow-sm">
-                      <img src={order.technicianAvatar || '/avatar-default.png'} alt="avatar" className="w-12 h-12 rounded-full object-cover border-2 border-blue-100 bg-gray-100" onError={e => {e.target.onerror=null;e.target.src='/avatar-default.png'}} />
+                  {technicians.slice(0, 3).map((technician, idx) => (
+                    <div key={technician._id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50/40 transition-all border border-gray-50 shadow-sm">
+                      <img 
+                        src={technician.avatar || '/avatar-default.jpg'} 
+                        alt="avatar" 
+                        className="w-12 h-12 rounded-full object-cover border-2 border-blue-100 bg-gray-100" 
+                        onError={e => {e.target.onerror=null;e.target.src='/avatar-default.png'}} 
+                      />
                       <div className="flex-1">
-                        <div className="font-semibold text-gray-800 text-base">{order.technicianName}</div>
-                        <div className="text-xs text-gray-500 font-medium">{order.repairType || 'Sửa chữa'} <span className="mx-1">•</span> {order.unit || 'N/A'}</div>
+                        <div className="font-semibold text-gray-800 text-base">{technician.fullName}</div>
+                        <div className="text-xs text-gray-500 font-medium">
+                          {technician.email || technician.userName} 
+                          <span className="mx-1">•</span> 
+                          {technician.storeName || 'Chưa phân công'}
+                        </div>
                       </div>
                       <div className="text-xs text-blue-500 font-semibold">
-                        {order.dueDate ? `${Math.max(0, Math.ceil((new Date(order.dueDate) - new Date()) / (1000*60*60*24)))} ngày còn lại` : ''}
+                        {technician.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
                       </div>
                     </div>
                   ))}
-                  {repairOrders.filter(o => o.technicianName).length === 0 && (
-                    <div className="text-gray-400 text-center py-8 italic">Tính năng đang được phát triển</div>
+                  {technicians.length === 0 && (
+                    <div className="text-gray-400 text-center py-8 italic">Không có kỹ thuật viên nào</div>
                   )}
                 </div>
               </div>
