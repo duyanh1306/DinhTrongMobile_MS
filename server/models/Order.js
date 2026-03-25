@@ -11,6 +11,7 @@ const orderItemSchema = new Schema({
     selectedParts: [{ type: Schema.Types.ObjectId, ref: 'Item' }],
     image: { type: String },
     price: { type: Number, required: true },
+    phoneId: { type: mongoose.Schema.Types.ObjectId, ref: 'Phone' },
     quantity: { type: Number, required: true, default: 1 },
     warrantyPeriod: { type: Number, default: 0 } 
 });
@@ -39,7 +40,7 @@ const orderSchema = new Schema({
     
     orderStatus: { 
         type: String, 
-        enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'], 
+        enum: ['Pending', 'Processing', 'Delivering', 'Waiting_Confirm', 'Completed', 'Cancelled', 'Issue_Reported'],
         default: 'Pending' 
     }
 }, { timestamps: true });

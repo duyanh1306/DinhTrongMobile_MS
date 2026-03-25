@@ -11,45 +11,53 @@ function getClientIp(req) {
 	if (xff) return xff.split(',')[0].trim();
 	return req.connection.remoteAddress || req.socket.remoteAddress || req.ip || '127.0.0.1';
 }
-// Hàm tiện ích: Trừ kho tự động
-const deductInventory = async (orderItems) => {
+
+// 🌟 HÀM MỚI: Tạm giữ hàng (Khóa kho) thay vì xuất kho
+const reserveInventoryForOrder = async (order) => {
     try {
-        for (const item of orderItems) {
-            // 1. Nếu là Điện thoại nguyên chiếc (PHONE)
-            if (item.productType === 'PHONE' && item.phoneModelId) {
-                // Tìm 1 chiếc điện thoại cụ thể trong kho đang rảnh
-                const phoneToSell = await Phone.findOneAndUpdate(
+        let isUpdated = false;
+
+        for (let item of order.items) {
+            if (item.productType === 'PHONE') {
+                const availablePhone = await Phone.findOneAndUpdate(
                     {
                         phoneModelId: item.phoneModelId,
                         capacity: item.capacity,
                         colorName: item.colorName,
                         status: 'in_stock'
                     },
-                    { status: 'sold' }, // Đổi trạng thái thành Đã bán
+                    { status: 'reserved' }, 
                     { new: true }
                 );
-                if (phoneToSell) {
-                    console.log(`📦 Đã xuất kho 1 Điện thoại: ${item.name} (Serial: ${phoneToSell.serialCode})`);
-                } else {
-                    console.log(`⚠️ Cảnh báo: Không tìm thấy ${item.name} trong kho để trừ!`);
+
+                if (availablePhone) {
+                    item.phoneId = availablePhone._id;
+                    item.assignedSerial = availablePhone.serialCode; 
+                    isUpdated = true;
                 }
             } 
-            // 2. Nếu là Máy Tự Ráp (CUSTOM_BUILD) chứa nhiều linh kiện
-            else if (item.productType === 'CUSTOM_BUILD' && item.selectedParts && item.selectedParts.length > 0) {
-                // Duyệt qua từng linh kiện nhỏ để đổi trạng thái
-                for (const partId of item.selectedParts) {
-                    await Item.findByIdAndUpdate(
-                        partId,
-                        { status: 'assembled_and_sold' } // Đổi trạng thái thành Đã ráp & bán
+            else if (item.productType === 'CUSTOM_BUILD') {
+                for (let partId of item.selectedParts) {
+                    const part = await Item.findOneAndUpdate(
+                        { _id: partId, status: 'in_stock' },
+                        { status: 'reserved' }, 
+                        { new: true }
                     );
+                    if (part) {
+                        console.log(`🔒 Đã khóa linh kiện Serial: ${part.serialCode} cho máy ráp`);
+                    }
                 }
-                console.log(`🔧 Đã xuất kho ${item.selectedParts.length} linh kiện cho máy ráp: ${item.name}`);
             }
         }
+
+        if (isUpdated) {
+            await order.save();
+        }
     } catch (error) {
-        console.error('❌ Lỗi trừ kho:', error);
+        console.error('❌ Lỗi khóa kho:', error);
     }
 };
+
 exports.createVnpayPayment = async (req, res) => {
 	try {
 		const { amountVnd, orderId, orderInfo = 'Course payment', bankCode, locale } = req.body;
@@ -86,7 +94,7 @@ exports.vnpayReturn = async (req, res) => {
 		}
         
 		const code = req.query.vnp_ResponseCode;
-        const orderId = req.query.vnp_TxnRef; // Đây là mã MongoDB _id mà web gửi lên VNPAY
+        const orderId = req.query.vnp_TxnRef;
 
         if (code === '00') {
             const updatedOrder = await Order.findByIdAndUpdate(
@@ -96,14 +104,14 @@ exports.vnpayReturn = async (req, res) => {
             );
 
             if (updatedOrder) {
-                // 1. Lấy Email và tự động gửi Hóa đơn (Chạy ngầm)
                 const user = await User.findById(updatedOrder.userId);
                 const userEmail = user?.email || "email_du_phong@gmail.com";
                 const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
+                
                 sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
 
-                // 2. 🌟 GỌI HÀM TRỪ KHO TỰ ĐỘNG 🌟 (Chạy ngầm)
-                deductInventory(updatedOrder.items).catch(err => console.error(err));
+                // 🌟 GỌI HÀM KHÓA KHO BẢO VỆ HÀNG (Thay vì xuất thẳng)
+                reserveInventoryForOrder(updatedOrder).catch(err => console.error(err));
             }
         }
 

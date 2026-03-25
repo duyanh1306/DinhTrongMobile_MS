@@ -46,10 +46,8 @@ import TransferRequestList from "./pages/admin/TransferRequestList";
 import ManageStaffStore from "./pages/admin/ManageStaffStore";
 
 import SaleDashboard from "./pages/saleStaff/SaleDashboard";
-import SaleOrders from "./pages/saleStaff/SaleOrders";
-import SalePOS from "./pages/saleStaff/SalePOS";
 import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
-
+import SaleWebOrders from "./pages/saleStaff/SaleWebOrders";
 import TechDashboard from "./pages/technician/TechDashboard";
 import AssemblePhone from "./pages/technician/AssemblePhone";
 import RepairOrderList from "./pages/technician/RepairOrderList";
@@ -58,14 +56,6 @@ import RepairInProgress from "./pages/technician/RepairInProgress";
 import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
-import BuildPhone from "./pages/customer/BuildPhone";
-import OrderDetail from "./pages/customer/OrderDetail"
-import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
-import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
-import CategoryPage from "./pages/customer/CategoryPage";
-import TechDecisionList from "./pages/technician/TechDecisionList";
-import AdminRecipe from "./pages/admin/AdminRecipe";
-import ManageStaffStore from "./pages/admin/ManageStaffStore";
 import TechStorage from "./pages/technician/TechStorage";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
@@ -350,6 +340,17 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+                 <Route
+                    path="/sale/web-orders"
+                    element={
+                        <PrivateRoute allowedRoles={["SALE_STAFF"]}>
+                            <SaleLayout>
+                                <SaleWebOrders/>
+                            </SaleLayout>
+                        </PrivateRoute>
+                    }
+                />
+            
 
                 {/* ================= TECHNICIAN ROUTES ================= */}
                 <Route

@@ -193,5 +193,64 @@ const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
         return false;
     }
 };
+const sendConfirmRequestEmail = async (customerEmail, orderData, customerName) => {
+  try {
+      const transporter = nodemailer.createTransport({
+          service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
+      });
 
-module.exports = { sendInvoiceEmail, sendEmail };
+      const historyLink = `http://localhost:3000/order-history`; // Sửa thành link frontend của bạn
+
+      await transporter.sendMail({
+          from: '"Dinh Trong Mobile" <tominhthanh75@gmail.com>',
+          to: customerEmail,
+          subject: `[DinhTrongMobile] Đơn hàng #${orderData.orderCode || orderData._id.toString().substring(18)} đã được giao thành công!`,
+          html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+              <h2 style="color: #d70018;">Đơn hàng đã giao thành công!</h2>
+              <p>Xin chào <strong>${customerName}</strong>,</p>
+              <p>Theo thông tin từ đơn vị vận chuyển, đơn hàng của bạn đã được giao đến nơi.</p>
+              <p>Vui lòng truy cập vào tài khoản của bạn trên Website và xác nhận đã nhận hàng.</p>
+              <div style="text-align: center; margin: 25px 0;">
+                  <a href="${historyLink}" style="background-color: #d70018; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">XÁC NHẬN ĐÃ NHẬN HÀNG</a>
+              </div>
+              <p style="color: #666; font-size: 13px;"><em>* Lưu ý: Nếu sau 3 ngày bạn không có phản hồi, hệ thống sẽ tự động chuyển đơn hàng sang trạng thái Đã hoàn thành. Nếu bạn chưa nhận được hàng, vui lòng bấm báo cáo trong Lịch sử đơn hàng.</em></p>
+          </div>
+          `
+      });
+      return true;
+  } catch (error) { console.error("Lỗi gửi mail nhắc:", error); return false; }
+};
+
+// 2. Email báo động cho TẤT CẢ Sale của Cửa hàng khi khách bấm "Chưa nhận được hàng"
+const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, customerPhone) => {
+  try {
+      // Nếu cửa hàng không có nhân viên nào có email, gửi về email admin dự phòng
+      const toEmails = staffEmailsArray.length > 0 ? staffEmailsArray.join(',') : "tominhthanh75@gmail.com";
+
+      const transporter = nodemailer.createTransport({
+          service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
+      });
+
+      await transporter.sendMail({
+          from: '"Hệ thống DTM Cảnh Báo" <tominhthanh75@gmail.com>',
+          to: toEmails,
+          subject: `🚨 [KHẨN CẤP] Khách báo CHƯA NHẬN ĐƯỢC ĐƠN #${orderData.orderCode || orderData._id.toString().substring(18)}`,
+          html: `
+          <div style="font-family: Arial; padding: 20px; border: 2px solid red; border-radius: 8px;">
+              <h2 style="color: red;">CẢNH BÁO: KHÁCH CHƯA NHẬN ĐƯỢC HÀNG</h2>
+              <p>Hệ thống ghi nhận đơn vị vận chuyển đã giao đơn hàng này, nhưng khách hàng vừa phản hồi là <strong>CHƯA NHẬN ĐƯỢC HÀNG</strong>.</p>
+              <ul>
+                  <li><strong>Khách hàng:</strong> ${customerName}</li>
+                  <li><strong>Số điện thoại:</strong> ${customerPhone}</li>
+              </ul>
+              <p><strong>Yêu cầu:</strong> Các bạn Sale của Cửa hàng vui lòng gọi điện ngay cho khách hàng và liên hệ với Bưu cục để xử lý sự cố này gấp!</p>
+          </div>
+          `
+      });
+      return true;
+  } catch (error) { console.error("Lỗi gửi mail cảnh báo:", error); return false; }
+};
+
+module.exports = { sendInvoiceEmail, sendEmail, sendConfirmRequestEmail, sendIssueReportEmail };
+
