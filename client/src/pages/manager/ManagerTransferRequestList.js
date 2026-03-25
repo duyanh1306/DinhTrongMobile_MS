@@ -151,7 +151,7 @@ export default function ManagerTransferRequestList() {
   const handleConfirm = async (requestId) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:9999/api/transfer-requests/${requestId}/confirm`, {
+      const response = await fetch(`http://localhost:9999/api/transfer-requests/${requestId}/confirm-receipt`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
