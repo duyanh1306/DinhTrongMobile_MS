@@ -32,6 +32,7 @@ const cartRoute = require("./routes/cartRoute");
 const orderRoute = require("./routes/orderRoute");
 const phoneBrand = require("./routes/phone_brandRoute");
 const review = require("./routes/reviewRoute");
+const paymentRoute = require('./routes/paymentRoute');
 connectDB();
 
 app.use(

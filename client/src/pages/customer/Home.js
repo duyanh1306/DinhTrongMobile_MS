@@ -5,12 +5,6 @@ import axiosClient from "../../api/axiosClient";
 import { toast } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
 
-// 🌟 HÀM KIỂM TRA MÁY CŨ DỰA VÀO TÊN MODEL
-const checkIsUsedModel = (name) => {
-    const lowerName = name.toLowerCase();
-    return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
-};
-
 export default function Home() {
   const [newPhones, setNewPhones] = useState([]);
   const [usedPhones, setUsedPhones] = useState([]);
@@ -42,45 +36,55 @@ export default function Home() {
         const phoneModels = modelsRes.data.data || [];
         const phones = phonesRes.data.data || [];
 
-        const combinedData = phoneModels.map(model => {
+        const newList = [];
+        const usedList = [];
+
+        phoneModels.forEach(model => {
+          // Lấy tất cả máy vật lý của model này trong kho đang chọn
           const allModelPhones = phones.filter(p => {
               const pStoreId = p.storeId?._id || p.storeId;
               const pModelId = p.phoneModelId?._id || p.phoneModelId;
               return (String(pModelId) === String(model._id)) && (String(pStoreId) === String(activeStore));
           });
-          
-          const availablePhones = allModelPhones.filter(p => p.status === 'in_stock');
-          let startingPrice = Number(model.price) || 0;
-          
-          if (allModelPhones.length > 0) {
-            const validPrices = allModelPhones
-              .map(p => {
-                const sp = Number(p.sellingPrice);
-                if (sp > 0) return sp;
-                const ip = Number(p.importPrice);
-                if (ip > 0) return ip * 1.15;
-                return 0;
-              }).filter(price => !isNaN(price) && price > 0);
-              
-            if (validPrices.length > 0) startingPrice = Math.min(...validPrices);
+
+          if (allModelPhones.length === 0) return;
+
+          // Bóc tách Mới / Cũ
+          const newPhonesPhysical = allModelPhones.filter(p => p.grade === 'Mới');
+          const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới');
+
+          const getStartingPrice = (physicalList) => {
+              const validPrices = physicalList.map(p => p.sellingPrice || (p.importPrice * 1.15)).filter(price => !isNaN(price) && price > 0);
+              return validPrices.length > 0 ? Math.min(...validPrices) : (model.price || 0);
+          };
+
+          const getDisplayImage = (physicalList) => {
+              const phoneWithImg = physicalList.find(p => p.specificImages && p.specificImages.length > 0);
+              return phoneWithImg ? phoneWithImg.specificImages[0] : model.image;
+          };
+
+          // Nếu có hàng Mới -> Tạo 1 Card cho mục Hàng Mới
+          if (newPhonesPhysical.length > 0) {
+              newList.push({
+                  ...model,
+                  image: getDisplayImage(newPhonesPhysical),
+                  price: getStartingPrice(newPhonesPhysical),
+                  stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                  isUsedCard: false
+              });
           }
 
-          let displayImage = model.image;
-          const phoneWithImage = allModelPhones.find(p => p.specificImages && p.specificImages.length > 0);
-          if (phoneWithImage) displayImage = phoneWithImage.specificImages[0];
-
-          return { 
-              ...model, 
-              image: displayImage, 
-              price: startingPrice, 
-              stockCount: availablePhones.length,
-              totalRecords: allModelPhones.length 
-          };
-        }).filter(model => model.totalRecords > 0); 
-
-        // 🌟 LỌC DANH SÁCH BẰNG TÊN THAY VÌ CONDITION
-        const usedList = combinedData.filter(p => checkIsUsedModel(p.name));
-        const newList = combinedData.filter(p => !checkIsUsedModel(p.name));
+          // Nếu có hàng Cũ -> Tạo 1 Card cho mục Hàng Cũ
+          if (usedPhonesPhysical.length > 0) {
+              usedList.push({
+                  ...model,
+                  image: getDisplayImage(usedPhonesPhysical),
+                  price: getStartingPrice(usedPhonesPhysical),
+                  stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                  isUsedCard: true
+              });
+          }
+        });
 
         setNewPhones(newList);
         setUsedPhones(usedList);
@@ -108,15 +112,15 @@ export default function Home() {
 
     return (
       <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-        {/* 🌟 ĐỔI TEM THÀNH "MÁY CŨ" THAY VÌ CŨ 99% VÌ KHÔNG CÒN CONDITION */}
         {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
         {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
         
-        <Link to={`/product/${product._id}`} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
+        {/* 🌟 TRUYỀN TÍN HIỆU SANG DETAIL LÀ KHÁCH CLICK VÀO THẺ CŨ HAY MỚI */}
+        <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
           <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
         </Link>
         <div className="flex-1 flex flex-col">
-          <Link to={`/product/${product._id}`}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">{product.name}</h4></Link>
+          <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-[#007bff] transition-colors">{product.name}</h4></Link>
           <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
           <div className="flex flex-wrap gap-2 mt-auto mb-4">
             <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><Smartphone size={12} className="text-gray-400" /> {specs.screenSize || "N/A"}</div>

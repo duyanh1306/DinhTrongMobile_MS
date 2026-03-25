@@ -27,12 +27,28 @@ export default function OrderDetail() {
 
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'Pending': return <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-yellow-200">Chờ xác nhận</span>;
-            case 'Processing': return <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-blue-200">Đang xử lý</span>;
-            case 'Shipped': return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-orange-200">Đang giao hàng</span>;
-            case 'Delivered': return <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-green-200">Đã nhận hàng</span>;
-            case 'Cancelled': return <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-red-200">Đã hủy</span>;
-            default: return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-bold text-xs uppercase">Không xác định</span>;
+            case 'Pending': 
+                return <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-yellow-200">Chờ xác nhận</span>;
+            case 'Processing': 
+                return <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-blue-200">Đang xử lý</span>;
+            case 'Delivering': 
+                return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-orange-200">Đang giao hàng</span>;
+            
+            
+            case 'Waiting_Confirm': 
+                return <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-purple-200">Chờ khách xác nhận</span>;
+            case 'Issue_Reported': 
+                return <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-red-200">Khách báo lỗi</span>;
+            
+           
+            case 'Completed': 
+            case 'Delivered': 
+                return <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-green-200">Hoàn thành</span>;
+            
+            case 'Cancelled': 
+                return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-gray-200">Đã hủy</span>;
+            default: 
+                return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-bold text-xs uppercase">Không xác định</span>;
         }
     };
 

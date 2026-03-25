@@ -6,7 +6,8 @@ import {
   Users, 
   FileText, 
   LogOut,
-  User 
+  User,
+  Globe
 } from "lucide-react";
 
 export default function SaleSidebar() {
@@ -18,7 +19,7 @@ export default function SaleSidebar() {
     { text: "POS", link: "/sale/pos", icon: <ShoppingCart size={20} /> },
     { text: "Hoá Đơn", link: "/sale/orders", icon: <FileText size={20} /> },
     { text: "Tạo đơn sửa chữa", link: "/sale/repair-orders", icon: <FileText size={20} /> },
-
+    { text: "Đơn Online (Web)", link: "/sale/web-orders", icon: <Globe size={20} /> },
     // { text: "Products & Inventory", link: "/sale/products", icon: <Package size={20} /> },
     // { text: "Customers", link: "/sale/customers", icon: <Users size={20} /> },
     // { text: "Profile", link: "/profile", icon: <User size={20} /> },
