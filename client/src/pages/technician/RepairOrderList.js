@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
 import { Wrench } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
+import { fetchRepairOrders, completeRepairOrder } from "../../api/repairOrder";
 import "react-toastify/dist/ReactToastify.css";
-
-// Import shared components
 import LoadingSpinner from "../../components/technician/shared/LoadingSpinner";
 import TabNavigation from "../../components/technician/TabNavigation";
-
-// Import Trade-In components
 import TradeInTab from "../../components/technician/trade-in/TradeInTab";
-
-// Import Waiting Decision components
 import WaitingDecisionTab from "../../components/technician/waiting-decision/WaitingDecisionTab";
-
-// Import Repair Orders components
 import RepairOrdersTab from "../../components/technician/repair-orders/RepairOrdersTab";
 
 const RepairOrderList = () => {
@@ -32,7 +25,6 @@ const RepairOrderList = () => {
     price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" 
   });
 
-  // State Checklist linh kiện
   const initialChecklist = {
     screen: { name: "Màn hình", status: "OK", detail: "95%" },
     battery: { name: "Pin", status: "OK", detail: "95%" },
@@ -42,7 +34,6 @@ const RepairOrderList = () => {
   };
   const [checklist, setChecklist] = useState(initialChecklist);
 
-  // Kiểm tra xem đã điền đủ thông tin cơ bản chưa để mở khóa Checklist
   const isBasicInfoFilled = valuation.phoneModelId && valuation.colorName && valuation.capacity && valuation.ram;
 
   // =========================================================================
@@ -114,15 +105,14 @@ const RepairOrderList = () => {
     }
     if(!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
     
-    // Tự động tạo báo cáo từ Checklist
     const checklistStr = Object.values(checklist)
       .map(item => `- ${item.name}: ${item.status === 'OK' ? 'Hoạt động tốt' : `Kém/Hỏng (${item.detail})`}`)
       .join('\n');
 
     const reportNote = `[BÁO CÁO KỸ THUẬT]
-- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM
-${checklistStr}
-- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
+    - Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM
+    ${checklistStr}
+    - Ghi chú thêm: ${valuation.techNote || "Không có"}`;
 
     try {
       const payload = {
@@ -133,7 +123,7 @@ ${checklistStr}
           phoneModelId: valuation.phoneModelId, 
           capacity: valuation.capacity, 
           colorName: valuation.colorName,
-          ram: valuation.ram // Gửi thêm RAM xuống Backend
+          ram: valuation.ram
         }
       };
 
@@ -232,6 +222,20 @@ ${checklistStr}
     } catch (err) { setOrderDetails([]); }
   };
 
+  const handleOrderUpdate = async () => {
+    if (selectedOrder) {
+      try {
+        const response = await axiosClient.get(`/repair-orders/${selectedOrder._id}/details`);
+        setOrderDetails(response.data);
+        // Also update the selected order to reflect any changes
+        const orderResponse = await axiosClient.get(`/repair-orders/${selectedOrder._id}`);
+        setSelectedOrder(orderResponse.data);
+      } catch (err) {
+        setOrderDetails([]);
+      }
+    }
+  };
+
   const acceptRepairOrder = async (orderId) => {
     try {
       const response = await axiosClient.put(`/repair-orders/${orderId}/accept`);
@@ -250,6 +254,15 @@ ${checklistStr}
     } catch (error) { toast.error("Không thể hủy đơn"); }
   };
 
+  const completeRepairOrderHandler = async (orderId) => {
+    try {
+      const response = await axiosClient.put(`/repair-orders/${orderId}/complete`);
+      const updateOrderStatus = (orderList) => orderList.map(order => order._id === orderId ? { ...order, status: "Completed" } : order);
+      setOrders(updateOrderStatus(orders)); setFilteredOrders(updateOrderStatus(filteredOrders));
+      toast.success(response.data.message);
+    } catch (error) { toast.error("Không thể hoàn thành đơn"); }
+  };
+
   // =========================================================================
   // RENDER
   // =========================================================================
@@ -262,7 +275,7 @@ ${checklistStr}
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-2">
@@ -342,7 +355,9 @@ ${checklistStr}
           onViewDetails={handleViewDetails}
           onAccept={acceptRepairOrder}
           onCancel={cancelRepairOrder}
+          onComplete={completeRepairOrderHandler}
           onCloseDetailsModal={() => setShowDetailsModal(false)}
+          onOrderUpdate={handleOrderUpdate}
         />
       )}
     </div>

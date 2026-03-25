@@ -247,11 +247,7 @@ const getRepairOrderDetailsById = async (req, res) => {
         populate: { path: "phoneModelId", select: "name" }
       });
 
-    if (!details || details.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
-    }
-
-    res.status(200).json(details);
+    res.status(200).json(details || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -527,9 +523,7 @@ const createRepairOrder = async (req, res) => {
 
     await newRepairOrder.save();
 
-    // Create repair order details if service is selected
-    if (repairServiceId) {
-      const newRepairOrderDetail = new RepairOrderDetail({
+    const newRepairOrderDetail = new RepairOrderDetail({
         repairOrderId: newRepairOrder._id,
         serviceId: [repairServiceId],
         itemIds: [],
@@ -539,8 +533,7 @@ const createRepairOrder = async (req, res) => {
         note: customerNote || ""
       });
 
-      await newRepairOrderDetail.save();
-    }
+    await newRepairOrderDetail.save();
 
     // Populate and return the created order
     const populatedOrder = await RepairOrder.findById(newRepairOrder._id)

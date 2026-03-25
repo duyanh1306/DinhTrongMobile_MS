@@ -56,6 +56,17 @@ import RepairOrderList from "./pages/technician/RepairOrderList";
 import TechDecisionList from "./pages/technician/TechDecisionList";
 import RepairInProgress from "./pages/technician/RepairInProgress";
 import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
+import SaleOrders from "./pages/saleStaff/SaleOrders";
+import SalePOS from "./pages/saleStaff/SalePOS";
+import BuildPhone from "./pages/customer/BuildPhone";
+import OrderDetail from "./pages/customer/OrderDetail"
+import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
+import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
+import CategoryPage from "./pages/customer/CategoryPage";
+import TechDecisionList from "./pages/technician/TechDecisionList";
+import AdminRecipe from "./pages/admin/AdminRecipe";
+import ManageStaffStore from "./pages/admin/ManageStaffStore";
+import TechStorage from "./pages/technician/TechStorage";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
@@ -63,6 +74,8 @@ import ManagerTransferRequest from "./pages/manager/ManagerTransferRequest";
 import ManagerTransferRequestList from "./pages/manager/ManagerTransferRequestList";
 import ManagerTransferRequestDetail from "./pages/manager/ManagerTransferRequestDetail";
 import ManagerStaff from "./pages/manager/ManagerStaff";
+import ManagerInventory from "./pages/manager/ManagerInventory";
+import ManagerPurchaseHistory from "./pages/manager/ManagerPurchaseHistory";
 
 import Profile from "./pages/common/Profile";
 
@@ -349,6 +362,28 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+
+                <Route
+                    path="/tech/storage"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <TechStorage/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
+
+                <Route
+                    path="/profile"
+                    element={
+                        <PrivateRoute>
+                            <RoleBasedLayout>
+                                <Profile/>
+                            </RoleBasedLayout>
+                        </PrivateRoute>
+                    }
+                />
                 <Route
                     path="/tech/repair-orders"
                     element={
@@ -417,6 +452,26 @@ function App() {
                         <PrivateRoute allowedRoles={["MANAGER"]}>
                             <ManagerLayout>
                                 <ManagerStaff/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/inventory"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerInventory/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/manager/sales_history"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerPurchaseHistory/>
                             </ManagerLayout>
                         </PrivateRoute>
                     }

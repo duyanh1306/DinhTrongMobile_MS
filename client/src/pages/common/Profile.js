@@ -33,6 +33,8 @@ export default function Profile() {
       });
       if (storedUser.image) {
         setPreview(`http://localhost:9999${storedUser.image}`); 
+      } else {
+        setPreview("/avatar-default.jpg");
       }
     }
   }, []);
@@ -154,11 +156,7 @@ export default function Profile() {
         <form onSubmit={handleProfileSubmit} className="space-y-6">
           <div className="flex flex-col items-center mb-8 relative">
             <div className="w-32 h-32 rounded-full border-4 border-gray-100 overflow-hidden relative bg-gray-50 flex items-center justify-center shadow-md group">
-              {preview ? (
-                <img src={preview} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-gray-400 font-medium">Chưa có ảnh</span>
-              )}
+              <img src={preview} alt="Avatar" className="w-full h-full object-cover" />
               <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                 <Camera size={24} className="mb-1" />
                 <span className="text-xs font-semibold">Đổi ảnh</span>

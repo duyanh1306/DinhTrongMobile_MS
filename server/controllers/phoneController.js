@@ -49,31 +49,75 @@ const getPhonesPaginatedAndSearch = async (req, res) => {
 const handleTechDecision = async (req, res) => {
   try {
     const { id } = req.params;
-    const { decision, sellingPrice, capacity, colorName, parts, phoneName } = req.body;
+    const { decision, sellingPrice, capacity, colorName, parts, phoneName, replacedItems } = req.body;
 
+    const phone = await Phone.findById(id);
+    if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
+
+    // 1. LUỒNG NHẬP KHO NGAY (Không sửa chữa)
+    if (decision === "DIRECT_IMPORT") {
+      phone.status = "in_stock";
+      await phone.save();
+
+      await InventoryTransaction.create({
+        storeId: phone.storeId,
+        transactionType: "INBOUND",
+        referenceType: "TRADE_IN_IMPORT",
+        referenceId: phone._id,
+        phoneId: phone._id,
+        note: `Nhập kho nguyên bản máy thu cũ: ${phoneName || phone._id.toString().slice(-6)}`
+      });
+
+      return res.status(200).json({ message: "Đã nhập kho nguyên bản" });
+    }
+
+    // 2. LUỒNG TÂN TRANG / SỬA BÁN
     if (decision === "SELL") {
-      // Dùng findByIdAndUpdate để ép Mongoose lưu thành công, bỏ qua validation thừa
-      const updateData = {
-        status: "in_stock", // Ép thẳng về Sẵn sàng bán
-        sellingPrice: Number(sellingPrice)
-      };
-      if (capacity) updateData.capacity = capacity;
-      if (colorName) updateData.colorName = colorName;
+      phone.status = "in_stock";
+      phone.sellingPrice = Number(sellingPrice);
+      if (capacity) phone.capacity = capacity;
+      if (colorName) phone.colorName = colorName;
+      await phone.save();
 
-      const updatedPhone = await Phone.findByIdAndUpdate(id, updateData, { new: true });
-      
-      if (!updatedPhone) return res.status(404).json({ message: "Không tìm thấy máy" });
-      return res.status(200).json({ message: "Đã chuyển máy vào kho (Sẵn sàng bán)", data: updatedPhone });
+      // Log nhập kho máy thu cũ (sau khi tân trang)
+      await InventoryTransaction.create({
+        storeId: phone.storeId,
+        transactionType: "INBOUND",
+        referenceType: "TRADE_IN_REFURBISHED",
+        referenceId: phone._id,
+        phoneId: phone._id,
+        note: `Nhập kho máy thu cũ (đã tân trang): ${phoneName || phone._id.toString().slice(-6)}`
+      });
+
+      // Trừ kho linh kiện thay thế (nếu có chọn thay)
+      if (replacedItems && replacedItems.length > 0) {
+        // Cập nhật trạng thái linh kiện thành 'consumed' (đã tiêu hao)
+        await Item.updateMany(
+          { _id: { $in: replacedItems } },
+          { status: "consumed" } 
+        );
+
+        // Tạo log Xuất kho cho từng linh kiện
+        const itemLogs = replacedItems.map(itemId => ({
+          storeId: phone.storeId,
+          transactionType: "REPAIR_CONSUMPTION", // Xuất tiêu hao
+          referenceType: "REFURBISH_PHONE",
+          referenceId: phone._id,
+          itemId: itemId,
+          note: `Xuất linh kiện để tân trang máy thu cũ: ${phoneName || phone._id.toString().slice(-6)}`
+        }));
+        await InventoryTransaction.insertMany(itemLogs);
+      }
+
+      return res.status(200).json({ message: "Đã tân trang và chuyển máy vào kho" });
     } 
     
-if (decision === "DISMANTLE") {
-      const phone = await Phone.findById(id);
-      if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
-
+    // 3. LUỒNG RÃ XÁC (Giữ nguyên logic của mày, chỉ thêm log)
+    if (decision === "DISMANTLE") {
       phone.status = "defective"; 
       await phone.save();
 
-      // 1. TẠO LOG TIÊU HAO (XUẤT XÁC MÁY CŨ RA KHỎI KHO)
+      // Log xuất tiêu hao máy mẹ
       await InventoryTransaction.create({
         storeId: phone.storeId,
         transactionType: "REPAIR_CONSUMPTION",
@@ -100,19 +144,17 @@ if (decision === "DISMANTLE") {
           color: p.color || ""
         }));
         
-        // Thêm vào bảng Item
         const insertedItems = await Item.insertMany(itemsToCreate);
 
-        // 2. TẠO LOG NHẬP KHO (CHO TỪNG LINH KIỆN VỪA RÃ ĐƯỢC)
+        // Log nhập kho cho từng linh kiện con
         const itemLogs = insertedItems.map(item => ({
             storeId: item.storeId,
             transactionType: "INBOUND",
             referenceType: "DISMANTLE_PARTS",
-            referenceId: phone._id, // Trỏ về ID máy gốc
+            referenceId: phone._id,
             itemId: item._id,
             note: `Nhập kho linh kiện rã từ máy mã: ${phone._id.toString().slice(-6).toUpperCase()}`
         }));
-        
         await InventoryTransaction.insertMany(itemLogs);
       }
       return res.status(200).json({ message: "Đã rã máy và ghi log nhập/xuất kho" });

@@ -1,4 +1,3 @@
-import React from "react";
 import { Calendar, Phone, Store } from "lucide-react";
 import dayjs from "dayjs";
 import StatusBadge from "../shared/StatusBadge";
@@ -9,7 +8,8 @@ const RepairOrdersTable = ({
   filterLoading, 
   onViewDetails, 
   onAccept, 
-  onCancel 
+  onCancel,
+  onComplete,
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden relative border">
@@ -72,7 +72,8 @@ const RepairOrdersTable = ({
                     order={order} 
                     onViewDetails={onViewDetails} 
                     onAccept={onAccept} 
-                    onCancel={onCancel} 
+                    onCancel={onCancel}
+                    onComplete={onComplete}
                   />
                 </td>
               </tr>
