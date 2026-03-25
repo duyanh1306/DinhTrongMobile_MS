@@ -35,7 +35,7 @@ export const createRepairService = async (serviceData) => {
 // Get repair order details by order ID
 export const getRepairOrderDetails = async (orderId) => {
   try {
-    const response = await axiosClient.get(`/repair_orders/${orderId}/details`);
+    const response = await axiosClient.get(`/repair-orders/${orderId}/details`);
     return response.data;
   } catch (error) {
     console.error('Error fetching repair order details:', error);
@@ -50,6 +50,16 @@ export const updateRepairOrderDetail = async (orderId, detailData) => {
     return response.data;
   } catch (error) {
     console.error('Error updating repair order detail:', error);
+    throw error;
+  }
+};
+
+export const completeRepairOrder = async (orderId) => {
+  try {
+    const response = await axiosClient.put(`/repair-orders/${orderId}/complete`);
+    return response.data;
+  } catch (error) {
+    console.error('Error completing repair order:', error);
     throw error;
   }
 };

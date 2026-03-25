@@ -17,15 +17,10 @@ const RepairOrdersTab = ({
   onViewDetails, 
   onAccept, 
   onCancel,
+  onComplete,
   onCloseDetailsModal,
   onOrderUpdate
 }) => {
-
-  useEffect(() => {
-    if (showDetailsModal && selectedOrder) {
-        onOrderUpdate();
-    }
-  }, [showDetailsModal, selectedOrder]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -44,6 +39,7 @@ const RepairOrdersTab = ({
         onViewDetails={onViewDetails}
         onAccept={onAccept}
         onCancel={onCancel}
+        onComplete={onComplete}
       />
 
       <RepairDetailsModal
@@ -53,6 +49,9 @@ const RepairOrdersTab = ({
         showDetailsModal={showDetailsModal}
         onClose={onCloseDetailsModal}
         onOrderUpdate={onOrderUpdate}
+        onAccept={onAccept}
+        onCancel={onCancel}
+        onComplete={onComplete}
       />
     </div>
   );
