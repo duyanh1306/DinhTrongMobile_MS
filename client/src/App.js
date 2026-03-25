@@ -38,6 +38,7 @@ import AssemblePhone from "./pages/technician/AssemblePhone";
 import RepairOrderList from "./pages/technician/RepairOrderList";
 import RepairInProgress from "./pages/technician/RepairInProgress";
 import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
+import History from "./pages/technician/History";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import BuildPhone from "./pages/customer/BuildPhone";
@@ -409,6 +410,17 @@ function App() {
                         <PrivateRoute allowedRoles={["TECHNICIAN"]}>
                             <TechLayout>
                                 <RepairInProgressDetail/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
+
+                <Route
+                    path="/tech/history"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <History/>
                             </TechLayout>
                         </PrivateRoute>
                     }

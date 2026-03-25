@@ -29,13 +29,111 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
+/**
+ * @swagger
+ * tags:
+ *   name: Item Types
+ *   description: Item type management endpoints
+ */
+
 // PUBLIC ROUTES
+/**
+ * @swagger
+ * /api/item_types/all:
+ *   get:
+ *     summary: Get all item types
+ *     tags: [Item Types]
+ *     responses:
+ *       200:
+ *         description: List of all item types
+ */
 router.get("/all", getAllItemTypes);
 
 // PRIVATE ROUTES
+/**
+ * @swagger
+ * /api/item_types:
+ *   get:
+ *     summary: Get item types with pagination and search (authenticated)
+ *     tags: [Item Types]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Paginated list of item types
+ *       401:
+ *         description: Unauthorized
+ */
 router.get("/", authInternal, getItemTypePaginatedAndSearch);
+
 // Dùng upload.single('image') để nhận file
+/**
+ * @swagger
+ * /api/item_types/create:
+ *   post:
+ *     summary: Create a new item type (authenticated)
+ *     tags: [Item Types]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *               itemData:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Item type created successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.post("/create", authInternal, upload.single('image'), createItemType);
+
+/**
+ * @swagger
+ * /api/item_types/update/{id}:
+ *   put:
+ *     summary: Update item type (authenticated)
+ *     tags: [Item Types]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *               itemData:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Item type updated successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.put("/update/:id", authInternal, upload.single('image'), updateItemType);
 
 module.exports = router;

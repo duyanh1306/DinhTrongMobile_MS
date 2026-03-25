@@ -3,6 +3,8 @@ const cors = require("cors");
 const http = require("http");
 const path = require("path");
 const socketIo = require("socket.io");
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
 require("dotenv").config();
 const app = express();
 const server = http.createServer(app);
@@ -58,6 +60,9 @@ app.use("/api/cart", cartRoute);
 app.use("/api/orders", orderRoute);
 app.use("/api/phone_brands", phoneBrand);
 app.use("/api/reviews", review);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
