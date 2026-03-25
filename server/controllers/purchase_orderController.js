@@ -5,6 +5,7 @@ const Purchase_order_detail = require("../models/Purchase_order_detail");
 const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const InventoryTransaction = require("../models/Inventory_transaction");
+const Store = require("../models/Store");
 
 const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -24,6 +25,36 @@ const getAllPurchaseOrders = async (req, res) => {
     res.status(200).json(purchase_orders);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+
+const getPurchaseOrdersForManagerStore = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const store = await Store.findOne({ staff: userId });
+    if (!store) {
+      return res.status(200).json([]);
+    }
+
+    const purchase_orders = await Purchase_order.find({
+      storeId: store._id,
+    })
+      .populate("storeId", "name code")
+      .populate("createdBy", "fullName name username")
+      .populate({
+        path: "tempPhoneData.phoneModelId",
+        select: "name",
+      })
+      .sort({ purchaseOrderDate: -1 });
+
+    res.status(200).json(purchase_orders);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -256,6 +287,7 @@ const updatePurchaseOrder = async (req, res) => {
 
 module.exports = {
   getAllPurchaseOrders,
+  getPurchaseOrdersForManagerStore,
   getOrderDetailsById,
   createPurchaseOrder,
   getOrdersByCustomer,
