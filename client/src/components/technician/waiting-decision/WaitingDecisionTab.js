@@ -1,21 +1,18 @@
 import React, { useState } from "react";
-import { Settings, CheckCircle, X, Hammer, Scissors, Save, Plus, Trash2, Package, Search, Download, Wrench } from "lucide-react";
+import { Settings, CheckCircle, X, Hammer, Scissors, Save, Plus, Trash2, Package, Search, Download,Wrench } from "lucide-react";
 import WaitingDecisionTable from "./WaitingDecisionTable";
 
-// Hàm tự động bóc tách (parse) Note từ Trade-In thành danh sách Tình trạng SIÊU CHUẨN
 const parseChecklistFromNote = (noteStr) => {
   if (!noteStr) return [];
   const lines = noteStr.split('\n');
   const parsed = [];
   lines.forEach(line => {
     const cleanLine = line.trim();
-    // Quét các dòng bắt đầu bằng dấu "-" nhưng ngoại trừ Cấu hình và Ghi chú thêm
     if (cleanLine.startsWith('-') && !cleanLine.includes('Cấu hình') && !cleanLine.includes('Ghi chú thêm')) {
       const parts = cleanLine.split(':');
       if (parts.length >= 2) {
         const name = parts[0].replace('-', '').trim();
         const statusStr = parts.slice(1).join(':').trim();
-        // Nhận diện lỗi nếu có từ Hỏng hoặc Kém
         const isBroken = statusStr.toLowerCase().includes('hỏng') || statusStr.toLowerCase().includes('kém');
         parsed.push({ name, statusStr, isBroken });
       }
@@ -25,22 +22,37 @@ const parseChecklistFromNote = (noteStr) => {
 };
 
 const WaitingDecisionTab = ({ 
-  waitingPhones, loading, selectedDecisionPhone, decision, sellForm, dismantleParts, itemTypes,
-  replacementParts, availablePartsInStock, onFetchAvailableParts, onSetReplacementParts,
-  onProcess, onCloseModal, onDecisionChange, onSellFormChange, onAddPart, onRemovePart, onPartChange, onSubmit 
+  waitingPhones = [], 
+  loading, 
+  selectedDecisionPhone, 
+  decision, 
+  sellForm = {}, 
+  dismantleParts = [], 
+  itemTypes = [],
+  replacementParts = [], 
+  availablePartsInStock = [], 
+  // THÊM GIÁP CHỐNG SẬP () => {} CHO TẤT CẢ CÁC HÀM
+  onFetchAvailableParts = () => {}, 
+  onSetReplacementParts = () => {},
+  onProcess = () => {}, 
+  onCloseModal = () => {}, 
+  onDecisionChange = () => {}, 
+  onSellFormChange = () => {}, 
+  onAddPart = () => {}, 
+  onRemovePart = () => {}, 
+  onPartChange = () => {}, 
+  onSubmit = () => {} 
 }) => {
   
-  // State quản lý Modal chọn linh kiện thay thế
   const [showPartSelector, setShowPartSelector] = useState(false);
   const [partCategoryToReplace, setPartCategoryToReplace] = useState("");
   const [searchPart, setSearchPart] = useState("");
 
-  // Kéo cái `notes` ra và bóc tách
   const parsedChecklist = selectedDecisionPhone ? parseChecklistFromNote(selectedDecisionPhone.notes || selectedDecisionPhone.note || "") : [];
 
   const handleOpenPartSelector = (categoryName) => {
     setPartCategoryToReplace(categoryName);
-    onFetchAvailableParts(); // Lấy kho linh kiện
+    onFetchAvailableParts(); 
     setShowPartSelector(true);
   };
 
@@ -56,7 +68,7 @@ const WaitingDecisionTab = ({
   };
 
   const handleExtractPart = (parsedItem) => {
-    onAddPart(); // Click vào check list để gọi hàm thêm Form Rã xác trống
+    onAddPart();
   };
 
   return (
@@ -73,9 +85,6 @@ const WaitingDecisionTab = ({
 
       <WaitingDecisionTable waitingPhones={waitingPhones} loading={loading} onProcess={onProcess} />
 
-      {/* ========================================================= */}
-      {/* MODAL XỬ LÝ CHÍNH */}
-      {/* ========================================================= */}
       {selectedDecisionPhone && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
           <div className="bg-gray-50 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
@@ -85,8 +94,6 @@ const WaitingDecisionTab = ({
             </div>
 
             <div className="p-6 overflow-y-auto flex-1">
-              
-              {/* NÚT CHỌN TAB XỬ LÝ */}
               <div className="flex gap-3 mb-6 bg-white p-2 rounded-xl shadow-sm border">
                 <button onClick={() => onDecisionChange("DIRECT_IMPORT")} className={`flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${decision === "DIRECT_IMPORT" ? "bg-blue-100 text-blue-700 shadow-sm" : "text-gray-500 hover:bg-gray-50"}`}>
                   <Download size={18}/> Nhập kho ngay
@@ -99,7 +106,6 @@ const WaitingDecisionTab = ({
                 </button>
               </div>
 
-              {/* BẢNG TÓM TẮT KIỂM ĐỊNH (Hiển thị chung) */}
               {parsedChecklist.length > 0 && (
                 <div className="bg-white p-5 rounded-xl border shadow-sm mb-6">
                   <h4 className="font-bold text-gray-700 border-b pb-2 mb-4 uppercase text-sm">Kết quả kiểm định thu mua</h4>
@@ -116,7 +122,6 @@ const WaitingDecisionTab = ({
                 </div>
               )}
 
-              {/* VIEW 1: NHẬP KHO NGAY */}
               {decision === "DIRECT_IMPORT" && (
                 <div className="text-center bg-blue-50 border border-blue-200 p-8 rounded-xl shadow-inner">
                     <CheckCircle className="mx-auto w-16 h-16 text-blue-500 mb-4" />
@@ -125,10 +130,8 @@ const WaitingDecisionTab = ({
                 </div>
               )}
 
-              {/* VIEW 2: TÂN TRANG / SỬA BÁN */}
               {decision === "SELL" && (
                 <div className="space-y-6">
-                  {/* Bảng thay thế linh kiện */}
                   <div className="bg-white p-5 rounded-xl border shadow-sm">
                      <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Wrench size={18}/> Đề xuất thay thế linh kiện</h4>
                      <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị "Kém/Hỏng". Hệ thống sẽ tự động tạo phiếu xuất kho linh kiện.</p>
@@ -145,7 +148,6 @@ const WaitingDecisionTab = ({
                        <p className="text-sm text-green-600 italic bg-green-50 p-3 rounded border border-green-200">Không phát hiện linh kiện nào hỏng từ báo cáo.</p>
                      )}
 
-                     {/* Danh sách linh kiện đã chọn để thay */}
                      {replacementParts.length > 0 && (
                          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
                             <h5 className="text-sm font-bold text-green-800 mb-3 uppercase">Linh kiện đã chọn xuất kho:</h5>
@@ -164,22 +166,21 @@ const WaitingDecisionTab = ({
                     <div className="grid grid-cols-2 gap-6 mb-4">
                       <div>
                         <label className="block font-bold text-gray-700 mb-2">Dung lượng</label>
-                        <input type="text" value={sellForm.capacity} onChange={e => onSellFormChange({...sellForm, capacity: e.target.value})} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"/>
+                        <input type="text" value={sellForm.capacity || ''} onChange={e => onSellFormChange({...sellForm, capacity: e.target.value})} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"/>
                       </div>
                       <div>
                         <label className="block font-bold text-gray-700 mb-2">Màu sắc</label>
-                        <input type="text" value={sellForm.colorName} onChange={e => onSellFormChange({...sellForm, colorName: e.target.value})} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"/>
+                        <input type="text" value={sellForm.colorName || ''} onChange={e => onSellFormChange({...sellForm, colorName: e.target.value})} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"/>
                       </div>
                     </div>
                     <div>
                       <label className="block font-black text-gray-800 mb-2">GIÁ BÁN SAU TÂN TRANG (VNĐ) <span className="text-red-500">*</span></label>
-                      <input type="number" value={sellForm.sellingPrice} onChange={e => onSellFormChange({...sellForm, sellingPrice: e.target.value})} className="w-full p-4 border-2 border-green-300 rounded-lg outline-none focus:border-green-600 text-2xl font-black text-green-700"/>
+                      <input type="number" value={sellForm.sellingPrice || ''} onChange={e => onSellFormChange({...sellForm, sellingPrice: e.target.value})} className="w-full p-4 border-2 border-green-300 rounded-lg outline-none focus:border-green-600 text-2xl font-black text-green-700"/>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* VIEW 3: RÃ XÁC MÁY */}
               {decision === "DISMANTLE" && (
                 <div className="bg-white p-5 rounded-xl border shadow-sm">
                   <div className="flex justify-between items-center mb-4 pb-4 border-b">
@@ -199,7 +200,6 @@ const WaitingDecisionTab = ({
                       {parsedChecklist.filter(i => !i.isBroken).length === 0 && <span className="text-xs text-gray-400 italic">Không có linh kiện tốt</span>}
                   </div>
                   
-                  {/* DANH SÁCH FORM NHẬP LINH KIỆN RÃ */}
                   <div className="space-y-6">
                       {dismantleParts.map((part, idx) => (
                           <div key={idx} className="p-4 rounded-xl border border-gray-200 relative bg-gray-50 shadow-sm group hover:border-red-300 transition">
@@ -207,22 +207,22 @@ const WaitingDecisionTab = ({
                               <div className="grid grid-cols-2 gap-4 mr-10 mb-3">
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Loại LK *</label>
-                                      <select value={part.itemTypeId} onChange={(e) => onPartChange(idx, "itemTypeId", e.target.value)} className="w-full p-2 border rounded outline-none text-sm bg-white focus:ring-2 focus:ring-red-500">
+                                      <select value={part.itemTypeId || ''} onChange={(e) => onPartChange(idx, "itemTypeId", e.target.value)} className="w-full p-2 border rounded outline-none text-sm bg-white focus:ring-2 focus:ring-red-500">
                                           <option value="">-- Chọn --</option>
                                           {itemTypes.map(it => <option key={it._id} value={it._id}>{it.name}</option>)}
                                       </select>
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tên hiển thị *</label>
-                                      <input type="text" value={part.name} onChange={(e) => onPartChange(idx, "name", e.target.value)} className="w-full p-2 border rounded outline-none text-sm focus:ring-2 focus:ring-red-500"/>
+                                      <input type="text" value={part.name || ''} onChange={(e) => onPartChange(idx, "name", e.target.value)} className="w-full p-2 border rounded outline-none text-sm focus:ring-2 focus:ring-red-500"/>
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Serial (SN)</label>
-                                      <input type="text" placeholder="Tự sinh nếu để trống" value={part.serialCode} onChange={(e) => onPartChange(idx, "serialCode", e.target.value)} className="w-full p-2 border rounded outline-none text-sm font-mono focus:ring-2 focus:ring-red-500"/>
+                                      <input type="text" placeholder="Tự sinh nếu để trống" value={part.serialCode || ''} onChange={(e) => onPartChange(idx, "serialCode", e.target.value)} className="w-full p-2 border rounded outline-none text-sm font-mono focus:ring-2 focus:ring-red-500"/>
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-red-600 uppercase mb-1">Giá bán lẻ (VNĐ) *</label>
-                                      <input type="number" value={part.price} onChange={(e) => onPartChange(idx, "price", e.target.value)} className="w-full p-2 border-2 border-red-200 rounded outline-none text-sm font-bold text-red-600 focus:border-red-500"/>
+                                      <input type="number" value={part.price || ''} onChange={(e) => onPartChange(idx, "price", e.target.value)} className="w-full p-2 border-2 border-red-200 rounded outline-none text-sm font-bold text-red-600 focus:border-red-500"/>
                                   </div>
                               </div>
                           </div>
