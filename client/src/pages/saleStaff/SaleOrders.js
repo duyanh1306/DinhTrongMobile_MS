@@ -12,10 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  ShoppingCart,
-  Wrench,
-  Download,
-  Phone // <--- THÊM ĐÚNG CHỮ NÀY VÀO ĐÂY
+  Phone,
+  Wrench
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import { useReactToPrint } from "react-to-print";
@@ -63,7 +61,6 @@ const docSoThanhChu = (so) => {
 // COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
 // ==================================================================
 const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab }) => {
-  // Xác định Tiêu đề hóa đơn dựa vào loại Tab
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
   if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
   if (activeTab === "REPAIR") invoiceTitle = "PHIẾU THANH TOÁN KIÊM BẢO HÀNH SỬA CHỮA";
@@ -102,7 +99,7 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
       {/* TIÊU ĐỀ HÓA ĐƠN */}
       <div className="text-center mb-8">
         <h2 className="text-2xl font-black uppercase">{invoiceTitle}</h2>
-        <p className="text-sm italic mt-1">Ngày {dayjs(order?.createdAt || new Date()).format('DD')} tháng {dayjs(order?.createdAt || new Date()).format('MM')} năm {dayjs(order?.createdAt || new Date()).format('YYYY')}</p>
+        <p className="text-sm italic mt-1">Ngày {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('DD')} tháng {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('MM')} năm {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('YYYY')}</p>
         <p className="text-sm font-bold mt-1">Số: #{order?._id?.substring(order._id.length - 8).toUpperCase()}</p>
       </div>
 
@@ -127,7 +124,6 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
         </thead>
         <tbody>
           {details.map((d, idx) => {
-            // Xử lý chung cho Đơn Bán/Thu và Đơn Sửa chữa
             let itemName = "Sản phẩm/Dịch vụ";
             let serial = "";
             let warrantyText = "Không";
@@ -217,6 +213,9 @@ export default function SaleOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Lưu trữ các đơn đã tự động mở Pop-up để tránh mở lặp lại
+  const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set());
+
   // States cho Lọc và Phân trang
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); 
@@ -225,6 +224,15 @@ export default function SaleOrders() {
 
   const printRef = useRef(null);
 
+  // HÀM SẮP XẾP MỚI NHẤT LÊN ĐẦU
+  const sortOrdersDesc = (ordersList) => {
+    return [...ordersList].sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.repairOrderDate || a.purchaseOrderDate).getTime();
+        const dateB = new Date(b.createdAt || b.repairOrderDate || b.purchaseOrderDate).getTime();
+        return dateB - dateA; 
+    });
+  };
+
   // Thay đổi Tab -> Load lại dữ liệu
   useEffect(() => {
     fetchOrders();
@@ -232,6 +240,34 @@ export default function SaleOrders() {
     setSearchQuery("");
     setStatusFilter("ALL");
   }, [activeTab]);
+
+  // =================================================================
+  // TỰ ĐỘNG MỞ POP-UP KHI TECH CHỐT GIÁ XONG
+  // =================================================================
+  useEffect(() => {
+    let interval;
+    if (activeTab === "PURCHASE" && !isModalOpen) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`http://localhost:9999/api/purchase-orders?orderType=PURCHASE`);
+          if (res.ok) {
+            const data = await res.json();
+            const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
+
+            if (newlyValuatedOrder) {
+              setNotifiedOrderIds(prev => new Set(prev).add(newlyValuatedOrder._id));
+              toast.info(`🔥 Kỹ thuật vừa chốt giá xong đơn thu cũ! Mở chi tiết...`, { icon: "🚀", style: { background: "#4f46e5", color: "white" }});
+              
+              setOrders(sortOrdersDesc(data));
+              handleOpenDetail(newlyValuatedOrder);
+            }
+          }
+        } catch(e) {}
+      }, 3000); 
+    }
+    return () => clearInterval(interval);
+  }, [activeTab, isModalOpen, notifiedOrderIds]);
+
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -246,9 +282,8 @@ export default function SaleOrders() {
       const res = await fetch(url);
       if(res.ok) {
           let data = await res.json();
-          // Sắp xếp mới nhất lên đầu
-          data = data.sort((a, b) => new Date(b.createdAt || b.repairOrderDate) - new Date(a.createdAt || a.repairOrderDate));
-          setOrders(data);
+          // Sắp xếp MỚI NHẤT LÊN ĐẦU
+          setOrders(sortOrdersDesc(data));
       }
     } catch (err) {
       toast.error("Lỗi tải danh sách hóa đơn");
@@ -287,7 +322,7 @@ export default function SaleOrders() {
 
     try {
       let url = activeTab === "REPAIR" 
-            ? `http://localhost:9999/api/repair-orders/${orderId}/complete` // Giả sử bên Repair m có API này
+            ? `http://localhost:9999/api/repair-orders/${orderId}/complete` 
             : `http://localhost:9999/api/purchase-orders/${orderId}/confirm-payment`;
 
       const res = await fetch(url, { method: activeTab === "REPAIR" ? "PUT" : "PATCH" });
@@ -302,9 +337,40 @@ export default function SaleOrders() {
     }
   };
 
+  // =================================================================
+  // TÍNH NĂNG MỚI: HỦY ĐƠN TRONG MODAL CHI TIẾT
+  // =================================================================
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+    if (!window.confirm("Xác nhận HUỶ đơn hàng này? Thao tác này sẽ hoàn trả máy/linh kiện về kho và không thể khôi phục.")) return;
+    
+    try {
+      let url = activeTab === "REPAIR" 
+            ? `http://localhost:9999/api/repair-orders/${selectedOrder._id}/cancel` 
+            : `http://localhost:9999/api/purchase-orders/${selectedOrder._id}`;
+
+      const res = await fetch(url, { 
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          // Đơn Sale/Purchase cần truyền thêm status để update
+          body: activeTab !== "REPAIR" ? JSON.stringify({ status: "Cancelled", totalPrice: selectedOrder.totalPrice, note: selectedOrder.note }) : undefined,
+      });
+
+      if (res.ok) {
+        toast.success("Đã hủy đơn hàng thành công!");
+        fetchOrders();
+        setIsModalOpen(false);
+      } else {
+          toast.error("Không thể hủy đơn hàng lúc này.");
+      }
+    } catch (err) {
+      toast.error("Lỗi kết nối khi hủy đơn.");
+    }
+  };
+
   const formatCurrency = (val) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val || 0);
 
-  // LỌC VÀ PHÂN TRANG
+  // LỌC VÀ PHÂN TRANG 
   const filteredOrders = orders.filter((o) => {
     const matchesSearch = o.customerPhone?.includes(searchQuery) || o.customerName?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || o.status === statusFilter;
@@ -601,18 +667,29 @@ export default function SaleOrders() {
               </div>
             </div>
 
+            {/* MODAL FOOTER CHỨA CÁC NÚT ĐIỀU KHIỂN */}
             <div className="p-4 border-t bg-gray-50 flex justify-between items-center rounded-b-xl">
                {selectedOrder.status === "Pending" ? (
-                  <div className="flex gap-3 w-full justify-end">
-                     <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Đóng</button>
-                     <button onClick={() => handleConfirmPayment(selectedOrder._id)} className="px-8 py-2.5 bg-green-600 text-white rounded-lg font-black flex items-center gap-2 hover:bg-green-700 shadow-md transition">
-                        <CheckCircle size={18}/> XÁC NHẬN THANH TOÁN
+                  <div className="flex gap-3 w-full justify-between items-center">
+                     {/* NÚT HỦY ĐƠN */}
+                     <button onClick={handleCancelOrder} className="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 flex items-center gap-2 transition">
+                        <XCircle size={18}/> HỦY ĐƠN
                      </button>
+                     
+                     {/* NÚT XÁC NHẬN VÀ ĐÓNG */}
+                     <div className="flex gap-3">
+                        <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Đóng</button>
+                        <button onClick={() => handleConfirmPayment(selectedOrder._id)} className="px-8 py-2.5 bg-green-600 text-white rounded-lg font-black flex items-center gap-2 hover:bg-green-700 shadow-md transition">
+                           <CheckCircle size={18}/> XÁC NHẬN THANH TOÁN
+                        </button>
+                     </div>
                   </div>
                ) : (
-                  <div className="w-full flex justify-end">
-                     <span className="px-6 py-2.5 bg-gray-200 text-green-700 rounded-lg font-black flex items-center gap-2">
-                        <CheckCircle size={18}/> ĐƠN ĐÃ HOÀN TẤT
+                  <div className="w-full flex justify-end gap-3">
+                     <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Đóng</button>
+                     <span className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-black flex items-center gap-2">
+                        {selectedOrder.status === 'Cancelled' ? <XCircle size={18} className="text-red-500" /> : <CheckCircle size={18} className="text-green-600" />} 
+                        {selectedOrder.status === 'Cancelled' ? 'ĐƠN ĐÃ HỦY' : 'ĐƠN ĐÃ HOÀN TẤT'}
                      </span>
                   </div>
                )}
