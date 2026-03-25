@@ -46,6 +46,7 @@ import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
 import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
 import CategoryPage from "./pages/customer/CategoryPage";
 import TechDecisionList from "./pages/technician/TechDecisionList";
+import TechStorage from "./pages/technician/TechStorage";
 import AdminRecipe from "./pages/admin/AdminRecipe";
 import ManageStaffStore from "./pages/admin/ManageStaffStore";
 
@@ -344,6 +345,17 @@ function App() {
                         <PrivateRoute allowedRoles={["TECHNICIAN"]}>
                             <TechLayout>
                                 <TechDashboard/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
+
+                <Route
+                    path="/tech/storage"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <TechStorage/>
                             </TechLayout>
                         </PrivateRoute>
                     }
