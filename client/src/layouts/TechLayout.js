@@ -16,7 +16,7 @@ export default function TechLayout({ children }) {
           <TechSidebar />
         </div>
         
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           {children || <div className="text-gray-500">Chưa có nội dung hiển thị</div>}
         </div>
       </main>

@@ -275,7 +275,7 @@ const RepairOrderList = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-2">

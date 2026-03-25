@@ -1,106 +1,128 @@
-import { useState, useEffect } from "react";
-import { X, User, Phone, Store, ChevronDown, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, User, Phone, Store, Check, Wrench, Package, ChevronDown, XCircle } from "lucide-react";
 import dayjs from "dayjs";
-import { getAllRepairServices, updateRepairOrderDetail } from "../../../api/repairOrder";
+import { getAllRepairServices } from "../../../api/repairOrder";
+import { getAllItems } from "../../../api/item";
 
-const RepairDetailsModal = ({ 
-  selectedOrder, 
-  orderDetails, 
-  showDetailsModal, 
+const RepairDetailsModal = ({
+  selectedOrder,
+  showDetailsModal,
   onClose,
-  onOrderUpdate,
-  onAccept
+  onAccept,
+  orderDetails,
 }) => {
-  const [availableServices, setAvailableServices] = useState([]);
+  const [repairServices, setRepairServices] = useState([]);
+  const [selectedServices, setSelectedServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
-  const [updatingService, setUpdatingService] = useState(null);
-  const [openDropdowns, setOpenDropdowns] = useState({});
-  const isReadonly = selectedOrder?.status !== "Pending";
+  const [items, setItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (showDetailsModal) {
-      fetchAvailableServices();
-    }
-  }, [showDetailsModal]);
-
-  const fetchAvailableServices = async () => {
-    setLoadingServices(true);
-    try {
-      const response = await getAllRepairServices();
-      if (response.success && response.data) {
-        setAvailableServices(response.data);
+      fetchRepairServices();
+      fetchItems();
+      if (orderDetails && orderDetails.length > 0) {
+        const existingServiceIds = orderDetails.flatMap(detail => 
+          detail.serviceId ? detail.serviceId.map(s => s._id) : []
+        );
+        setSelectedServices(existingServiceIds);
+        const existingItemIds = orderDetails.flatMap(detail => 
+          detail.itemId ? detail.itemId.map(i => i._id) : []
+        );
+        setSelectedItems(existingItemIds);
       }
+    }
+  }, [showDetailsModal, orderDetails]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const fetchRepairServices = async () => {
+    try {
+      setLoadingServices(true);
+      const response = await getAllRepairServices();
+      setRepairServices(Array.isArray(response) ? response : response.data || []);
     } catch (error) {
-      console.error('Failed to fetch repair services:', error);
+      console.error('Error fetching repair services:', error);
     } finally {
       setLoadingServices(false);
     }
   };
 
-  const handleServiceChange = async (detailIndex, newServiceId, isChecked) => {
-
-    if (isReadonly) return;
-
-    const detail = orderDetails[detailIndex];
-    if (!detail || !selectedOrder) return;
-
-    setUpdatingService(detailIndex);
+  const fetchItems = async () => {
     try {
-
-      const currentServiceIds = Array.isArray(detail.serviceId)
-        ? detail.serviceId.map(s => s._id || s)
-        : (detail.serviceId?._id ? [detail.serviceId._id] : []);
-
-      const updatedServices = isChecked
-        ? [...currentServiceIds, newServiceId]
-        : currentServiceIds.filter(id => id !== newServiceId);
-      
-      const updateData = {
-        serviceId: updatedServices.length > 0 ? updatedServices : null
-      };
-
-      const response = await updateRepairOrderDetail(selectedOrder._id, updateData);
-
-      if (response.success) {
-        if (onOrderUpdate) {
-          onOrderUpdate();
-        }
-      }
+      setLoadingItems(true);
+      const response = await getAllItems();
+      setItems(Array.isArray(response) ? response : response.data || []);
     } catch (error) {
-      console.error('Failed to update service:', error);
+      console.error('Error fetching items:', error);
     } finally {
-      setUpdatingService(null);
-      setOpenDropdowns({ ...openDropdowns, [detailIndex]: false });
+      setLoadingItems(false);
     }
   };
 
-  useEffect(() => {
-    if (!showDetailsModal) {
-      setOpenDropdowns({});
-    }
-  }, [showDetailsModal]);
-
-  const calculateTotalPrice = () => {
-    if (!orderDetails || orderDetails.length === 0) return 0;
-    
-    return orderDetails.reduce((total, detail) => {
-      if (detail.serviceId) {
-        if (Array.isArray(detail.serviceId)) {
-          total += detail.serviceId.reduce((sum, s) => sum + (s.price || 0), 0);
-        } else {
-          total += detail.serviceId.price || 0;
-        }
+  const handleServiceToggle = (serviceId) => {
+    setSelectedServices(prev => {
+      if (prev.includes(serviceId)) {
+        return prev.filter(id => id !== serviceId);
+      } else {
+        return [...prev, serviceId];
       }
-      
-      if (detail.itemIds && detail.itemIds.length > 0) {
-        total += detail.itemIds.reduce((sum, item) => sum + (item.price || 0), 0);
-      }
-      
-      return total;
-    }, 0);
+    });
   };
 
-  const totalPrice = calculateTotalPrice();
+  const handleItemToggle = (itemId) => {
+    setSelectedItems(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        return [...prev, itemId];
+      }
+    });
+  };
+
+  const getSelectedServiceNames = () => {
+    return repairServices
+      .filter(service => selectedServices.includes(service._id))
+      .map(service => service.name)
+      .join(', ');
+  };
+
+  const getSelectedServiceTotal = () => {
+    return repairServices
+      .filter(service => selectedServices.includes(service._id))
+      .reduce((total, service) => total + (service.price || 0), 0);
+  };
+
+  const getSelectedItemNames = () => {
+    return items
+      .filter(item => selectedItems.includes(item._id))
+      .map(item => item.name)
+      .join(', ');
+  };
+
+  const getSelectedItemTotal = () => {
+    return items
+      .filter(item => selectedItems.includes(item._id))
+      .reduce((total, item) => total + (item.price || 0), 0);
+  };
+
+  const getGrandTotal = () => {
+    return getSelectedServiceTotal() + getSelectedItemTotal();
+  };
 
   if (!showDetailsModal || !selectedOrder) return null;
 
@@ -156,108 +178,197 @@ const RepairDetailsModal = ({
             </div>
           </div>
 
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-3">Chi tiết dịch vụ</h4>
-            {orderDetails.length > 0 ? (
-              <div className="space-y-3">
-                {orderDetails.map((detail, index) => (
-                  <div key={index} className="border rounded-lg p-4 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                      {detail.serviceId && (
-                        <div>
-                          <span className="text-sm text-gray-500">Dịch vụ:</span>
-                          <div className="relative mt-2 border rounded-md p-3 bg-white">
-                            {loadingServices ? (
-                              <div className="text-center py-2">
-                                <Loader2 className="w-4 h-4 inline animate-spin mr-2" />
-                                Đang tải dịch vụ...
-                              </div>
-                            ) : availableServices.length > 0 ? (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {availableServices.map((service) => {
-                                  const currentServiceIds = Array.isArray(detail.serviceId)
-                                    ? detail.serviceId.map(s => s._id || s)
-                                    : (detail.serviceId?._id ? [detail.serviceId._id] : []);
-                                  const isChecked = currentServiceIds.includes(service._id);
-                                  
-                                  return (
-                                    <label key={service._id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={(e) => handleServiceChange(index, service._id, e.target.checked)}
-                                        disabled={updatingService === index || isReadonly}
-                                        className="w-4 h-4 cursor-pointer"
-                                      />
-                                      <div className="flex-1">
-                                        <span className="font-medium text-gray-900">{service.name}</span>
-                                        <span className="text-xs text-gray-500 ml-2">
-                                          {service.price?.toLocaleString('vi-VN') || 0} đ
-                                        </span>
-                                      </div>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-gray-500 text-sm">Không có dịch vụ nào</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {detail.targetPhoneId && (
-                        <div>
-                          <span className="text-sm text-gray-500">Thiết bị:</span>
-                          <p className="font-medium">
-                            {detail.targetPhoneId.phoneModelId?.name || 'N/A'}
-                          </p>
-                          <p className="text-xs text-gray-500 font-mono mt-1">
-                            Mã: {detail.targetPhoneId._id?.substring(detail.targetPhoneId._id.length - 6).toUpperCase() || 'N/A'}
-                          </p>
-                        </div>
-                      )}
-                      {detail.itemIds && detail.itemIds.length > 0 && (
-                        <div className="md:col-span-2">
-                          <span className="text-sm text-gray-500">Linh kiện thay thế:</span>
-                          <div className="mt-2 space-y-2 border-t pt-2">
-                            {detail.itemIds.map((item, itemIndex) => (
-                              <div key={itemIndex} className="text-sm flex justify-between bg-white p-2 rounded border">
-                                <span className="font-medium">
-                                  {item.name} <span className="text-xs text-gray-400 font-normal ml-2">(SN: {item.serialCode})</span>
-                                </span>
-                                <span className="text-gray-800 font-bold">
-                                  {item.price?.toLocaleString('vi-VN') || 0} đ
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+          <div className="border-t pt-6">
+            <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-blue-600" />
+              Chọn dịch vụ sửa chữa
+            </h4>
+            
+            {loadingServices ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                Đang tải dịch vụ...
+              </div>
+            ) : repairServices.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Không có dịch vụ nào khả dụng
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {repairServices.map((service) => (
+                  <div
+                    key={service._id}
+                    onClick={() => handleServiceToggle(service._id)}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedServices.includes(service._id)
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        selectedServices.includes(service._id)
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300'
+                      }`}>
+                        {selectedServices.includes(service._id) && (
+                          <Check className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                      <span className="font-medium text-gray-800">{service.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-semibold text-blue-600">
+                        {service.price ? `${service.price.toLocaleString('vi-VN')} đ` : 'Liên hệ'}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-gray-500 text-sm">Không có chi tiết dịch vụ nào</p>
+            )}
+
+            {selectedServices.length > 0 && (
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h5 className="font-semibold text-gray-700 mb-2">Dịch vụ đã chọn:</h5>
+                <p className="text-sm text-gray-600 mb-2">{getSelectedServiceNames()}</p>
+                <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                  <span className="font-semibold text-gray-700">Tổng dịch vụ:</span>
+                  <span className="text-lg font-bold text-blue-600">
+                    {getSelectedServiceTotal().toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-        <div className="p-6 border-t bg-gray-50 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <span className="text-lg font-semibold text-gray-700">Tổng cộng:</span>
-            <span className="text-2xl font-black text-blue-600">
-              {totalPrice.toLocaleString('vi-VN')}
-            </span>
+
+          <div className="border-t pt-6">
+            <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+              <Package className="w-4 h-4 text-green-600" />
+              Chọn linh kiện thay thế
+            </h4>
+            
+            {loadingItems ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+                Đang tải linh kiện...
+              </div>
+            ) : items.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Không có linh kiện nào khả dụng
+              </div>
+            ) : (
+              <div className="relative" ref={dropdownRef}>
+                <div
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="min-h-[48px] p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-white"
+                >
+                  {selectedItems.length === 0 ? (
+                    <span className="text-gray-500">Chọn linh kiện...</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedItems.map(itemId => {
+                        const item = items.find(i => i._id === itemId);
+                        return item ? (
+                          <span
+                            key={itemId}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
+                          >
+                            {item.name}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleItemToggle(itemId);
+                              }}
+                              className="hover:text-green-600"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                  <ChevronDown 
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-transform ${
+                      isDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                    size={20}
+                  />
+                </div>
+
+                {isDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    {items.map((item) => (
+                      <div
+                        key={item._id}
+                        onClick={() => handleItemToggle(item._id)}
+                        className={`flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                          selectedItems.includes(item._id) ? 'bg-green-50' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            selectedItems.includes(item._id)
+                              ? 'border-green-500 bg-green-500'
+                              : 'border-gray-300'
+                          }`}>
+                            {selectedItems.includes(item._id) && (
+                              <Check className="w-3 h-3 text-white" />
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-800 block">{item.name}</span>
+                            {item.itemTypeId && (
+                              <span className="text-xs text-gray-500">{item.itemTypeId.name}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-semibold text-green-600 text-sm">
+                            {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Liên hệ'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedItems.length > 0 && (
+              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-700">Tổng linh kiện:</span>
+                  <span className="text-lg font-bold text-green-600">
+                    {getSelectedItemTotal().toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
+
+          {(selectedServices.length > 0 || selectedItems.length > 0) && (
+            <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-gray-800 text-lg">Tổng thanh toán:</span>
+                <span className="text-2xl font-bold text-gray-900">
+                  {getGrandTotal().toLocaleString('vi-VN')} đ
+                </span>
+              </div>
+            </div>
+          )}
+
+        </div>
+        <div className="p-6 border-t bg-gray-50 flex justify-end items-center gap-3">
           {selectedOrder.status === "Pending" && onAccept && (
             <button
               onClick={() => {
-                onAccept(selectedOrder._id);
+                onAccept(selectedOrder._id, selectedServices, selectedItems);
                 onClose();
               }}
-              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
-              Thực hiện
+              Xác nhận
             </button>
           )}
         </div>
