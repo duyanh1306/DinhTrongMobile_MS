@@ -2,52 +2,60 @@ import React from "react";
 import {BrowserRouter, Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 import ManagerLayout from "./layouts/ManagerLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import SaleLayout from "./layouts/SaleLayout";
 import TechLayout from "./layouts/TechLayout";
 import CustomerLayout from "./layouts/CustomerLayout";
+
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import VerifyOtp from "./pages/auth/VerifyOtp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import LoginSuccess from "./pages/auth/LoginSuccess";
+
+
 import Home from "./pages/customer/Home";
+import PhoneDetail from "./pages/customer/PhoneDetail";
+import SearchResults from "./pages/customer/SearchResults";
+import Cart from "./pages/customer/Cart";
+import CheckOut from "./pages/customer/Checkout";
+import VnPayReturn from "./pages/customer/VnPayReturn";
+import OrderHistory from "./pages/customer/OrderHistory";
+import BuildPhone from "./pages/customer/BuildPhone";
+import OrderDetail from "./pages/customer/OrderDetail"
+import CategoryPage from "./pages/customer/CategoryPage";
+
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManageStores from "./pages/admin/ManageStore";
 import ManageUser from "./pages/admin/ManageUser";
-import SaleDashboard from "./pages/saleStaff/SaleDashboard";
-import TechDashboard from "./pages/technician/TechDashboard";
-import Profile from "./pages/common/Profile";
+import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
 import AdminPhoneModel from "./pages/admin/AdminPhoneModel";
+import AdminPhone from "./pages/admin/AdminPhone";
 import AdminItemType from "./pages/admin/AdminItemType";
 import AdminItem from "./pages/admin/AdminItem";
+import AdminRecipe from "./pages/admin/AdminRecipe";
 import ManageRepairService from "./pages/admin/ManageRepairService";
 import PurchaseHistory from "./pages/admin/PurchaseHistory";
 import SalesHistory from "./pages/admin/SalesHistory";
 import RepairHistory from "./pages/admin/RepairHistory";
 import InventoryTransactionList from "./pages/admin/InventoryTransactionList";
 import TransferRequestList from "./pages/admin/TransferRequestList";
-import AdminPhone from "./pages/admin/AdminPhone";
-import PhoneDetail from "./pages/customer/PhoneDetail";
-import SearchResults from "./pages/customer/SearchResults";
-import Cart from "./pages/customer/Cart";
-import OrderHistory from "./pages/customer/OrderHistory";
-import AssemblePhone from "./pages/technician/AssemblePhone";
-import RepairOrderList from "./pages/technician/RepairOrderList";
-import RepairInProgress from "./pages/technician/RepairInProgress";
-import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
+import ManageStaffStore from "./pages/admin/ManageStaffStore";
+
+import SaleDashboard from "./pages/saleStaff/SaleDashboard";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
-import BuildPhone from "./pages/customer/BuildPhone";
-import OrderDetail from "./pages/customer/OrderDetail"
 import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
-import AdminPhoneBrand from './pages/admin/AdminPhoneBrand';
-import CategoryPage from "./pages/customer/CategoryPage";
+
+import TechDashboard from "./pages/technician/TechDashboard";
+import AssemblePhone from "./pages/technician/AssemblePhone";
+import RepairOrderList from "./pages/technician/RepairOrderList";
 import TechDecisionList from "./pages/technician/TechDecisionList";
-import AdminRecipe from "./pages/admin/AdminRecipe";
-import ManageStaffStore from "./pages/admin/ManageStaffStore";
+import RepairInProgress from "./pages/technician/RepairInProgress";
+import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
@@ -55,9 +63,8 @@ import ManagerTransferRequest from "./pages/manager/ManagerTransferRequest";
 import ManagerTransferRequestList from "./pages/manager/ManagerTransferRequestList";
 import ManagerTransferRequestDetail from "./pages/manager/ManagerTransferRequestDetail";
 import ManagerStaff from "./pages/manager/ManagerStaff";
-const CustomerProfile = () => (
-    <h2 className="text-xl font-bold">Thông tin tài khoản khách hàng</h2>
-);
+
+import Profile from "./pages/common/Profile";
 
 // Giúp chặn người chưa login hoặc sai quyền truy cập vào các trang nội bộ
 const PrivateRoute = ({children, allowedRoles}) => {
@@ -69,7 +76,6 @@ const PrivateRoute = ({children, allowedRoles}) => {
     }
 
     // user.roleId.id là do backend trả về (VD: "ADMIN", "SALE_STAFF"...)
-    // Cần đảm bảo backend populate roleId, hoặc lưu roleName vào localStorage lúc login
     const userRole = user.roleId?.id || user.roleId;
 
     if (allowedRoles && !allowedRoles.includes(userRole)) {
@@ -78,6 +84,7 @@ const PrivateRoute = ({children, allowedRoles}) => {
 
     return children;
 };
+
 // Tự động bọc Profile bằng Sidebar tương ứng với chức vụ
 const RoleBasedLayout = ({children}) => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -106,20 +113,26 @@ function App() {
             <Routes>
                 {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
                 <Route path="/" element={<Navigate to="/login" replace/>}/>
-                <Route path="/home" element={<Home/>}/>
-                <Route path="/product/:id" element={<PhoneDetail/>}/>
-                <Route path="/search" element={<SearchResults/>}/>
-                <Route path="/cart" element={<Cart/>}/>
-                <Route path="/build-phone" element={<BuildPhone/>}/>
-                <Route path="/order-history" element={<OrderHistory/>}/>
-                <Route path="/order-detail/:id" element={<OrderDetail/>}/>
-                <Route path="/category/:type" element={<CategoryPage/>}/>
                 <Route path="/login" element={<Login/>}/>
                 <Route path="/register" element={<Register/>}/>
                 <Route path="/verify-otp" element={<VerifyOtp/>}/>
                 <Route path="/forgot-password" element={<ForgotPassword/>}/>
                 <Route path="/reset-password" element={<ResetPassword/>}/>
                 <Route path="/login-success" element={<LoginSuccess/>}/>
+
+                <Route path="/home" element={<Home/>}/>
+                <Route path="/category/:type" element={<CategoryPage/>}/>
+                <Route path="/search" element={<SearchResults/>}/>
+                <Route path="/product/:id" element={<PhoneDetail/>}/>
+                <Route path="/build-phone" element={<BuildPhone/>}/>
+                
+            
+                <Route path="/cart" element={<Cart/>}/>
+                <Route path="/checkout" element={<CheckOut />} /> 
+                <Route path="/vnpay-return" element={<VnPayReturn />} />
+                <Route path="/order-history" element={<OrderHistory/>}/>
+                <Route path="/order-detail/:id" element={<OrderDetail/>}/>
+               
 
                 {/* ================= ADMIN ROUTES ================= */}
                 <Route
@@ -132,7 +145,6 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-
                 <Route
                     path="/admin/phone_brands"
                     element={
@@ -254,16 +266,6 @@ function App() {
                     }
                 />
                 <Route
-                    path="/admin/dashboard"
-                    element={
-                        <PrivateRoute allowedRoles={["ADMIN"]}>
-                            <AdminLayout>
-                                <AdminDashboard/>
-                            </AdminLayout>
-                        </PrivateRoute>
-                    }
-                />
-                <Route
                     path="/admin/stores"
                     element={
                         <PrivateRoute allowedRoles={["ADMIN"]}>
@@ -335,6 +337,7 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+
                 {/* ================= TECHNICIAN ROUTES ================= */}
                 <Route
                     path="/tech/dashboard"
@@ -343,17 +346,6 @@ function App() {
                             <TechLayout>
                                 <TechDashboard/>
                             </TechLayout>
-                        </PrivateRoute>
-                    }
-                />
-
-                <Route
-                    path="/profile"
-                    element={
-                        <PrivateRoute>
-                            <RoleBasedLayout>
-                                <Profile/>
-                            </RoleBasedLayout>
                         </PrivateRoute>
                     }
                 />
@@ -377,7 +369,6 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-
                 <Route
                     path="/tech/repair-in-progress"
                     element={
@@ -388,7 +379,6 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-
                 <Route
                     path="/tech/repair-in-progress/:orderId"
                     element={
@@ -399,7 +389,6 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-
                 <Route
                     path="/tech/assemble"
                     element={
@@ -410,6 +399,7 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+
                 {/* ================= MANAGER ROUTES ================= */}
                 <Route
                     path="/manager/dashboard"
@@ -471,6 +461,19 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+
+                {/* ================= PROFILE CHUNG ================= */}
+                <Route
+                    path="/profile"
+                    element={
+                        <PrivateRoute>
+                            <RoleBasedLayout>
+                                <Profile/>
+                            </RoleBasedLayout>
+                        </PrivateRoute>
+                    }
+                />
+
                 {/* ================= 404 NOT FOUND ================= */}
                 <Route
                     path="*"

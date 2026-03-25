@@ -136,19 +136,23 @@ export default function PhoneDetail() {
     const nextImage = () => { if (images.length > 0) setDisplayImage(images[(images.indexOf(displayImage) + 1) % images.length]); };
     const prevImage = () => { if (images.length > 0) setDisplayImage(images[(images.indexOf(displayImage) - 1 + images.length) % images.length]); };
 
+    const buildCartItem = () => {
+        const [cap, gr] = selectedVersionKey.split('|');
+        const finalName = `${model.name} ${gr !== 'Mới' ? `(${gr})` : ''}`.trim();
+        return {
+            productType: 'PHONE', phoneModelId: model._id, name: finalName,
+            capacity: cap, grade: gr, colorName: selectedColor,
+            price: currentPrice, image: displayImage, quantity: 1
+        };
+    };
+
+    // 🌟 NÚT "THÊM GIỎ HÀNG" (Chỉ ném vào giỏ, ở lại trang)
     const handleAddToCart = async () => {
         if (isOutOfStock) return;
         const user = JSON.parse(localStorage.getItem('user'));
         if (!user) { toast.warning("Vui lòng đăng nhập để mua hàng!"); navigate('/login'); return; }
 
-        const [cap, gr] = selectedVersionKey.split('|');
-        const finalName = `${model.name} ${gr !== 'Mới' ? `(${gr})` : ''}`.trim();
-
-        const newItem = {
-            productType: 'PHONE', phoneModelId: model._id, name: finalName,
-            capacity: cap, grade: gr, colorName: selectedColor,
-            price: currentPrice, image: displayImage, quantity: 1
-        };
+        const newItem = buildCartItem();
 
         try {
             await axiosClient.post('/cart/add', { userId: (user._id || user.id), item: newItem });
@@ -157,6 +161,23 @@ export default function PhoneDetail() {
         } catch (error) { toast.error("Lỗi khi thêm vào giỏ hàng."); }
     };
 
+    // 🌟 NÚT "MUA NGAY" (Ném vào giỏ -> Chuyển thẳng sang trang Checkout)
+    const handleBuyNow = async () => {
+        if (isOutOfStock) return;
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) { toast.warning("Vui lòng đăng nhập để mua hàng!"); navigate('/login'); return; }
+
+        const newItem = buildCartItem();
+
+        try {
+            // Thêm vào giỏ hàng ngầm để lưu lại vết nếu khách huỷ thanh toán
+            await axiosClient.post('/cart/add', { userId: (user._id || user.id), item: newItem });
+            window.dispatchEvent(new Event('cartUpdated')); 
+            
+            // Chuyển thẳng sang trang Checkout kèm theo sản phẩm này
+            navigate('/checkout', { state: { selectedItems: [newItem] } });
+        } catch (error) { toast.error("Lỗi khi xử lý mua ngay."); }
+    };
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
     if (loading) return <CustomerLayout><div className="min-h-[60vh] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div></div></CustomerLayout>;
@@ -240,7 +261,7 @@ export default function PhoneDetail() {
                         </div>
 
                         <div className="mt-auto flex flex-col sm:flex-row gap-3">
-                            <button onClick={() => { handleAddToCart(); navigate('/cart'); }} disabled={isOutOfStock} className={`flex-1 py-4 rounded-xl font-bold text-lg flex flex-col items-center justify-center leading-tight transition-all ${isOutOfStock ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 hover:-translate-y-0.5'}`}>
+                            <button onClick={handleBuyNow} disabled={isOutOfStock} className={`flex-1 py-4 rounded-xl font-bold text-lg flex flex-col items-center justify-center leading-tight transition-all ${isOutOfStock ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 hover:-translate-y-0.5'}`}>
                                 <span className="uppercase">Mua ngay</span>
                                 <span className="text-[11px] font-normal">(Giao tận nơi hoặc nhận tại cửa hàng)</span>
                             </button>

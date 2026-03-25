@@ -1,0 +1,135 @@
+const { buildPaymentUrl, verifyReturn } = require('../payments/vnpay');
+const querystring = require('querystring');
+const Order = require('../models/Order'); 
+const User = require('../models/User');
+const Phone = require('../models/Phone'); 
+const Item = require('../models/Item');   
+const { sendInvoiceEmail } = require('../utils/sendEmail'); 
+
+function getClientIp(req) {
+	const xff = req.headers['x-forwarded-for'];
+	if (xff) return xff.split(',')[0].trim();
+	return req.connection.remoteAddress || req.socket.remoteAddress || req.ip || '127.0.0.1';
+}
+// Hàm tiện ích: Trừ kho tự động
+const deductInventory = async (orderItems) => {
+    try {
+        for (const item of orderItems) {
+            // 1. Nếu là Điện thoại nguyên chiếc (PHONE)
+            if (item.productType === 'PHONE' && item.phoneModelId) {
+                // Tìm 1 chiếc điện thoại cụ thể trong kho đang rảnh
+                const phoneToSell = await Phone.findOneAndUpdate(
+                    {
+                        phoneModelId: item.phoneModelId,
+                        capacity: item.capacity,
+                        colorName: item.colorName,
+                        status: 'in_stock'
+                    },
+                    { status: 'sold' }, // Đổi trạng thái thành Đã bán
+                    { new: true }
+                );
+                if (phoneToSell) {
+                    console.log(`📦 Đã xuất kho 1 Điện thoại: ${item.name} (Serial: ${phoneToSell.serialCode})`);
+                } else {
+                    console.log(`⚠️ Cảnh báo: Không tìm thấy ${item.name} trong kho để trừ!`);
+                }
+            } 
+            // 2. Nếu là Máy Tự Ráp (CUSTOM_BUILD) chứa nhiều linh kiện
+            else if (item.productType === 'CUSTOM_BUILD' && item.selectedParts && item.selectedParts.length > 0) {
+                // Duyệt qua từng linh kiện nhỏ để đổi trạng thái
+                for (const partId of item.selectedParts) {
+                    await Item.findByIdAndUpdate(
+                        partId,
+                        { status: 'assembled_and_sold' } // Đổi trạng thái thành Đã ráp & bán
+                    );
+                }
+                console.log(`🔧 Đã xuất kho ${item.selectedParts.length} linh kiện cho máy ráp: ${item.name}`);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Lỗi trừ kho:', error);
+    }
+};
+exports.createVnpayPayment = async (req, res) => {
+	try {
+		const { amountVnd, orderId, orderInfo = 'Course payment', bankCode, locale } = req.body;
+
+		if (!amountVnd || !orderId) {
+			return res.status(400).json({ success: false, message: 'amountVnd and orderId are required' });
+		}
+
+		const url = buildPaymentUrl({
+			amountVnd,
+			orderId,
+			orderInfo,
+			bankCode,
+			locale,
+			ipAddr: getClientIp(req),
+			returnUrl: process.env.VNP_RETURN_URL,
+			vnpUrl: process.env.VNP_PAYMENT_URL,
+			tmnCode: process.env.VNP_TMN_CODE,
+			secretKey: process.env.VNP_HASH_SECRET,
+		});
+
+		return res.status(200).json({ success: true, paymentUrl: url });
+	} catch (e) {
+		console.error('❌ VNPay create error:', e);
+		return res.status(500).json({ success: false, message: 'Lỗi tạo link thanh toán VNPay' });
+	}
+};
+
+exports.vnpayReturn = async (req, res) => {
+	try {
+		const valid = verifyReturn(req.query, process.env.VNP_HASH_SECRET);
+		if (!valid) {
+			return res.status(400).json({ success: false, message: 'Invalid checksum' });
+		}
+        
+		const code = req.query.vnp_ResponseCode;
+        const orderId = req.query.vnp_TxnRef; // Đây là mã MongoDB _id mà web gửi lên VNPAY
+
+        if (code === '00') {
+            const updatedOrder = await Order.findByIdAndUpdate(
+                orderId,
+                { paymentStatus: 'Paid', orderStatus: 'Processing' },
+                { new: true }
+            );
+
+            if (updatedOrder) {
+                // 1. Lấy Email và tự động gửi Hóa đơn (Chạy ngầm)
+                const user = await User.findById(updatedOrder.userId);
+                const userEmail = user?.email || "email_du_phong@gmail.com";
+                const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
+                sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
+
+                // 2. 🌟 GỌI HÀM TRỪ KHO TỰ ĐỘNG 🌟 (Chạy ngầm)
+                deductInventory(updatedOrder.items).catch(err => console.error(err));
+            }
+        }
+
+		const clientReturn = process.env.VNP_CLIENT_RETURN_URL || process.env.VNP_FRONTEND_RETURN_URL;
+		if (clientReturn) {
+			const qs = querystring.stringify(req.query);
+			const sep = clientReturn.includes('?') ? '&' : '?';
+			return res.redirect(302, `${clientReturn}${sep}${qs}`);
+		}
+
+		return res.status(200).json({ success: code === '00', code, data: req.query });
+	} catch (e) {
+		console.error('❌ VNPay return error:', e);
+		return res.status(500).json({ success: false, message: 'Lỗi Return VNPay' });
+	}
+};
+
+exports.vnpayIpn = async (req, res) => {
+	try {
+		const valid = verifyReturn(req.query, process.env.VNP_HASH_SECRET);
+		if (!valid) {
+			return res.json({ RspCode: '97', Message: 'Invalid Checksum' });
+		}
+		return res.json({ RspCode: '00', Message: 'Confirm Success' });
+	} catch (e) {
+		console.error('❌ VNPay IPN error:', e);
+		return res.json({ RspCode: '99', Message: 'Unknown error' });
+	}
+};

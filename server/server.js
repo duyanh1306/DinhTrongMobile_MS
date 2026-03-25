@@ -30,6 +30,7 @@ const cartRoute = require("./routes/cartRoute");
 const orderRoute = require("./routes/orderRoute");
 const phoneBrand = require("./routes/phone_brandRoute");
 const review = require("./routes/reviewRoute");
+const paymentRoute = require('./routes/paymentRoute');
 connectDB();
 
 app.use(
@@ -58,6 +59,7 @@ app.use("/api/cart", cartRoute);
 app.use("/api/orders", orderRoute);
 app.use("/api/phone_brands", phoneBrand);
 app.use("/api/reviews", review);
+app.use('/api', paymentRoute);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
