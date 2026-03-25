@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Wrench, AlertCircle, CheckSquare, Calendar, Clock, User, Phone, RefreshCw } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import { formatPrice, formatDate, getStatusColor, getStatusBadge, getStatusText } from "../../utils";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function TechDashboard() {
   const [repairOrders, setRepairOrders] = useState([]);
@@ -58,6 +62,67 @@ export default function TechDashboard() {
     setStats({ assigned, waitingParts, completedToday, appointments });
   };
 
+  const totalRequestsChartData = {
+    labels: ['Đã xong', 'Đang xử lý'],
+    datasets: [{
+      data: [
+        repairOrders.filter(o => o.status === 'Completed').length,
+        repairOrders.filter(o => o.status !== 'Completed').length
+      ],
+      backgroundColor: ['#22c55e', '#f97316'],
+      borderWidth: 0,
+    }]
+  };
+
+  const inProgressChartData = {
+    labels: ['Chờ linh kiện', 'Lịch hẹn'],
+    datasets: [{
+      data: [stats.waitingParts, stats.appointments],
+      backgroundColor: ['#3b82f6', '#8b5cf6'],
+      borderWidth: 0,
+    }]
+  };
+
+  const completedTodayChartData = {
+    labels: ['Hôm nay', 'Tổng'],
+    datasets: [{
+      data: [stats.completedToday, repairOrders.filter(o => o.status === 'Completed').length - stats.completedToday],
+      backgroundColor: ['#22c55e', '#86efac'],
+      borderWidth: 0,
+    }]
+  };
+
+  const pendingChartData = {
+    labels: ['Chưa nhận', 'Chờ linh kiện'],
+    datasets: [{
+      data: [
+        repairOrders.filter(o => o.status === 'Pending').length,
+        stats.waitingParts
+      ],
+      backgroundColor: ['#f97316', '#fbbf24'],
+      borderWidth: 0,
+    }]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: true,
+    cutout: '70%',
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label: function(context) {
+            return `${context.label}: ${context.raw}`;
+          }
+        }
+      }
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
 
@@ -86,10 +151,6 @@ export default function TechDashboard() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Làm mới
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
-              <Wrench className="w-4 h-4" />
-              Tạo Request
-            </button>
           </div>
         </header>
 
@@ -107,73 +168,81 @@ export default function TechDashboard() {
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
             {/* Tổng quan yêu cầu */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col justify-between hover:shadow-xl transition">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">Tổng yêu cầu</p>
-                  <h3 className="text-3xl font-bold mt-1 text-gray-800">{repairOrders.length}</h3>
-                  <p className="text-xs text-gray-400 mt-2">{stats.completedToday} hoàn thành hôm nay</p>
+              <div className="flex flex-col h-full justify-between">
+                <div className="flex flex-row items-center justify-between flex-1">
+                  <div className="flex-1">
+                    <p className="text-gray-500 text-sm font-medium">Tổng yêu cầu</p>
+                    <h3 className="text-3xl font-bold mt-1 text-gray-800">{repairOrders.length}</h3>
+                    <p className="text-xs text-gray-400 mt-2">{stats.completedToday} hoàn thành hôm nay</p>
+                  </div>
+                  <div className="w-1/2 h-32 flex items-center justify-center">
+                    <Doughnut data={totalRequestsChartData} options={chartOptions} />
+                  </div>
                 </div>
-                <div className="bg-blue-100 p-3 rounded-lg">
-                  <Wrench className="text-blue-500 w-6 h-6" />
+                <div className="flex justify-between items-center mt-6 border-t pt-4">
+                  <span className="text-xs text-green-600 font-semibold">{repairOrders.filter(o => o.status === 'Completed').length} đã xong</span>
+                  <span className="text-xs text-orange-500 font-semibold">{repairOrders.filter(o => o.status !== 'Completed').length} đang xử lý</span>
                 </div>
-              </div>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-xs text-green-600 font-semibold">{repairOrders.filter(o => o.status === 'Completed').length} đã xong</span>
-                <span className="text-xs text-orange-500 font-semibold">{repairOrders.filter(o => o.status !== 'Completed').length} đang xử lý</span>
               </div>
             </div>
 
             {/* Đang xử lý */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col justify-between hover:shadow-xl transition">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">Đang xử lý</p>
-                  <h3 className="text-3xl font-bold mt-1 text-blue-600">{repairOrders.filter(o => o.status === 'In Progress').length}</h3>
-                  <p className="text-xs text-gray-400 mt-2">{stats.assigned} đơn được giao</p>
+              <div className="flex flex-col h-full justify-between">
+                <div className="flex flex-row items-center justify-between flex-1">
+                  <div className="flex-1">
+                    <p className="text-gray-500 text-sm font-medium">Đang xử lý</p>
+                    <h3 className="text-3xl font-bold mt-1 text-blue-600">{repairOrders.filter(o => o.status === 'In Progress').length}</h3>
+                    <p className="text-xs text-gray-400 mt-2">{stats.assigned} đơn được giao</p>
+                  </div>
+                  <div className="w-1/2 h-32 flex items-center justify-center">
+                    <Doughnut data={inProgressChartData} options={chartOptions} />
+                  </div>
                 </div>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <RefreshCw className="text-blue-400 w-6 h-6" />
+                <div className="flex justify-between items-center mt-6 border-t pt-4">
+                  <span className="text-xs text-gray-500">{stats.waitingParts} chờ linh kiện</span>
+                  <span className="text-xs text-gray-500">{stats.appointments} lịch hẹn</span>
                 </div>
-              </div>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-xs text-gray-500">{stats.waitingParts} chờ linh kiện</span>
-                <span className="text-xs text-gray-500">{stats.appointments} lịch hẹn</span>
               </div>
             </div>
 
             {/* Đã hoàn thành hôm nay */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col justify-between hover:shadow-xl transition">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">Hoàn thành hôm nay</p>
-                  <h3 className="text-3xl font-bold mt-1 text-green-600">{stats.completedToday}</h3>
-                  <p className="text-xs text-gray-400 mt-2">Tổng: {repairOrders.filter(o => o.status === 'Completed').length}</p>
+              <div className="flex flex-col h-full justify-between">
+                <div className="flex flex-row items-center justify-between flex-1">
+                  <div className="flex-1">
+                    <p className="text-gray-500 text-sm font-medium">Hoàn thành hôm nay</p>
+                    <h3 className="text-3xl font-bold mt-1 text-green-600">{stats.completedToday}</h3>
+                    <p className="text-xs text-gray-400 mt-2">Tổng: {repairOrders.filter(o => o.status === 'Completed').length}</p>
+                  </div>
+                  <div className="w-1/2 h-32 flex items-center justify-center">
+                    <Doughnut data={completedTodayChartData} options={chartOptions} />
+                  </div>
                 </div>
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <CheckSquare className="text-green-500 w-6 h-6" />
+                <div className="flex justify-between items-center mt-6 border-t pt-4">
+                  <span className="text-xs text-gray-500">{stats.completedToday} trong ngày</span>
+                  <span className="text-xs text-gray-500">{repairOrders.filter(o => o.status === 'Completed').length} tổng</span>
                 </div>
-              </div>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-xs text-gray-500">{stats.completedToday} trong ngày</span>
-                <span className="text-xs text-gray-500">{repairOrders.filter(o => o.status === 'Completed').length} tổng</span>
               </div>
             </div>
 
             {/* Đơn chờ xử lý (Overdue) */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col justify-between hover:shadow-xl transition">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">Đơn chờ xử lý</p>
-                  <h3 className="text-3xl font-bold mt-1 text-orange-500">{repairOrders.filter(o => o.status === 'Pending').length}</h3>
-                  <p className="text-xs text-gray-400 mt-2">{stats.appointments} lịch hẹn khách</p>
+              <div className="flex flex-col h-full justify-between">
+                <div className="flex flex-row items-center justify-between flex-1">
+                  <div className="flex-1">
+                    <p className="text-gray-500 text-sm font-medium">Đơn chờ xử lý</p>
+                    <h3 className="text-3xl font-bold mt-1 text-orange-500">{repairOrders.filter(o => o.status === 'Pending').length}</h3>
+                    <p className="text-xs text-gray-400 mt-2">{stats.appointments} lịch hẹn khách</p>
+                  </div>
+                  <div className="w-1/2 h-32 flex items-center justify-center">
+                    <Doughnut data={pendingChartData} options={chartOptions} />
+                  </div>
                 </div>
-                <div className="bg-orange-50 p-3 rounded-lg">
-                  <AlertCircle className="text-orange-500 w-6 h-6" />
+                <div className="flex justify-between items-center mt-6 border-t pt-4">
+                  <span className="text-xs text-gray-500">{repairOrders.filter(o => o.status === 'Pending').length} chưa nhận</span>
+                  <span className="text-xs text-gray-500">{stats.waitingParts} chờ linh kiện</span>
                 </div>
-              </div>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-xs text-gray-500">{repairOrders.filter(o => o.status === 'Pending').length} chưa nhận</span>
-                <span className="text-xs text-gray-500">{stats.waitingParts} chờ linh kiện</span>
               </div>
             </div>
 
