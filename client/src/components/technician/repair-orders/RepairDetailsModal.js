@@ -346,19 +346,18 @@ const RepairDetailsModal = ({
               </div>
             )}
           </div>
-
-          {(selectedServices.length > 0 || selectedItems.length > 0) && (
-            <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-gray-800 text-lg">Tổng thanh toán:</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {getGrandTotal().toLocaleString('vi-VN')} đ
-                </span>
-              </div>
-            </div>
-          )}
-
         </div>
+        {(selectedServices.length > 0 || selectedItems.length > 0) && (
+          <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300 flex justify-between items-center">
+            <div>
+              <span className="font-bold text-gray-800 text-lg">Tổng thanh toán:</span>
+            </div>
+            <span className="text-2xl font-bold text-gray-900">
+              {getGrandTotal().toLocaleString('vi-VN')} đ
+            </span>
+          </div>
+        )}
+
         <div className="p-6 border-t bg-gray-50 flex justify-end items-center gap-3">
           {selectedOrder.status === "Pending" && onAccept && (
             <button
