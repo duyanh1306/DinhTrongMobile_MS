@@ -45,10 +45,17 @@ const transferRequestSchema = new Schema(
                 ref: "Item_type"
             },
             quantity: Number,
+        }],
+        phoneModel: [{
+           phoneModels: {
+               type: Schema.Types.ObjectId,
+               ref: "Phone_model"
+           },
+           quantity: Number
         }]
     },
     {
-        timestamps: true, // Tự động tạo createdAt và updatedAt
+        timestamps: true,
     }
 );
 

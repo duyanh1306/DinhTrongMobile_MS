@@ -53,7 +53,7 @@ export default function ManageRepairService() {
             setPagination(data.pagination);
         } catch (error) {
             console.error("Error fetching repair services:", error);
-            toast.error("Failed to fetch repair services");
+            toast.error("Lấy danh sách dịch vụ sửa chữa thất bại");
         } finally {
             setLoading(false);
         }
@@ -80,7 +80,7 @@ export default function ManageRepairService() {
         e.preventDefault();
 
         if (!formData.name.trim()) {
-            toast.error("Name is required");
+            toast.error("Tên dịch vụ là bắt buộc");
             return;
         }
 
@@ -95,19 +95,19 @@ export default function ManageRepairService() {
                 await axios.put(`http://localhost:9999/api/repair_services/update/${editingId}`, payload, {
                     headers: {Authorization: `Bearer ${token}`},
                 });
-                toast.success("Repair service updated successfully");
+                toast.success("Cập nhật dịch vụ sửa chữa thành công");
             } else {
                 await axios.post("http://localhost:9999/api/repair_services/create", payload, {
                     headers: {Authorization: `Bearer ${token}`},
                 });
-                toast.success("Repair service created successfully");
+                toast.success("Tạo dịch vụ sửa chữa thành công");
             }
 
             setShowModal(false);
             fetchRepairServices();
         } catch (error) {
             console.error("Error saving repair service:", error);
-            toast.error(error.response?.data?.message || "Failed to save repair service");
+            toast.error(error.response?.data?.message || "Lưu dịch vụ sửa chữa thất bại");
         }
     };
 
@@ -142,14 +142,14 @@ export default function ManageRepairService() {
             <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                     <Wrench className="text-blue-600" size={28}/>
-                    <h1 className="text-2xl font-bold text-gray-800">Manage Repair Services</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Dịch vụ Sửa chữa</h1>
                 </div>
                 <button
                     onClick={handleCreate}
                     className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
                     <Plus size={20}/>
-                    <span>Add Service</span>
+                    <span>Thêm Dịch vụ</span>
                 </button>
             </div>
 
@@ -161,7 +161,7 @@ export default function ManageRepairService() {
                                     size={20}/>
                             <input
                                 type="text"
-                                placeholder="Search repair services..."
+                                placeholder="Tìm kiếm dịch vụ sửa chữa..."
                                 value={search}
                                 onChange={handleSearch}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -169,7 +169,7 @@ export default function ManageRepairService() {
                         </div>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>Total: {pagination.totalItems} items</span>
+                        <span>Tổng cộng: {pagination.totalItems} mục</span>
                     </div>
                 </div>
             </div>
@@ -185,7 +185,7 @@ export default function ManageRepairService() {
                                     onClick={() => handleSort('name')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Name</span>
+                                        <span>Tên</span>
                                         {sortBy === 'name' && (
                                             <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
                                         )}
@@ -196,7 +196,7 @@ export default function ManageRepairService() {
                                     onClick={() => handleSort('price')}
                                 >
                                     <div className="flex items-center space-x-1">
-                                        <span>Price</span>
+                                        <span>Giá</span>
                                         {sortBy === 'price' && (
                                             <ArrowUpDown
                                                 className={`w-4 h-4 ${sortOrder === 'asc' ? 'transform rotate-180' : ''}`}/>
@@ -204,7 +204,7 @@ export default function ManageRepairService() {
                                     </div>
                                 </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    Hành động
                                 </th>
                             </tr>
                             </thead>
@@ -212,13 +212,13 @@ export default function ManageRepairService() {
                             {loading ? (
                                 <tr>
                                     <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
-                                        Loading...
+                                        Đang tải...
                                     </td>
                                 </tr>
                             ) : repairServices.length === 0 ? (
                                 <tr>
                                     <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
-                                        No repair services found
+                                        Không tìm thấy dịch vụ sửa chữa nào
                                     </td>
                                 </tr>
                             ) : (
@@ -258,29 +258,29 @@ export default function ManageRepairService() {
                                     disabled={pagination.currentPage === 1}
                                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Previous
+                                    Trước
                                 </button>
                                 <button
                                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                                     disabled={pagination.currentPage === pagination.totalPages}
                                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Next
+                                    Sau
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm text-gray-700">
-                                        Showing{' '}
+                                        Hiển thị{' '}
                                         <span className="font-medium">
                                             {(pagination.currentPage - 1) * pagination.itemsPerPage + 1}
                                         </span>{' '}
-                                        to{' '}
+                                        đến{' '}
                                         <span className="font-medium">
                                             {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)}
                                         </span>{' '}
-                                        of{' '}
-                                        <span className="font-medium">{pagination.totalItems}</span> results
+                                        của{' '}
+                                        <span className="font-medium">{pagination.totalItems}</span> kết quả
                                     </p>
                                 </div>
                                 <div>
@@ -325,7 +325,7 @@ export default function ManageRepairService() {
                         <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-medium text-gray-900">
-                                    {isEditing ? 'Edit Repair Service' : 'Add Repair Service'}
+                                    {isEditing ? 'Chỉnh sửa Dịch vụ Sửa chữa' : 'Thêm Dịch vụ Sửa chữa'}
                                 </h3>
                                 <button
                                     onClick={() => setShowModal(false)}
@@ -337,20 +337,20 @@ export default function ManageRepairService() {
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Service Name
+                                        Tên Dịch vụ
                                     </label>
                                     <input
                                         type="text"
                                         value={formData.name}
                                         onChange={(e) => setFormData({...formData, name: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Enter service name"
+                                        placeholder="Nhập tên dịch vụ"
                                         required
                                     />
                                 </div>
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Price
+                                        Giá
                                     </label>
                                     <input
                                         type="number"
@@ -359,7 +359,7 @@ export default function ManageRepairService() {
                                         value={formData.price}
                                         onChange={(e) => setFormData({...formData, price: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Enter price (optional)"
+                                        placeholder="Nhập giá (tùy chọn)"
                                     />
                                 </div>
                                 <div className="flex justify-end space-x-3">
@@ -368,13 +368,13 @@ export default function ManageRepairService() {
                                         onClick={() => setShowModal(false)}
                                         className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
                                     >
-                                        Cancel
+                                        Hủy
                                     </button>
                                     <button
                                         type="submit"
                                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                                     >
-                                        {isEditing ? 'Update' : 'Create'}
+                                        {isEditing ? 'Cập nhật' : 'Tạo'}
                                     </button>
                                 </div>
                             </form>

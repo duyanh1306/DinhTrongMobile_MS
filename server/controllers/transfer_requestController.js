@@ -56,7 +56,7 @@ const createTransferRequest = async (req, res) => {
         if (fromStoreId === toStoreId) {
             return res.status(400).json({
                 success: false,
-                message: "From store and to store must be different"
+                message: "Cửa hàng đến và đi phải khác nhau"
             });
         }
 
@@ -95,7 +95,7 @@ const createTransferRequest = async (req, res) => {
             details: savedDetails
         });
     } catch (error) {
-        console.error("Error creating transfer request:", error);
+        console.error("Lỗi tạo đơn vận chuyển:", error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -156,7 +156,7 @@ const createTransferRequestForRepairOrder = async (repairOrderId, selectedItems,
 
         return transferRequests;
     } catch (error) {
-        console.error("Error creating automatic transfer requests:", error);
+        console.error("Lỗi tự động tạo đơn vận chuyển:", error);
         throw error;
     }
 };
@@ -175,7 +175,7 @@ const getTransferRequestById = async (req, res) => {
         if (!transferRequest) {
             return res.status(404).json({
                 success: false,
-                message: "Transfer request not found"
+                message: "Không tìm thấy yêu cầu vận chuyển"
             });
         }
 
@@ -196,14 +196,14 @@ const approveTransferRequest = async (req, res) => {
         if (!transferRequest) {
             return res.status(404).json({
                 success: false,
-                message: "Transfer request not found"
+                message: "Không tìm thấy yêu cầu vận chuyển"
             });
         }
 
         if (transferRequest.status?.toUpperCase() !== "PENDING") {
             return res.status(400).json({
                 success: false,
-                message: "Transfer request must be in PENDING status to approve"
+                message: "Yêu cầu vận chuyển phải trong trạng thái Chờ để được duyệt"
             });
         }
 
@@ -221,7 +221,7 @@ const approveTransferRequest = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: "Transfer request approved successfully",
+            message: "Yêu cầu vận chuyển đã duyệt",
             data: updatedRequest
         });
     } catch (error) {
@@ -239,18 +239,17 @@ const rejectTransferRequest = async (req, res) => {
         if (!transferRequest) {
             return res.status(404).json({
                 success: false,
-                message: "Transfer request not found"
+                message: "Không tìm thấy yêu cầu vận chuyển"
             });
         }
 
         if (transferRequest.status?.toUpperCase() !== "PENDING") {
             return res.status(400).json({
                 success: false,
-                message: "Transfer request must be in PENDING status to reject"
+                message: "Yêu cầu vận chuyển phải trong trạng thái Chờ để từ chối"
             });
         }
 
-        // Update status to REJECTED
         transferRequest.status = "REJECTED";
         await transferRequest.save();
 
@@ -263,7 +262,7 @@ const rejectTransferRequest = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: "Transfer request rejected successfully",
+            message: "Yêu cầu vận chuyển đã từ chối",
             data: updatedRequest
         });
     } catch (error) {
@@ -271,11 +270,10 @@ const rejectTransferRequest = async (req, res) => {
     }
 };
 
-// Xác nhận gửi hàng (từ cửa hàng gửi)
 const confirmShipment = async (req, res) => {
     try {
         const {id} = req.params;
-        const {note, items} = req.body; // Get note and items from request body
+        const {note, items} = req.body;
         const userId = req.user?._id || req.user?.id;
 
         const transferRequest = await TransferRequest.findById(id);
@@ -283,36 +281,31 @@ const confirmShipment = async (req, res) => {
         if (!transferRequest) {
             return res.status(404).json({
                 success: false,
-                message: "Transfer request not found"
+                message: "Không tìm thấy yêu cầu vận chuyển"
             });
         }
 
         if (transferRequest.status?.toUpperCase() !== "APPROVED") {
             return res.status(400).json({
                 success: false,
-                message: "Transfer request must be in APPROVED status to confirm shipment"
+                message: "Yêu cầu vận chuyển phải trong trạng thái Duyệt để xác nhận vận chuyển"
             });
         }
 
-        // Update note if provided
         if (note !== undefined) {
             transferRequest.note = note;
         }
 
-        // Update status to IN PROGRESS and set approvedBy
         transferRequest.status = "IN PROGRESS";
         transferRequest.approvedBy = userId;
         await transferRequest.save();
 
-        // Create or update transfer request details with the items
         const TransferRequestDetail = require("../models/Transfer_request_detail");
         
         if (items && items.length > 0) {
-            // Check if details already exist
             let existingDetails = await TransferRequestDetail.findOne({transferRequestId: id});
             
             if (existingDetails) {
-                // Update existing details
                 existingDetails.itemId = items.map(item => item.id);
                 if (note !== undefined) {
                     existingDetails.note = note;
@@ -320,7 +313,6 @@ const confirmShipment = async (req, res) => {
                 existingDetails.status = "IN PROGRESS";
                 await existingDetails.save();
             } else {
-                // Create new details
                 await TransferRequestDetail.create({
                     transferRequestId: id,
                     itemId: items.map(item => item.id),
@@ -339,7 +331,7 @@ const confirmShipment = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: "Shipment confirmed successfully",
+            message: "Vận chuyển thành công",
             data: updatedRequest
         });
     } catch (error) {
@@ -357,14 +349,14 @@ const confirmReceipt = async (req, res) => {
         if (!transferRequest) {
             return res.status(404).json({
                 success: false,
-                message: "Transfer request not found"
+                message: "Không tìm thấy yêu cầu vận chuyển"
             });
         }
 
         if (transferRequest.status?.toUpperCase() !== "IN PROGRESS") {
             return res.status(400).json({
                 success: false,
-                message: "Transfer request must be in IN PROGRESS status to confirm receipt"
+                message: "Yêu cầu vận chuyện phải trong trạng thái Đang vận chuyển để xác nhận"
             });
         }
 
