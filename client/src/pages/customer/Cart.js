@@ -49,22 +49,15 @@ export default function Cart() {
 
             const fetchedCart = cartRes.data.data || { items: [], totalPrice: 0 };
             
-            // 🌟 LOGIC LỌC GIỎ HÀNG THEO CỬA HÀNG ĐANG CHỌN 🌟
             const storeSpecificItems = fetchedCart.items.filter(item => {
                 const iStoreId = item.storeId?._id || item.storeId;
-                
-                // Cứu cánh: Nếu món hàng này được thêm từ trước khi có tính năng đa chi nhánh (không có storeId),
-                // hệ thống sẽ mặc định gán nó cho hiển thị ở Cửa hàng chính (index 0) để không bị mất.
                 if (!iStoreId) {
                     return storeData.length > 0 && String(activeStore) === String(storeData[0]._id);
                 }
-                
                 return String(iStoreId) === String(activeStore);
             });
 
             setCart({ ...fetchedCart, items: storeSpecificItems });
-            
-            // Mặc định tick chọn tất cả hàng CỦA STORE NÀY
             setSelectedItemIds(storeSpecificItems.map(item => item._id));
 
             const allPhones = phonesRes.data.data || [];
@@ -104,7 +97,6 @@ export default function Cart() {
         if (selectedItemIds.length === cart.items.length && cart.items.length > 0) {
             setSelectedItemIds([]); 
         } else {
-            // Chỉ chọn những món còn hàng (Phòng khi khách khác vừa mua mất)
             const availableItems = cart.items.filter(item => {
                 if (item.productType === 'CUSTOM_BUILD') return true;
                 const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
@@ -121,7 +113,6 @@ export default function Cart() {
 
     const updateQuantity = async (item, newQuantity) => {
         if (newQuantity < 1) return;
-        
         if (item.productType === 'CUSTOM_BUILD') return toast.warning("Máy tự ráp chỉ được mua số lượng 1 cho mỗi cấu hình!");
 
         const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
@@ -152,9 +143,15 @@ export default function Cart() {
         } catch (error) { toast.error("Lỗi khi xóa sản phẩm"); }
     };
 
+    // 🌟 CHUYỂN HƯỚNG SANG TRANG CHECKOUT VÀ GỬI KÈM DỮ LIỆU
     const handleCheckout = () => {
         if (selectedItemIds.length === 0) return toast.warning("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán!");
-        alert("Chức năng thanh toán sắp ra mắt!");
+        
+        // Lấy ra danh sách các món hàng mà khách đang tick chọn
+        const selectedItems = cart.items.filter(item => selectedItemIds.includes(item._id));
+        
+        // Chuyển hướng sang trang Checkout kèm theo data
+        navigate('/checkout', { state: { selectedItems } });
     };
 
     if (loading) return <CustomerLayout><div className="py-20 text-center text-blue-600 font-semibold animate-pulse">Đang tải giỏ hàng...</div></CustomerLayout>;
@@ -189,7 +186,7 @@ export default function Cart() {
                     <div className="bg-white rounded-2xl p-10 text-center shadow-sm border border-gray-100 flex flex-col items-center">
                         <img src="https://cellphones.com.vn/cart/Cart-empty-v2.png" alt="Empty Cart" className="w-48 mb-4 opacity-80" />
                         <h2 className="text-lg font-bold text-gray-700 mb-2">Giỏ hàng chưa có sản phẩm nào</h2>
-                        <Link to="/home" className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 mt-4 transition">Về trang chủ</Link>
+                        <Link to="/home" className="px-6 py-2.5 bg-[#e01a22] text-white font-bold rounded-xl hover:bg-red-700 mt-4 transition">Về trang chủ mua sắm</Link>
                     </div>
                 ) : (
                     <div className="flex flex-col lg:flex-row gap-6">
@@ -200,7 +197,7 @@ export default function Cart() {
                                         type="checkbox" 
                                         checked={selectedItemIds.length === cart.items.length && cart.items.length > 0}
                                         onChange={toggleSelectAll}
-                                        className="w-5 h-5 accent-blue-600 cursor-pointer rounded"
+                                        className="w-5 h-5 accent-red-600 cursor-pointer rounded"
                                     />
                                     <span className="font-semibold text-gray-700">Chọn tất cả ({cart.items.length} sản phẩm)</span>
                                 </label>
@@ -214,7 +211,7 @@ export default function Cart() {
                                 const isOutOfStock = item.productType === 'PHONE' && maxStock === 0;
 
                                 return (
-                                    <div key={item._id} className={`bg-white p-4 rounded-2xl shadow-sm border transition-all flex gap-4 relative ${selectedItemIds.includes(item._id) ? 'border-blue-400 bg-blue-50/20' : 'border-gray-100'} ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`}>
+                                    <div key={item._id} className={`bg-white p-4 rounded-2xl shadow-sm border transition-all flex gap-4 relative ${selectedItemIds.includes(item._id) ? 'border-red-400 bg-red-50/20' : 'border-gray-100'} ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`}>
                                         
                                         <button onClick={() => removeItem(item._id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition">
                                             <Trash2 size={20} />
@@ -226,7 +223,7 @@ export default function Cart() {
                                                 disabled={isOutOfStock}
                                                 checked={selectedItemIds.includes(item._id) && !isOutOfStock}
                                                 onChange={() => toggleSelectItem(item._id)}
-                                                className="w-5 h-5 accent-blue-600 cursor-pointer rounded disabled:cursor-not-allowed"
+                                                className="w-5 h-5 accent-red-600 cursor-pointer rounded disabled:cursor-not-allowed"
                                             />
                                         </div>
 
@@ -244,7 +241,7 @@ export default function Cart() {
                                                     </div>
                                                 ) : (
                                                     <div className="mt-2 space-y-1">
-                                                        <span className="inline-block text-blue-600 bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider mb-1">Máy ráp theo yêu cầu</span>
+                                                        <span className="inline-block text-red-600 bg-red-100 border border-red-200 px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider mb-1">Máy ráp theo yêu cầu</span>
                                                         {item.selectedParts && item.selectedParts.map((part, idx) => (
                                                             <div key={idx} className="text-xs text-gray-500 flex items-center gap-1.5"><span className="w-1 h-1 bg-gray-400 rounded-full"></span> {part.name}</div>
                                                         ))}
@@ -287,7 +284,10 @@ export default function Cart() {
                                     <span className="font-bold text-gray-800">Tạm tính ({selectedItemIds.length} sp):</span>
                                     <span className="text-2xl font-extrabold text-red-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(getSelectedTotalPrice())}</span>
                                 </div>
-                                <button onClick={handleCheckout} className={`w-full py-3.5 font-bold rounded-xl flex items-center justify-center gap-2 mb-3 transition shadow-md ${selectedItemIds.length > 0 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/30' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                                <button 
+                                    onClick={handleCheckout} 
+                                    className={`w-full py-3.5 font-bold rounded-xl flex items-center justify-center gap-2 mb-3 transition shadow-md ${selectedItemIds.length > 0 ? 'bg-[#e01a22] text-white hover:bg-red-700 shadow-red-500/30' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                >
                                     <CreditCard size={20} /> TIẾN HÀNH THANH TOÁN
                                 </button>
                                 <p className="text-xs text-center text-gray-500 italic">Tổng tiền chỉ tính những sản phẩm đang được tick chọn</p>

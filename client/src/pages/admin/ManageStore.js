@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Edit, Trash2, Plus, X } from "lucide-react";
+import { Edit, Trash2, Plus, X, User } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 export default function ManageStore() {
+  const navigate = useNavigate();
   const [stores, setStores] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -82,6 +84,10 @@ export default function ManageStore() {
     setFormData({ code: store.code, name: store.name, location: store.location });
     setErrors({});
     setIsModalOpen(true);
+  };
+
+  const handleOpenStoreStaff = (storeId) => {
+    navigate(`/admin/stores/${storeId}/staff`);
   };
 
   const handleCloseModal = () => {
@@ -206,6 +212,13 @@ export default function ManageStore() {
                   <td className="p-3">{store.name}</td>
                   <td className="p-3">{store.location}</td>
                   <td className="p-3 flex justify-center gap-4">
+                    <button
+                      onClick={() => handleOpenStoreStaff(store._id)}
+                      className="text-blue-500 hover:text-blue-700 transition"
+                      title="Quản lý nhân viên cửa hàng"
+                    >
+                      <User size={18} />
+                    </button>
                     <button
                       onClick={() => handleOpenEdit(store)}
                       className="text-blue-500 hover:text-blue-700 transition"

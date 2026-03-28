@@ -1,12 +1,22 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag, QrCode } from "lucide-react";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
     "CAM-R": "Camera Sau", "CAM-F": "Camera Trước", "CPT": "Cụm chân sạc",
     "SPK": "Loa ngoài", "FGL": "Mặt kính", "BGL": "Kính lưng", "OTH": "Khác"
+};
+
+// Hàm hỗ trợ bóc tách Nhóm (BaseCode) từ mã Code linh kiện
+const getBaseCodeFromItemTypeCode = (code) => {
+    if (!code) return 'OTH';
+    const parts = code.split('-');
+    if (parts[0] === 'CAM') return `CAM-${parts[1]}`;
+    if (BASE_CODES[parts[0]]) return parts[0];
+    if (BASE_CODES[code]) return code;
+    return 'OTH';
 };
 
 export default function AdminItem() {
@@ -25,6 +35,9 @@ export default function AdminItem() {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
     
+    // 🌟 STATE LƯU TRỮ NHÓM LINH KIỆN ĐANG CHỌN Ở MODAL
+    const [selectedBaseCategory, setSelectedBaseCategory] = useState('');
+    
     const initialFormState = {
         name: '', serialCode: '', item_type: '', status: 'in_stock', storeId: '',
         origin: 'new', sourceDevice: '', quality: '', warrantyPeriod: 12, baseCost: '', price: '',
@@ -36,7 +49,6 @@ export default function AdminItem() {
     const [expandedType, setExpandedType] = useState({});
 
     useEffect(() => { fetchItemTypes(); fetchStores(); }, []);
-
     useEffect(() => { fetchItems(); }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
 
     useEffect(() => {
@@ -89,9 +101,106 @@ export default function AdminItem() {
         }
     };
 
+    const handleGenerateQR = async (itemId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`http://localhost:9999/api/items/${itemId}/qr`, {
+                headers: { Authorization: `Bearer ${token}` },
+                responseType: "blob",
+            });
+
+            const blob = new Blob([response.data], { type: "image/png" });
+            const qrUrl = window.URL.createObjectURL(blob);
+
+            // Use hidden iframe to keep printing stable across browsers.
+            const iframe = document.createElement("iframe");
+            iframe.style.position = "fixed";
+            iframe.style.right = "0";
+            iframe.style.bottom = "0";
+            iframe.style.width = "0";
+            iframe.style.height = "0";
+            iframe.style.border = "0";
+            iframe.setAttribute("aria-hidden", "true");
+            document.body.appendChild(iframe);
+
+            const iframeDoc = iframe.contentWindow?.document;
+            if (!iframeDoc || !iframe.contentWindow) {
+                document.body.removeChild(iframe);
+                window.URL.revokeObjectURL(qrUrl);
+                toast.error("Không thể khởi tạo chế độ in.");
+                return;
+            }
+
+            iframeDoc.open();
+            iframeDoc.write(`
+              <!doctype html>
+              <html>
+                <head>
+                  <meta charset="utf-8" />
+                  <title>Print QR</title>
+                  <style>
+                    @page { margin: 0; }
+                    html, body {
+                      margin: 0;
+                      padding: 0;
+                      width: 100%;
+                      height: 100%;
+                      background: #fff;
+                    }
+                    body {
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    img {
+                      width: 180px;
+                      height: 180px;
+                      object-fit: contain;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                </body>
+              </html>
+            `);
+            iframeDoc.close();
+
+            const img = iframeDoc.getElementById("qr-print-image");
+            if (img) {
+                img.onload = () => {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(qrUrl);
+                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    }, 500);
+                };
+                img.onerror = () => {
+                    window.URL.revokeObjectURL(qrUrl);
+                    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    toast.error("Không thể tải ảnh QR để in.");
+                };
+            } else {
+                window.URL.revokeObjectURL(qrUrl);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                toast.error("Không thể chuẩn bị nội dung in.");
+            }
+        } catch (error) {
+            toast.error("Lỗi khi tạo mã QR");
+            console.error("Item QR generation error:", error);
+        }
+    };
+
     const handleOpenModal = (item = null) => {
         if (item) {
             setIsEditing(true); setEditingId(item._id);
+            
+            // 🌟 TÌM RA NHÓM LINH KIỆN CỦA MÓN HÀNG NÀY ĐỂ HIỂN THỊ ĐÚNG TRONG DROPDOWN 1
+            const typeObj = itemTypes.find(t => t._id === (item.item_type?._id || item.item_type));
+            if (typeObj) setSelectedBaseCategory(getBaseCodeFromItemTypeCode(typeObj.code));
+            else setSelectedBaseCategory('');
+
             setFormData({
                 name: item.name || '', serialCode: item.serialCode || '', item_type: item.item_type?._id || '',
                 status: item.status || 'in_stock', storeId: item.storeId?._id || item.storeId || '', 
@@ -102,9 +211,23 @@ export default function AdminItem() {
             });
         } else {
             setIsEditing(false); setEditingId(null);
+            setSelectedBaseCategory(''); // Reset Nhóm
             setFormData(initialFormState);
         }
         setShowModal(true);
+    };
+
+    const handleGenerateSerial = () => {
+        if (!formData.item_type) return toast.warning("Vui lòng chọn Phân loại linh kiện trước!");
+        const selectedType = itemTypes.find(t => t._id === formData.item_type);
+        if (!selectedType) return;
+
+        const date = new Date();
+        const ddmmyyyy = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getFullYear()).slice(2)}`;
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+        const newSerial = `${selectedType.code}-${ddmmyyyy}-${randomStr}`;
+        setFormData({ ...formData, serialCode: newSerial });
     };
 
     const handleSubmit = async (e) => {
@@ -123,19 +246,13 @@ export default function AdminItem() {
         } catch (error) { toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện"); }
     };
 
-    // 🌟 GỘP NHÓM THÀNH CÂY THƯ MỤC VÀ ĐẨY "KHÁC" XUỐNG CUỐI
     const sortedGroupedData = useMemo(() => {
         const result = {};
         
         items.forEach(item => {
             const typeName = item.item_type?.name || 'Loại không xác định';
             const typeCode = item.item_type?.code || 'OTH';
-            let base = 'OTH';
-            const parts = typeCode.split('-');
-            if (parts[0] === 'CAM') base = `CAM-${parts[1]}`;
-            else if (BASE_CODES[parts[0]]) base = parts[0];
-            else if (BASE_CODES[typeCode]) base = typeCode;
-
+            const base = getBaseCodeFromItemTypeCode(typeCode);
             const baseLabel = BASE_CODES[base] || "Khác";
 
             if (!result[baseLabel]) result[baseLabel] = {};
@@ -143,13 +260,18 @@ export default function AdminItem() {
             result[baseLabel][typeName].push(item);
         });
 
-        // Sắp xếp để Nhóm "Khác" nằm cuối cùng
         return Object.entries(result).sort(([groupA], [groupB]) => {
             if (groupA === "Khác") return 1;
             if (groupB === "Khác") return -1;
             return groupA.localeCompare(groupB);
         });
     }, [items]);
+
+    // 🌟 BỘ LỌC ĐỘNG: CHỈ HIỂN THỊ CÁC PHÂN LOẠI THUỘC NHÓM ĐÃ CHỌN TRONG MODAL
+    const filteredItemTypesForModal = useMemo(() => {
+        if (!selectedBaseCategory) return []; 
+        return itemTypes.filter(t => getBaseCodeFromItemTypeCode(t.code) === selectedBaseCategory);
+    }, [itemTypes, selectedBaseCategory]);
 
     const toggleGroup = (grp) => setExpandedGroup(prev => ({ ...prev, [grp]: !prev[grp] }));
     const toggleType = (typ) => setExpandedType(prev => ({ ...prev, [typ]: !prev[typ] }));
@@ -172,7 +294,7 @@ export default function AdminItem() {
                 </button>
             </div>
 
-            {/* BỘ LỌC TÌM KIẾM */}
+            {/* BỘ LỌC TÌM KIẾM BÊN NGOÀI DANH SÁCH */}
             <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center border border-gray-100">
                 <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -231,6 +353,7 @@ export default function AdminItem() {
                                                         <thead className="bg-gray-50 text-gray-500 border-y border-gray-100">
                                                             <tr>
                                                                 <th className="p-3 font-semibold">Tên & Mã Serial</th>
+                                                                <th className="p-3 font-semibold text-center">QR</th>
                                                                 <th className="p-3 font-semibold">Tình trạng / Thuộc tính</th>
                                                                 <th className="p-3 font-semibold">Giá vốn / Bán</th>
                                                                 <th className="p-3 font-semibold text-center">Vị trí & Trạng thái</th>
@@ -243,6 +366,15 @@ export default function AdminItem() {
                                                                     <td className="p-3">
                                                                         <div className="font-bold text-gray-800 text-sm max-w-[250px] truncate" title={item.name}>{item.name}</div>
                                                                         <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border">{item.serialCode}</div>
+                                                                    </td>
+                                                                    <td className="p-3 text-center">
+                                                                        <button
+                                                                            onClick={() => handleGenerateQR(item._id)}
+                                                                            className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"
+                                                                            title="In mã QR"
+                                                                        >
+                                                                            <QrCode size={16} />
+                                                                        </button>
                                                                     </td>
                                                                     <td className="p-3 text-xs text-gray-600">
                                                                         <div className="mb-1">
@@ -289,7 +421,7 @@ export default function AdminItem() {
                 )}
             </div>
 
-            {/* 🌟 THANH PHÂN TRANG */}
+            {/* THANH PHÂN TRANG */}
             <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
                 <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng tìm thấy: <span className="font-bold">{pagination.totalCount}</span></span>
                 <div className="flex gap-2">
@@ -298,7 +430,7 @@ export default function AdminItem() {
                 </div>
             </div>
 
-            {/* MODAL THÊM SỬA */}
+            {/* MODAL THÊM SỬA BẢN NÂNG CẤP */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -310,26 +442,61 @@ export default function AdminItem() {
                         <form onSubmit={handleSubmit} className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Thông tin cơ bản</h3>
+                                    <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Định danh & Phân loại</h3>
+                                    
+                                    {/* 🌟 2 BƯỚC CHỌN NHÓM -> CHỌN PHÂN LOẠI */}
+                                    <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-3">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 1: Chọn Nhóm linh kiện *</label>
+                                            <select 
+                                                value={selectedBaseCategory} 
+                                                onChange={(e) => {
+                                                    setSelectedBaseCategory(e.target.value);
+                                                    setFormData({...formData, item_type: '', name: '', serialCode: ''}); 
+                                                }} 
+                                                className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">-- Chọn Nhóm (VD: Màn hình, Pin...) --</option>
+                                                {Object.entries(BASE_CODES).map(([code, label]) => (
+                                                    <option key={code} value={code}>{label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 2: Chọn Phân loại chi tiết *</label>
+                                            <select 
+                                                required 
+                                                value={formData.item_type} 
+                                                onChange={e => {
+                                                    const typeObj = itemTypes.find(t => t._id === e.target.value);
+                                                    setFormData({...formData, item_type: e.target.value, name: typeObj?.name || ''});
+                                                }} 
+                                                className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                disabled={!selectedBaseCategory}
+                                            >
+                                                <option value="">-- Chọn Phân loại (VD: Màn hình IP14) --</option>
+                                                {filteredItemTypesForModal.map(t => (
+                                                    <option key={t._id} value={t._id}>{t.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
                                     <div>
                                         <label className="block text-sm font-semibold mb-1">Tên linh kiện *</label>
-                                        <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                                        <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Hệ thống tự điền, có thể sửa thêm" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold mb-1">Mã Serial *</label>
-                                        <input required type="text" value={formData.serialCode} onChange={e => setFormData({...formData, serialCode: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Loại linh kiện *</label>
-                                        <select required value={formData.item_type} onChange={e => setFormData({...formData, item_type: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="">-- Chọn phân loại --</option>
-                                            {itemTypes.map(t => <option key={t._id} value={t._id}>{t.name} ({t.code})</option>)}
-                                        </select>
+                                        <div className="flex gap-2">
+                                            <input required type="text" value={formData.serialCode} onChange={e => setFormData({...formData, serialCode: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono" placeholder="Nhập mã vạch hoặc nhấn Tạo mã" />
+                                            <button type="button" onClick={handleGenerateSerial} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 font-bold rounded-lg hover:bg-blue-100 transition whitespace-nowrap">Tạo mã</button>
+                                        </div>
                                     </div>
 
                                     {(isMainboard || isColorPart) && (
-                                        <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 shadow-inner mt-2">
-                                            <h4 className="text-xs font-bold text-blue-800 mb-3 uppercase">Thông số kỹ thuật</h4>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
+                                            <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Thông số kỹ thuật (Chỉ dành cho Main / Vỏ)</h4>
                                             <div className="grid grid-cols-2 gap-3">
                                                 {isMainboard && (
                                                     <>
@@ -385,11 +552,11 @@ export default function AdminItem() {
                                         <div className="bg-purple-50/50 p-4 rounded-xl space-y-4 border border-purple-100 shadow-inner">
                                             <div>
                                                 <label className="block text-sm font-semibold text-purple-900 mb-1">Bóc từ thiết bị nào?</label>
-                                                <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: iPhone 14 Pro vỡ màn" />
+                                                <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: iPhone 14 Pro vỡ màn" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-purple-900 mb-1">Chất lượng (Ngoại hình)</label>
-                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: 98% - Zin nguyên bản" />
+                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: 98% - Zin nguyên bản" />
                                             </div>
                                         </div>
                                     )}
@@ -413,8 +580,8 @@ export default function AdminItem() {
                             </div>
 
                             <div className="mt-8 pt-5 border-t flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2.5 bg-gray-100 font-bold rounded-xl hover:bg-gray-200">Hủy</button>
-                                <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30">Lưu Dữ Liệu</button>
+                                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2.5 bg-gray-100 font-bold rounded-xl hover:bg-gray-200 text-gray-700 transition">Hủy</button>
+                                <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition">Lưu Dữ Liệu</button>
                             </div>
                         </form>
                     </div>

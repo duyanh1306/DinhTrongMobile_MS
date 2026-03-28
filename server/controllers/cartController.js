@@ -89,5 +89,20 @@ const addToCart = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+const clearCart = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        let cart = await Cart.findOne({ userId });
+        
+        if (cart) {
+            cart.items = []; // Xóa sạch mảng sản phẩm
+            cart.totalPrice = 0; // Đưa tổng tiền về 0
+            await cart.save();
+        }
+        res.status(200).json({ success: true, message: "Đã dọn dẹp giỏ hàng" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
-module.exports = { getCartByUser, updateItemQuantity, removeCartItem, addToCart };
+module.exports = { getCartByUser, updateItemQuantity, removeCartItem, addToCart, clearCart };

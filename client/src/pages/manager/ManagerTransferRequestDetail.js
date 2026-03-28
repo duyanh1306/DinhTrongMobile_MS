@@ -1,13 +1,15 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {
     AlertCircle,
     ArrowLeft,
+    Camera,
     CheckCircle,
     Clock,
     Package,
     Plus,
     Save,
+    Scan,
     Store,
     Truck,
     User,
@@ -15,6 +17,7 @@ import {
 } from "lucide-react";
 import {toast, ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {Html5Qrcode} from "html5-qrcode";
 
 const getItemTypeId = (itemTypeEntry) => {
     if (!itemTypeEntry) return "";
@@ -90,6 +93,14 @@ export default function ManagerTransferRequestDetail() {
     const [transferredItems, setTransferredItems] = useState([]);
     const [validationErrors, setValidationErrors] = useState({});
     const [qrCode, setQrCode] = useState("");
+    const [receiptScanning, setReceiptScanning] = useState(false);
+    const [cameraScanning, setCameraScanning] = useState(false);
+    const [scannedReceiptItems, setScannedReceiptItems] = useState([]);
+    const [receiptNote, setReceiptNote] = useState("");
+    const [showReceiptScanner, setShowReceiptScanner] = useState(false);
+    const [cameras, setCameras] = useState([]);
+    const [selectedCamera, setSelectedCamera] = useState(null);
+    const scannerRef = useRef(null);
 
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem("user") || "{}");
@@ -101,7 +112,10 @@ export default function ManagerTransferRequestDetail() {
     const fetchUserStore = async (userId) => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch("http://localhost:9999/api/stores", {
+            console.log("ENV:", process.env.IP_ADDRESS);
+            const BASE_URL = process.env.IP_ADDRESS;
+            console.log("BASE_URL:", BASE_URL);
+            const response = await fetch(`${BASE_URL}/api/stores`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json"
@@ -259,6 +273,215 @@ export default function ManagerTransferRequestDetail() {
         }
     };
 
+    // Receipt QR Code Scanning Functions
+    const startReceiptScanning = () => {
+        setShowReceiptScanner(true);
+        setReceiptScanning(true);
+        setScannedReceiptItems([]);
+        setReceiptNote("");
+    };
+
+    const closeReceiptScanner = () => {
+        setShowReceiptScanner(false);
+        setReceiptScanning(false);
+        setCameraScanning(false);
+        setScannedReceiptItems([]);
+        setReceiptNote("");
+        if (scannerRef.current) {
+            scannerRef.current.stop().catch(() => {});
+            scannerRef.current = null;
+        }
+    };
+
+    const handleReceiptQRCodeKeyPress = async (e) => {
+        if (e.key === "Enter" && e.target.value.trim()) {
+            await searchReceiptItem(e.target.value.trim());
+        }
+    };
+
+    const searchReceiptItem = async (serialCode) => {
+        if (!serialCode.trim()) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`http://localhost:9999/api/items?search=${encodeURIComponent(serialCode)}&limit=1`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (!response.ok) {
+                toast.error("Không tìm thấy mặt hàng với mã serial này");
+                return;
+            }
+
+            const result = await response.json();
+            const items = result.data || [];
+
+            if (items.length === 0) {
+                toast.error("Không tìm thấy mặt hàng với mã serial này");
+                return;
+            }
+
+            const item = items[0];
+
+            // Check if item already exists in scanned receipt list
+            if (scannedReceiptItems.find(scannedItem => scannedItem.id === item._id)) {
+                toast.warning("Mặt hàng này đã được quét");
+                return;
+            }
+
+            // Check if this item is part of the transferred items
+            const isTransferredItem = transferredItems.some(transferredItem =>
+                transferredItem.id === item._id || transferredItem.serialCode === item.serialCode
+            );
+
+            if (!isTransferredItem) {
+                toast.error("Mặt hàng này không có trong danh sách chuyển kho");
+                return;
+            }
+
+            // Add item to scanned receipt list
+            const receiptItem = {
+                id: item._id,
+                name: item.name || item.serialCode || "Unknown item",
+                serialCode: item.serialCode || "N/A",
+                itemTypeId: getItemTypeId(item.item_type),
+                itemTypeName: getItemTypeName(item.item_type),
+                status: "scanned",
+                issue: ""
+            };
+
+            setScannedReceiptItems(prev => [...prev, receiptItem]);
+            toast.success(`Đã quét: ${item.name}`);
+        } catch (error) {
+            console.error("Error searching receipt item:", error);
+            toast.error("Lỗi khi tìm kiếm mặt hàng");
+        }
+    };
+
+    const removeScannedReceiptItem = (itemId) => {
+        setScannedReceiptItems(prev => prev.filter(item => item.id !== itemId));
+        toast.info("Đã xóa mặt hàng khỏi danh sách");
+    };
+
+    const updateReceiptItemIssue = (itemId, issue) => {
+        setScannedReceiptItems(prev =>
+            prev.map(item =>
+                item.id === itemId ? { ...item, issue } : item
+            )
+        );
+    };
+
+    const startCameraScanning = async () => {
+        try {
+            console.log("Starting camera detection...");
+
+            // Get available cameras
+            const devices = await Html5Qrcode.getCameras();
+            console.log("Detected devices:", devices);
+
+            setCameras(devices);
+
+            if (devices.length === 0) {
+                console.log("No cameras detected");
+                toast.error("Không tìm thấy camera nào. Vui lòng kiểm tra kết nối camera.");
+                return;
+            }
+
+            console.log("Found cameras:", devices.map(d => ({ id: d.id, label: d.label })));
+
+            // Select first camera by default
+            setSelectedCamera(devices[0].id);
+            setCameraScanning(true);
+            setReceiptScanning(false);
+
+            toast.success(`Phát hiện ${devices.length} camera`);
+        } catch (error) {
+            console.error("Error accessing cameras:", error);
+            toast.error(`Không thể truy cập camera: ${error.message}`);
+        }
+    };
+
+    const stopCameraScanning = () => {
+        if (scannerRef.current) {
+            scannerRef.current.stop().catch(error => {
+                console.error("Error stopping scanner:", error);
+            });
+            scannerRef.current = null;
+        }
+        setCameraScanning(false);
+        setSelectedCamera(null);
+    };
+
+    const initializeScanner = async (cameraId) => {
+        try {
+            // Stop existing scanner if any
+            if (scannerRef.current) {
+                await scannerRef.current.stop();
+            }
+
+            const scanner = new Html5Qrcode("receipt-qr-reader");
+            scannerRef.current = scanner;
+
+            await scanner.start(
+                cameraId,
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                (decodedText, decodedResult) => {
+                    // QR Code detected
+                    console.log("QR Code detected:", decodedText);
+                    handleReceiptQRCodeDetected(decodedText);
+                },
+                (errorMessage) => {
+                    // Ignore errors during scanning
+                }
+            );
+        } catch (error) {
+            console.error("Error starting scanner:", error);
+            toast.error("Không thể khởi động camera. Vui lòng thử lại.");
+        }
+    };
+
+    const handleReceiptQRCodeDetected = async (qrText) => {
+        // Stop scanning temporarily to prevent multiple reads
+        if (scannerRef.current) {
+            await scannerRef.current.pause();
+        }
+
+        // Search for item with the QR code text
+        await searchReceiptItem(qrText);
+
+        // Resume scanning after a delay
+        setTimeout(() => {
+            if (scannerRef.current && cameraScanning) {
+                scannerRef.current.resume();
+            }
+        }, 2000);
+    };
+
+    const handleCameraChange = (cameraId) => {
+        setSelectedCamera(cameraId);
+        if (cameraScanning && cameraId) {
+            initializeScanner(cameraId);
+        }
+    };
+
+    useEffect(() => {
+        if (cameraScanning && selectedCamera) {
+            initializeScanner(selectedCamera);
+        }
+
+        return () => {
+            if (scannerRef.current) {
+                scannerRef.current.stop().catch(() => {});
+            }
+        };
+    }, [cameraScanning, selectedCamera]);
+
     const validateItems = () => {
         const errors = {};
         let isValid = true;
@@ -281,15 +504,36 @@ export default function ManagerTransferRequestDetail() {
         const isInProgress = transferRequest?.status?.toUpperCase() === "IN PROGRESS";
         const itemsValid = requestedItems.every((item) => item.isValid);
 
-        return (isFromUserStore && isApproved && itemsValid) || (isToUserStore && isInProgress);
+        // FROM store can only submit when status is APPROVED and items are valid
+        // TO store can only submit when status is IN PROGRESS and all items are scanned
+        const fromStoreCanSubmit = isFromUserStore && isApproved && itemsValid;
+        const toStoreCanSubmit = isToUserStore && isInProgress && canConfirmReceipt();
+
+        return fromStoreCanSubmit || toStoreCanSubmit;
+    };
+
+    const canConfirmReceipt = () => {
+        const isToUserStore = transferRequest?.toStoreId?._id === userStoreId;
+        const isInProgress = transferRequest?.status?.toUpperCase() === "IN PROGRESS";
+        const allItemsScanned = transferredItems.length > 0 &&
+            scannedReceiptItems.length === transferredItems.length;
+
+        return isToUserStore && isInProgress && allItemsScanned;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         const isFromUserStore = transferRequest?.fromStoreId?._id === userStoreId;
+        const isToUserStore = transferRequest?.toStoreId?._id === userStoreId;
+
         if (isFromUserStore && !validateItems()) {
             toast.error("Vui lòng kiểm tra lại số lượng sản phẩm");
+            return;
+        }
+
+        if (isToUserStore && !canConfirmReceipt()) {
+            toast.error("Vui lòng quét tất cả các mặt hàng trước khi xác nhận nhận hàng");
             return;
         }
 
@@ -302,7 +546,6 @@ export default function ManagerTransferRequestDetail() {
 
         try {
             const token = localStorage.getItem("token");
-            const isToUserStore = transferRequest?.toStoreId?._id === userStoreId;
             const status = transferRequest?.status?.toUpperCase();
             let endpoint;
             let successMessage;
@@ -326,6 +569,15 @@ export default function ManagerTransferRequestDetail() {
                     id: item.id,
                     name: item.name,
                     itemTypeId: item.itemTypeId
+                }));
+            } else if (isToUserStore && status === "IN PROGRESS") {
+                requestBody.note = receiptNote;
+                requestBody.scannedItems = scannedReceiptItems.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    serialCode: item.serialCode,
+                    itemTypeId: item.itemTypeId,
+                    issue: item.issue || ""
                 }));
             }
 
@@ -694,8 +946,239 @@ export default function ManagerTransferRequestDetail() {
                                 )}
                             </button>
                         )}
+
+                        {/* Receipt Confirmation Button for TO Store */}
+                        {transferRequest?.toStoreId?._id === userStoreId && transferRequest?.status?.toUpperCase() === "IN PROGRESS" && (
+                            <button
+                                type="button"
+                                onClick={startReceiptScanning}
+                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                            >
+                                <Scan size={16}/>
+                                Quét mã QR xác nhận nhận hàng
+                            </button>
+                        )}
                     </div>
                 </form>
+
+                {/* Receipt Scanning Modal */}
+                {showReceiptScanner && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                        <Scan className="text-green-600"/>
+                                        Xác nhận nhận hàng - Quét mã QR
+                                    </h2>
+                                    <button
+                                        onClick={closeReceiptScanner}
+                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                        <X size={20}/>
+                                    </button>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-2">
+                                    Vui lòng quét tất cả các mặt hàng ({transferredItems.length} sản phẩm) để xác nhận nhận hàng
+                                </p>
+                            </div>
+
+                            <div className="p-6">
+                                {/* QR Code Scanning Section */}
+                                <div className="mb-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-medium text-gray-800">
+                                            Quét mã QR sản phẩm
+                                        </h3>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReceiptScanning(true)}
+                                                disabled={cameraScanning}
+                                                className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                <Scan size={14}/>
+                                                Nhập Serial
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={startCameraScanning}
+                                                disabled={receiptScanning}
+                                                className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                <Camera size={14}/>
+                                                Quét Camera
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Camera Scanning Interface */}
+                                    {cameraScanning && (
+                                        <div className="mb-4 p-4 bg-white rounded-lg border border-indigo-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-sm font-medium text-indigo-700">
+                                                    <Camera size={16} className="inline mr-1"/>
+                                                    Quét QR Code bằng Camera
+                                                </h4>
+                                                <div className="flex items-center gap-2">
+                                                    {cameras.length > 1 && (
+                                                        <select
+                                                            value={selectedCamera || ""}
+                                                            onChange={(e) => handleCameraChange(e.target.value)}
+                                                            className="px-2 py-1 text-sm border border-gray-300 rounded"
+                                                        >
+                                                            {cameras.map((camera, index) => (
+                                                                <option key={camera.id} value={camera.id}>
+                                                                    {camera.label || `Camera ${index + 1}`}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={stopCameraScanning}
+                                                        className="px-2 py-1 text-red-600 hover:text-red-700 transition-colors"
+                                                    >
+                                                        <X size={16}/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex justify-center">
+                                                <div 
+                                                    id="receipt-qr-reader" 
+                                                    className="border-2 border-indigo-300 rounded-lg"
+                                                    style={{ width: '300px', height: '300px' }}
+                                                />
+                                            </div>
+                                            
+                                            <p className="text-xs text-gray-600 mt-2 text-center">
+                                                Đưa QR code vào khung để quét tự động
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Manual Input */}
+                                    {receiptScanning && (
+                                        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                            <div className="flex items-center gap-2">
+                                                <Scan size={16} className="text-gray-600"/>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Nhập mã serial hoặc quét QR code..."
+                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                                    onKeyPress={handleReceiptQRCodeKeyPress}
+                                                    autoFocus
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setReceiptScanning(false)}
+                                                    className="px-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"
+                                                >
+                                                    <X size={16}/>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Scanned Items List */}
+                                <div className="mb-6">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-lg font-medium text-gray-800">
+                                            Danh sách sản phẩm đã quét ({scannedReceiptItems.length}/{transferredItems.length})
+                                        </h3>
+                                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                            scannedReceiptItems.length === transferredItems.length
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-yellow-100 text-yellow-800'
+                                        }`}>
+                                            {scannedReceiptItems.length === transferredItems.length ? 'Hoàn thành' : 'Cần quét thêm'}
+                                        </div>
+                                    </div>
+
+                                    {scannedReceiptItems.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {scannedReceiptItems.map((item) => (
+                                                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                                    <div className="flex-1">
+                                                        <div className="font-medium text-sm">{item.name}</div>
+                                                        <div className="text-xs text-gray-500">
+                                                            Serial: {item.serialCode} | Loại: {item.itemTypeName}
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Ghi chú vấn đề (nếu có)..."
+                                                            value={item.issue}
+                                                            onChange={(e) => updateReceiptItemIssue(item.id, e.target.value)}
+                                                            className="mt-2 w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeScannedReceiptItem(item.id)}
+                                                        className="ml-2 p-1 text-red-500 hover:text-red-700 transition-colors"
+                                                    >
+                                                        <X size={14}/>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-400">
+                                            <Package size={32} className="mx-auto mb-2"/>
+                                            <p className="text-sm">Chưa quét sản phẩm nào</p>
+                                            <p className="text-xs">Nhấn "Quét Camera" hoặc "Nhập Serial" để bắt đầu</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Note Section */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Ghi chú chung về việc nhận hàng
+                                    </label>
+                                    <textarea
+                                        value={receiptNote}
+                                        onChange={(e) => setReceiptNote(e.target.value)}
+                                        rows={3}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                        placeholder="Nhập ghi chú về tình trạng nhận hàng (nếu có)..."
+                                    />
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={closeReceiptScanner}
+                                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSubmit}
+                                        disabled={scannedReceiptItems.length !== transferredItems.length || submitting}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {submitting ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Đang xử lý...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle size={16}/>
+                                                Xác nhận nhận hàng
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

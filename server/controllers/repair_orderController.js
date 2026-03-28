@@ -247,11 +247,7 @@ const getRepairOrderDetailsById = async (req, res) => {
         populate: { path: "phoneModelId", select: "name" }
       });
 
-    if (!details || details.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
-    }
-
-    res.status(200).json(details);
+    res.status(200).json(details || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -506,6 +502,54 @@ const completeRepairOrder = async (req, res) => {
   }
 };
 
+const createRepairOrder = async (req, res) => {
+  try {
+    const { storeId, customerName, customerPhone, repairServiceId, customerNote, createdBy } = req.body;
+
+    // Validate required fields
+    if (!storeId || !customerName || !createdBy) {
+      return res.status(400).json({ message: "Vui lòng điền đầy đủ thông tin bắt buộc" });
+    }
+
+    // Create repair order
+    const newRepairOrder = new RepairOrder({
+      storeId,
+      customerName,
+      customerPhone: customerPhone || "",
+      totalPrice: 0,
+      createdBy,
+      status: "Pending"
+    });
+
+    await newRepairOrder.save();
+
+    const newRepairOrderDetail = new RepairOrderDetail({
+        repairOrderId: newRepairOrder._id,
+        serviceId: [repairServiceId],
+        itemIds: [],
+        type: "REPAIR",
+        targetPhoneId: null,
+        isInternal: false,
+        note: customerNote || ""
+      });
+
+    await newRepairOrderDetail.save();
+
+    // Populate and return the created order
+    const populatedOrder = await RepairOrder.findById(newRepairOrder._id)
+      .populate("storeId", "name code")
+      .populate("createdBy", "fullName");
+
+    res.status(201).json({
+      message: "Đã tạo đơn sửa chữa thành công",
+      data: populatedOrder
+    });
+  } catch (error) {
+    console.error("Error creating repair order:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAllRepairOrders,
   getRepairOrderById,
@@ -517,4 +561,5 @@ module.exports = {
   completeRepairOrder,
   acceptRepairOrder,
   cancelRepairOrder,
+  createRepairOrder,
 };
