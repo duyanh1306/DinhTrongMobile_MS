@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { Search, Eye, X, Hammer, Calendar, Package, Smartphone } from "lucide-react";
-import { toast, ToastContainer } from "react-toastify";
+import { Search, Eye, X, Hammer, Package } from "lucide-react";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API
+import { fetchRepairOrdersApi, fetchRepairOrderDetailsApi } from "../../api/admin/repairHistory";
 
 export default function RepairHistory() {
   const [orders, setOrders] = useState([]);
@@ -10,53 +13,37 @@ export default function RepairHistory() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 10;
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  useEffect(() => { fetchOrders(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+  // ==============================================================
+  // GỌI API QUA HÀM ĐÃ TÁCH
+  // ==============================================================
+  useEffect(() => { 
+    loadOrders(); 
+  }, []);
 
-  const fetchOrders = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/repair-orders");
-      if (res.ok) {
-        const data = await res.json();
-        
-        // ĐỒNG BỘ GIÁ: Tính toán lại tổng tiền dựa trên chi tiết của từng đơn sửa chữa
-        const updatedOrders = await Promise.all(data.map(async (order) => {
-          const detailRes = await fetch(`http://localhost:9999/api/repair-orders/${order._id}/details`);
-          if (detailRes.ok) {
-            const details = await detailRes.json();
-            // Tổng = Giá dịch vụ + Tổng giá của mảng itemIds (linh kiện thay thế)
-            const total = details.reduce((sum, d) => {
-              const servicePrice = d.serviceId?.price || 0;
-              const itemsPrice = d.itemIds?.reduce((iSum, item) => iSum + (item.price || item.item_type?.price || 0), 0) || 0;
-              return sum + servicePrice + itemsPrice;
-            }, 0);
-            return { ...order, totalPrice: total };
-          }
-          return order;
-        }));
-        setOrders(updatedOrders);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi đồng bộ giá sửa chữa: " + error.message);
-    }
+  useEffect(() => { 
+    setCurrentPage(1); 
+  }, [searchQuery, statusFilter]);
+
+  const loadOrders = async () => {
+    const data = await fetchRepairOrdersApi();
+    setOrders(data);
   };
 
-  const fetchOrderDetails = async (orderId) => {
+  const loadOrderDetails = async (orderId) => {
     setIsLoadingDetails(true);
-    try {
-      const res = await fetch(`http://localhost:9999/api/repair-orders/${orderId}/details`);
-      if (res.ok) setOrderDetails(await res.json());
-    } catch (error) {
-      toast.error("Lỗi tải chi tiết đơn hàng");
-    } finally {
-      setIsLoadingDetails(false);
-    }
+    const data = await fetchRepairOrderDetailsApi(orderId);
+    setOrderDetails(data);
+    setIsLoadingDetails(false);
   };
 
+  // ==============================================================
+  // LOGIC HIỂN THỊ
+  // ==============================================================
   const calculateGrandTotal = () => {
     return orderDetails.reduce((total, d) => {
       const servicePrice = d.serviceId?.price || 0;
@@ -79,7 +66,10 @@ export default function RepairHistory() {
     }
   };
 
-  const filteredOrders = orders.filter((o) => (o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) || o.customerPhone?.includes(searchQuery)) && (statusFilter === "ALL" || o.status === statusFilter));
+  const filteredOrders = orders.filter((o) => 
+    (o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) || o.customerPhone?.includes(searchQuery)) && 
+    (statusFilter === "ALL" || o.status === statusFilter)
+  );
   const currentOrders = filteredOrders.slice((currentPage - 1) * ordersPerPage, currentPage * ordersPerPage);
   const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
@@ -126,10 +116,24 @@ export default function RepairHistory() {
                   <td className="p-3 text-sm">{formatDate(order.repairOrderDate)}</td>
                   <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>{order.status}</span></td>
                   <td className="p-3 text-center">
-                    <button onClick={() => { setSelectedOrder(order); setIsModalOpen(true); fetchOrderDetails(order._id); }} className="p-2 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100"><Eye size={18} /></button>
+                    <button 
+                      onClick={() => { 
+                        setSelectedOrder(order); 
+                        setIsModalOpen(true); 
+                        loadOrderDetails(order._id); 
+                      }} 
+                      className="p-2 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100"
+                    >
+                      <Eye size={18} />
+                    </button>
                   </td>
                 </tr>
               ))}
+              {currentOrders.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-6 text-center text-gray-500 italic">Không có đơn sửa chữa nào!</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -178,49 +182,55 @@ export default function RepairHistory() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orderDetails.map((detail, idx) => {
-                        let rows = [];
-                        // 1. Dịch vụ sửa chữa (serviceId)
-                        if (detail.serviceId) {
-                          rows.push({
-                            icon: <Hammer size={16} className="text-blue-500"/>,
-                            name: detail.serviceId.name,
-                            badge: "Dịch vụ",
-                            style: "bg-blue-50 text-blue-700",
-                            price: detail.serviceId.price || 0
+                      {orderDetails.length === 0 ? (
+                          <tr><td colSpan="4" className="text-center p-4 text-gray-500 italic">Không có chi tiết nào cho đơn này</td></tr>
+                      ) : (
+                        orderDetails.map((detail, idx) => {
+                          let rows = [];
+                          // 1. Dịch vụ sửa chữa (serviceId)
+                          if (detail.serviceId) {
+                            rows.push({
+                              icon: <Hammer size={16} className="text-blue-500"/>,
+                              name: detail.serviceId.name,
+                              badge: "Dịch vụ",
+                              style: "bg-blue-50 text-blue-700",
+                              price: detail.serviceId.price || 0
+                            });
+                          }
+                          // 2. Danh sách linh kiện thay thế (itemIds)
+                          detail.itemIds?.forEach(item => {
+                            rows.push({
+                              icon: <Package size={16} className="text-orange-500"/>,
+                              name: `${item.item_type?.name || item.name} (SN: ${item.serialCode || "N/A"})`,
+                              badge: "Linh kiện",
+                              style: "bg-orange-50 text-orange-700",
+                              price: item.price || item.item_type?.price || 0
+                            });
                           });
-                        }
-                        // 2. Danh sách linh kiện thay thế (itemIds)
-                        detail.itemIds?.forEach(item => {
-                          rows.push({
-                            icon: <Package size={16} className="text-orange-500"/>,
-                            name: `${item.item_type?.name || item.name} (SN: ${item.serialCode || "N/A"})`,
-                            badge: "Linh kiện",
-                            style: "bg-orange-50 text-orange-700",
-                            price: item.price || item.item_type?.price || 0
-                          });
-                        });
 
-                        return rows.map((row, rIdx) => (
-                          <tr key={`${detail._id}-${rIdx}`} className="border-t hover:bg-gray-50 transition-colors">
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">{row.icon} <span className="font-semibold">{row.name}</span></div>
-                            </td>
-                            <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${row.style}`}>{row.badge}</span>
-                              {detail.type === "WARRANTY" && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Bảo hành</span>}
-                            </td>
-                            <td className="p-3 text-right font-bold text-gray-700">{formatCurrency(row.price)}</td>
-                            <td className="p-3 text-xs italic text-gray-500 max-w-[150px] truncate">{detail.note || "-"}</td>
-                          </tr>
-                        ));
-                      })}
+                          return rows.map((row, rIdx) => (
+                            <tr key={`${detail._id}-${rIdx}`} className="border-t hover:bg-gray-50 transition-colors">
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">{row.icon} <span className="font-semibold">{row.name}</span></div>
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${row.style}`}>{row.badge}</span>
+                                {detail.type === "WARRANTY" && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Bảo hành</span>}
+                              </td>
+                              <td className="p-3 text-right font-bold text-gray-700">{formatCurrency(row.price)}</td>
+                              <td className="p-3 text-xs italic text-gray-500 max-w-[150px] truncate">{detail.note || "-"}</td>
+                            </tr>
+                          ));
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
               )}
             </div>
-            <div className="p-4 border-t bg-gray-50 flex justify-end"><button onClick={() => setIsModalOpen(false)} className="px-6 py-2 bg-gray-800 text-white rounded font-bold shadow-md">Đóng</button></div>
+            <div className="p-4 border-t bg-gray-50 flex justify-end">
+                <button onClick={() => setIsModalOpen(false)} className="px-6 py-2 bg-gray-800 text-white rounded font-bold shadow-md">Đóng</button>
+            </div>
           </div>
         </div>
       )}

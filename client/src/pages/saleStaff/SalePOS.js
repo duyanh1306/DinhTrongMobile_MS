@@ -3,7 +3,7 @@ import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, 
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useReactToPrint } from "react-to-print";
-
+import dayjs from "dayjs";
 // Hàm hỗ trợ đọc số tiền thành chữ
 const docSoThanhChu = (so) => {
   if (!so || so === 0) return "Không đồng";
@@ -41,97 +41,145 @@ const docSoThanhChu = (so) => {
   return result.charAt(0).toUpperCase() + result.slice(1);
 };
 
-// COMPONENT IN HÓA ĐƠN
-const InvoicePrint = ({ order, details, formatCurrency, contentRef }) => {
+// ==================================================================
+// COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
+// ==================================================================
+const InvoicePrint = ({ order, details, formatCurrency, contentRef, activeTab }) => {
+  let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
+  if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
+  if (activeTab === "REPAIR") invoiceTitle = "PHIẾU THANH TOÁN KIÊM BẢO HÀNH SỬA CHỮA";
+
   return (
-    <div ref={contentRef} className="p-8 bg-white text-black" style={{ width: "80mm", fontSize: "11px", fontFamily: "monospace", lineHeight: "1.4" }}>
-      <div className="text-center mb-4">
-        <h2 className="text-[16px] font-black uppercase tracking-wider mb-1">DINH TRONG MOBILE</h2>
-        <p className="text-[10px] leading-tight">Cơ sở: {order?.storeId?.name || "Chi nhánh chính"}</p>
-        <p className="text-[10px] leading-tight">ĐC: {order?.storeId?.address || "Hà Nội"}</p>
-        <p className="text-[10px] leading-tight mb-2">SĐT: {order?.storeId?.hotline || "0987.654.321"}</p>
-        <div className="border-b-2 border-black border-dashed pb-2">
-            <h3 className="text-[14px] font-bold uppercase mt-2">
-                Hóa Đơn {order?.orderType === "SALE" ? "Bán Hàng" : "Thu Mua"}
-            </h3>
+    <div
+      ref={contentRef}
+      className="bg-white text-black p-10"
+      style={{ 
+        width: "210mm", 
+        minHeight: "297mm", 
+        fontFamily: "'Times New Roman', Times, serif",
+        margin: "0 auto"
+      }}
+    >
+      <style type="text/css" media="print">
+        {`@page { size: A4 portrait; margin: 10mm; }`}
+      </style>
+
+      {/* HEADER CÔNG TY */}
+      <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
+        <div>
+            <h1 className="text-xl font-black uppercase tracking-wide">CÔNG TY TNHH DINH TRONG MOBILE</h1>
+            <p className="text-sm mt-1"><strong>Showroom:</strong> {order?.storeId?.address || "Hà Nội"}</p>
+            <p className="text-sm"><strong>Điện thoại:</strong> {order?.storeId?.hotline || "0987.654.321"}</p>
+            <p className="text-sm"><strong>Website:</strong> dinhtrongmobile.vn | <strong>Email:</strong> cskh@dinhtrongmobile.vn</p>
+        </div>
+        <div className="text-right">
+            <div className="w-20 h-20 border-2 border-dashed border-gray-400 flex items-center justify-center text-xs text-gray-500 mb-1">
+                QR CODE
+            </div>
+            <p className="text-[10px] italic">Quét để tra cứu bảo hành</p>
         </div>
       </div>
 
-      <div className="mb-4 text-[11px] space-y-1">
-        <p>Mã đơn: <strong>#{order?._id.substring(order._id.length - 6).toUpperCase()}</strong></p>
-        <p>Ngày: {new Date(order?.createdAt || new Date()).toLocaleString("vi-VN")}</p>
-        <p>Nhân viên: {order?.createdBy?.fullName || order?.createdBy?.userName || "N/A"}</p>
-        
-        <div className="mt-2 pt-2 border-t border-black border-dotted">
-            <p className="font-bold">Khách hàng: {order?.customerName}</p>
-            <p>SĐT: {order?.customerPhone}</p>
+      {/* TIÊU ĐỀ HÓA ĐƠN */}
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-black uppercase">{invoiceTitle}</h2>
+        <p className="text-sm italic mt-1">Ngày {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('DD')} tháng {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('MM')} năm {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('YYYY')}</p>
+        <p className="text-sm font-bold mt-1">Số: #{order?._id?.substring(order._id.length - 8).toUpperCase()}</p>
+      </div>
+
+      {/* THÔNG TIN KHÁCH HÀNG */}
+      <div className="mb-6 text-sm space-y-2">
+        <p><strong>Tên khách hàng:</strong> {order?.customerName}</p>
+        <p><strong>Điện thoại:</strong> {order?.customerPhone || "..........................................................."}</p>
+        <p><strong>Nhân viên phục vụ:</strong> {order?.createdBy?.fullName || order?.createdBy?.userName || "N/A"}</p>
+      </div>
+
+      {/* BẢNG SẢN PHẨM / DỊCH VỤ */}
+      <table className="w-full border-collapse border border-gray-800 mb-4 text-sm">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border border-gray-800 p-2 text-center w-12">STT</th>
+            <th className="border border-gray-800 p-2 text-left">Tên hàng hóa / Dịch vụ</th>
+            <th className="border border-gray-800 p-2 text-center w-16">SL</th>
+            <th className="border border-gray-800 p-2 text-center">Số Serial / IMEI</th>
+            <th className="border border-gray-800 p-2 text-center w-32">Bảo hành</th>
+            <th className="border border-gray-800 p-2 text-right w-32">Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          {details.map((d, idx) => {
+            let itemName = "Sản phẩm/Dịch vụ";
+            let serial = "";
+            let warrantyText = "Không";
+            let price = d.purchasePrice || d.price || 0;
+
+            if (activeTab === "REPAIR") {
+                itemName = d.serviceId?.name || "Dịch vụ sửa chữa";
+                if(d.itemIds && d.itemIds.length > 0) {
+                    itemName += ` (Thay: ${d.itemIds.map(i => i.name).join(", ")})`;
+                    serial = d.itemIds.map(i => i.serialCode).join(", ");
+                }
+                price = d.serviceId?.price || 0;
+            } else {
+                itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
+                serial = d.phoneId ? d.phoneId.imei || d.phoneId.serialCode || d.phoneId._id?.substring(d.phoneId._id.length - 6).toUpperCase() : (d.itemId?.serialCode || d.identifier || "");
+                if (d.warrantyExpireDate) {
+                    warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
+                } else if (d.warranty) {
+                    warrantyText = "Tiêu chuẩn";
+                }
+            }
+
+            return (
+              <tr key={idx}>
+                <td className="border border-gray-800 p-2 text-center">{idx + 1}</td>
+                <td className="border border-gray-800 p-2 font-medium">{itemName}</td>
+                <td className="border border-gray-800 p-2 text-center">1</td>
+                <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial || "-"}</td>
+                <td className="border border-gray-800 p-2 text-center text-xs">{warrantyText}</td>
+                <td className="border border-gray-800 p-2 text-right font-bold">{formatCurrency(price)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* TỔNG TIỀN */}
+      <div className="flex justify-end mb-6">
+        <div className="w-1/2 text-right">
+            <div className="text-lg mb-1">
+                <strong>Tổng cộng:</strong> <span className="text-xl font-black">{formatCurrency(order?.totalPrice)}</span>
+            </div>
+            <div className="text-sm italic text-gray-700">
+                (Bằng chữ: {docSoThanhChu(order?.totalPrice || 0)})
+            </div>
         </div>
       </div>
 
-      <div className="border-t-2 border-black border-dashed pt-2 mb-2">
-        <table className="w-full text-left border-collapse">
-            <thead>
-            <tr className="border-b border-black text-[10px]">
-                <th className="pb-1 uppercase tracking-wider">S.Phẩm</th>
-                <th className="text-center pb-1 w-8 uppercase tracking-wider">SL</th>
-                <th className="text-right pb-1 uppercase tracking-wider">T.Tiền</th>
-            </tr>
-            </thead>
-            <tbody>
-            {details.map((d, idx) => {
-                const price = d.purchasePrice || d.phoneId?.sellingPrice || d.price || 0;
-                return (
-                <tr key={idx} className="border-b border-gray-300 border-dotted">
-                <td className="py-2 pr-1">
-                    <div className="font-bold text-[11px] leading-tight">
-                    {d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm"}
-                    </div>
-                    <div className="text-[9px] mt-1 text-gray-600">
-                    SN: {d.phoneId?.serialCode || d.itemId?.serialCode || d.identifier}
-                    </div>
-                    <div className="text-[9px] mt-0.5 font-medium">Giá: {formatCurrency(price)}</div>
-                    <div className="text-[9px] mt-0.5 text-gray-600 italic">
-                    Bảo hành: {d.warrantyExpireDate ? `Đến ${new Date(d.warrantyExpireDate).toLocaleDateString("vi-VN")}` : d.warranty ? "Tiêu chuẩn" : "Không"}
-                    </div>
-                </td>
-                <td className="text-center align-top py-2 text-[11px] font-bold">1</td>
-                <td className="text-right align-top py-2 font-bold text-[11px]">{formatCurrency(price)}</td>
-                </tr>
-            )})}
-            </tbody>
-        </table>
+      {/* ĐIỀU KHOẢN BẢO HÀNH */}
+      <div className="text-[11px] mb-10 leading-relaxed text-gray-700">
+        <p className="font-bold underline text-black mb-1">Lưu ý / Quy định bảo hành:</p>
+        <p>- Quý khách vui lòng kiểm tra kỹ sản phẩm, hình thức, phụ kiện đi kèm trước khi rời khỏi cửa hàng.</p>
+        <p>- Cửa hàng không bảo hành đối với các trường hợp: Rơi vỡ, cấn móp, vào nước, chập cháy, mất Tem bảo hành.</p>
+        <p>- Đối với máy cũ, hỗ trợ 1 đổi 1 trong 30 ngày đầu nếu phát sinh lỗi từ Nhà sản xuất (Mainboard, Nguồn).</p>
+        <p>- Quý khách vui lòng giữ lại phiếu này để thuận tiện cho việc tra cứu và hỗ trợ bảo hành.</p>
       </div>
 
-      <div className="border-t-2 border-black border-dashed pt-3 mb-6">
-        <div className="flex justify-between items-center font-black text-[13px] mb-1">
-          <span>TỔNG CỘNG:</span>
-          <span>{formatCurrency(order?.totalPrice)}</span>
+      {/* CHỮ KÝ */}
+      <div className="flex justify-between text-center text-sm font-bold pt-8">
+        <div className="w-1/3">
+            <p>Người Mua Hàng</p>
+            <p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p>
         </div>
-        <p className="text-[10px] text-right italic font-medium mt-1 mb-3 text-gray-700">
-           (Bằng chữ: {docSoThanhChu(order?.totalPrice || 0)})
-        </p>
-
-        <div className="text-[9px] italic border p-2 bg-gray-50 text-gray-600 mb-4 rounded-sm">
-           <p className="font-bold text-black mb-1 underline">Lưu ý:</p>
-           <p>- Hàng mua rồi miễn đổi trả nếu không lỗi NSX.</p>
-           <p>- Giữ hóa đơn để đối chiếu bảo hành.</p>
-           <p>- Không bảo hành rơi vỡ, vào nước.</p>
+        <div className="w-1/3">
+            <p>Người Giao Hàng</p>
+            <p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p>
+        </div>
+        <div className="w-1/3">
+            <p>Thủ Kho / Kế Toán</p>
+            <p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p>
         </div>
       </div>
-
-      <div className="flex justify-between items-start text-center text-[10px] font-bold">
-         <div className="w-1/2">
-            <p>Khách hàng</p>
-            <p className="text-[8px] italic font-normal text-gray-500">(Ký & ghi rõ họ tên)</p>
-            <div className="h-16"></div>
-         </div>
-         <div className="w-1/2">
-            <p>Nhân viên</p>
-            <p className="text-[8px] italic font-normal text-gray-500">(Ký & ghi rõ họ tên)</p>
-            <div className="h-16"></div>
-         </div>
-      </div>
-      <div className="text-center mt-4 text-[10px] font-bold border-t border-black pt-2"><p>Cảm ơn quý khách!</p></div>
     </div>
   );
 };

@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Search, X, Settings, Smartphone } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Plus, Edit, Trash2, Search, X, Smartphone } from "lucide-react";
+
+// IMPORT TỪ FILE API MỚI
+import { 
+    fetchPhoneBrandsApi, 
+    createPhoneBrandApi, 
+    updatePhoneBrandApi, 
+    deletePhoneBrandApi 
+} from "../../api/admin/phoneBrand";
 
 export default function AdminPhoneBrand() {
     const [brands, setBrands] = useState([]);
@@ -18,52 +26,74 @@ export default function AdminPhoneBrand() {
     const [formData, setFormData] = useState({ name: '' });
 
     useEffect(() => {
-        fetchBrands();
+        loadBrands();
     }, [pagination.currentPage]);
 
     // Delay search 500ms
     useEffect(() => {
         const timeout = setTimeout(() => { 
             setPagination(prev => ({...prev, currentPage: 1}));
-            fetchBrands(); 
+            loadBrands(); 
         }, 500);
         return () => clearTimeout(timeout);
     }, [search]);
 
-    const fetchBrands = async () => {
+    // ==============================================================
+    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
+    // ==============================================================
+    const loadBrands = async () => {
         setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams({
-                page: pagination.currentPage, limit: pagination.limit, search: search
-            });
+        const params = new URLSearchParams({
+            page: pagination.currentPage, 
+            limit: pagination.limit, 
+            search: search
+        });
 
-            const { data } = await axios.get(`http://localhost:9999/api/phone_brands?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+        const data = await fetchPhoneBrandsApi(params);
+        if (data) {
             setBrands(data.data || []);
             setPagination(data.pagination || { currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 });
-        } catch (error) {
-            toast.error("Lỗi tải danh sách hãng sản xuất");
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const handleDelete = async (id) => {
         if (window.confirm("Bạn có chắc chắn muốn xóa hãng này? Sẽ không thể hoàn tác!")) {
-            try {
-                const token = localStorage.getItem("token");
-                await axios.delete(`http://localhost:9999/api/phone_brands/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            const isSuccess = await deletePhoneBrandApi(id);
+            if (isSuccess) {
                 toast.success("Xóa hãng thành công");
-                fetchBrands();
-            } catch (error) { 
-                toast.error(error.response?.data?.message || "Xóa thất bại"); 
+                loadBrands();
             }
         }
     };
 
-    const handlePageChange = (newPage) => { setPagination(prev => ({ ...prev, currentPage: newPage })); };
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!formData.name.trim()) {
+            return toast.warning("Vui lòng nhập tên hãng!");
+        }
+
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updatePhoneBrandApi(editingId, formData);
+            if (isSuccess) toast.success("Cập nhật hãng thành công");
+        } else {
+            isSuccess = await createPhoneBrandApi(formData);
+            if (isSuccess) toast.success("Thêm hãng mới thành công");
+        }
+
+        if (isSuccess) {
+            setShowModal(false);
+            loadBrands();
+        }
+    };
+
+    // ==============================================================
+    // CÁC HÀM XỬ LÝ GIAO DIỆN
+    // ==============================================================
+    const handlePageChange = (newPage) => { 
+        setPagination(prev => ({ ...prev, currentPage: newPage })); 
+    };
 
     const handleOpenModal = (brand = null) => {
         if (brand) {
@@ -78,30 +108,9 @@ export default function AdminPhoneBrand() {
         setShowModal(true);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formData.name.trim()) {
-            return toast.warning("Vui lòng nhập tên hãng!");
-        }
-
-        try {
-            const token = localStorage.getItem("token");
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/phone_brands/update/${editingId}`, formData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Cập nhật hãng thành công");
-            } else {
-                await axios.post("http://localhost:9999/api/phone_brands/create", formData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Thêm hãng mới thành công");
-            }
-            setShowModal(false);
-            fetchBrands();
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi khi lưu dữ liệu");
-        }
-    };
-
     return (
         <div className="flex flex-col h-full space-y-6">
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />

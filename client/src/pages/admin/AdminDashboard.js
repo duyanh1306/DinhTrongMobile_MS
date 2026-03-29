@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { DollarSign, ShoppingCart, Users, AlertCircle, Clock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { fetchDashboardDataApi } from "../../api/admin/dashboard"; 
 
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState({
@@ -12,21 +14,16 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
+    loadDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/dashboard");
-      if (res.ok) {
-        const data = await res.json();
-        setDashboardData(data);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải dữ liệu Dashboard");
-    } finally {
-      setIsLoading(false);
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    const data = await fetchDashboardDataApi();
+    if (data) {
+      setDashboardData(data); 
     }
+    setIsLoading(false);
   };
 
   // Format tiền tệ
@@ -63,6 +60,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      <ToastContainer position="top-right" autoClose={3000} />
       <h2 className="text-2xl font-bold text-gray-800">Tổng quan hệ thống</h2>
       
       {/* Stats Grid */}
@@ -118,7 +116,7 @@ export default function AdminDashboard() {
             
             <div className="flex-1 overflow-y-auto">
               <ul className="space-y-4">
-                {dashboardData.recentActivities.length > 0 ? (
+                {dashboardData.recentActivities && dashboardData.recentActivities.length > 0 ? (
                   dashboardData.recentActivities.map((activity, idx) => (
                     <li key={idx} className="relative pl-4 border-l-2 border-blue-500 pb-2">
                         <div className="absolute -left-1.5 top-1.5 w-3 h-3 bg-white border-2 border-blue-500 rounded-full"></div>

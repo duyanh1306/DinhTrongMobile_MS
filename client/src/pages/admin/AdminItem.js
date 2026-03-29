@@ -1,7 +1,18 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag, QrCode } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Plus, Edit, Trash2, Search, X, Settings, ChevronDown, ChevronRight, Tag, QrCode } from "lucide-react";
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { 
+    fetchItemTypesApi, 
+    fetchStoresApi, 
+    fetchItemsPaginatedApi, 
+    deleteItemApi, 
+    createItemApi, 
+    updateItemApi,
+    fetchItemQrCodeApi
+} from "../../api/admin/item";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -35,7 +46,6 @@ export default function AdminItem() {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
     
-    // 🌟 STATE LƯU TRỮ NHÓM LINH KIỆN ĐANG CHỌN Ở MODAL
     const [selectedBaseCategory, setSelectedBaseCategory] = useState('');
     
     const initialFormState = {
@@ -48,71 +58,74 @@ export default function AdminItem() {
     const [expandedGroup, setExpandedGroup] = useState({});
     const [expandedType, setExpandedType] = useState({});
 
-    useEffect(() => { fetchItemTypes(); fetchStores(); }, []);
-    useEffect(() => { fetchItems(); }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
+    // ==============================================================
+    // LOAD DỮ LIỆU BAN ĐẦU QUA FILE API
+    // ==============================================================
+    useEffect(() => { 
+        loadItemTypesAndStores(); 
+    }, []);
+
+    const loadItemTypesAndStores = async () => {
+        const [typesData, storesData] = await Promise.all([
+            fetchItemTypesApi(),
+            fetchStoresApi()
+        ]);
+        setItemTypes(typesData);
+        setStores(storesData);
+    };
+
+    useEffect(() => { 
+        loadItems(); 
+    }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
 
     useEffect(() => {
         const timeout = setTimeout(() => { 
             setPagination(prev => ({...prev, currentPage: 1}));
-            fetchItems(); 
+            loadItems(); 
         }, 500);
         return () => clearTimeout(timeout);
     }, [filters.search]);
 
-    const fetchItemTypes = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`, { headers: { Authorization: `Bearer ${token}` } });
-            setItemTypes(data.data || []);
-        } catch (error) {}
-    };
-
-    const fetchStores = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await axios.get(`http://localhost:9999/api/stores/all`, { headers: { Authorization: `Bearer ${token}` } });
-            setStores(Array.isArray(res.data) ? res.data : (res.data.data || []));
-        } catch (err) {}
-    };
-
-    const fetchItems = async () => {
+    const loadItems = async () => {
         setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams({
-                page: pagination.currentPage, limit: pagination.limit,
-                search: filters.search, status: filters.status, item_type: filters.item_type, storeId: filters.storeId 
-            });
-            const { data } = await axios.get(`http://localhost:9999/api/items?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+        const params = new URLSearchParams({
+            page: pagination.currentPage, 
+            limit: pagination.limit,
+            search: filters.search, 
+            status: filters.status, 
+            item_type: filters.item_type, 
+            storeId: filters.storeId 
+        });
+
+        const data = await fetchItemsPaginatedApi(params);
+        if (data) {
             setItems(data.data || []);
             if (data.pagination) setPagination(data.pagination);
-        } catch (error) { toast.error("Lỗi tải danh sách linh kiện"); } 
-        finally { setLoading(false); }
+        }
+        setLoading(false);
     };
 
     const handleDelete = async (id) => {
         if (window.confirm("Bạn có chắc chắn muốn xóa linh kiện này?")) {
-            try {
-                const token = localStorage.getItem("token");
-                await axios.delete(`http://localhost:9999/api/items/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            const success = await deleteItemApi(id);
+            if (success) {
                 toast.success("Xóa thành công");
-                fetchItems();
-            } catch (error) { toast.error("Xóa thất bại"); }
+                loadItems();
+            }
         }
     };
 
     const handleGenerateQR = async (itemId) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`http://localhost:9999/api/items/${itemId}/qr`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: "blob",
-            });
+            const blobData = await fetchItemQrCodeApi(itemId);
+            if (!blobData) {
+                toast.error("Không thể tải ảnh QR để in.");
+                return;
+            }
 
-            const blob = new Blob([response.data], { type: "image/png" });
+            const blob = new Blob([blobData], { type: "image/png" });
             const qrUrl = window.URL.createObjectURL(blob);
 
-            // Use hidden iframe to keep printing stable across browsers.
             const iframe = document.createElement("iframe");
             iframe.style.position = "fixed";
             iframe.style.right = "0";
@@ -188,7 +201,6 @@ export default function AdminItem() {
             }
         } catch (error) {
             toast.error("Lỗi khi tạo mã QR");
-            console.error("Item QR generation error:", error);
         }
     };
 
@@ -196,7 +208,6 @@ export default function AdminItem() {
         if (item) {
             setIsEditing(true); setEditingId(item._id);
             
-            // 🌟 TÌM RA NHÓM LINH KIỆN CỦA MÓN HÀNG NÀY ĐỂ HIỂN THỊ ĐÚNG TRONG DROPDOWN 1
             const typeObj = itemTypes.find(t => t._id === (item.item_type?._id || item.item_type));
             if (typeObj) setSelectedBaseCategory(getBaseCodeFromItemTypeCode(typeObj.code));
             else setSelectedBaseCategory('');
@@ -211,7 +222,7 @@ export default function AdminItem() {
             });
         } else {
             setIsEditing(false); setEditingId(null);
-            setSelectedBaseCategory(''); // Reset Nhóm
+            setSelectedBaseCategory(''); 
             setFormData(initialFormState);
         }
         setShowModal(true);
@@ -232,18 +243,20 @@ export default function AdminItem() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/items/update/${editingId}`, formData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Cập nhật linh kiện thành công");
-            } else {
-                await axios.post("http://localhost:9999/api/items/create", formData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Thêm linh kiện thành công");
-            }
+        
+        let success = false;
+        if (isEditing) {
+            success = await updateItemApi(editingId, formData);
+            if (success) toast.success("Cập nhật linh kiện thành công");
+        } else {
+            success = await createItemApi(formData);
+            if (success) toast.success("Thêm linh kiện thành công");
+        }
+
+        if (success) {
             setShowModal(false);
-            fetchItems();
-        } catch (error) { toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện"); }
+            loadItems();
+        }
     };
 
     const sortedGroupedData = useMemo(() => {
@@ -267,7 +280,6 @@ export default function AdminItem() {
         });
     }, [items]);
 
-    // 🌟 BỘ LỌC ĐỘNG: CHỈ HIỂN THỊ CÁC PHÂN LOẠI THUỘC NHÓM ĐÃ CHỌN TRONG MODAL
     const filteredItemTypesForModal = useMemo(() => {
         if (!selectedBaseCategory) return []; 
         return itemTypes.filter(t => getBaseCodeFromItemTypeCode(t.code) === selectedBaseCategory);
@@ -284,6 +296,7 @@ export default function AdminItem() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Settings className="text-blue-600" size={28} />
@@ -444,7 +457,6 @@ export default function AdminItem() {
                                 <div className="space-y-4">
                                     <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Định danh & Phân loại</h3>
                                     
-                                    {/* 🌟 2 BƯỚC CHỌN NHÓM -> CHỌN PHÂN LOẠI */}
                                     <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-3">
                                         <div>
                                             <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 1: Chọn Nhóm linh kiện *</label>

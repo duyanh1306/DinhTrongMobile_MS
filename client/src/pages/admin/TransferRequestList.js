@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { Search, Eye, X, Truck, Calendar, CheckCircle, Clock } from "lucide-react";
-import { toast, ToastContainer } from "react-toastify";
+import { Search, Eye, X, Truck, CheckCircle, Clock } from "lucide-react";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API MỚI
+import { fetchTransferRequestsApi, fetchTransferRequestDetailsApi } from "../../api/admin/transferRequest";
 
 export default function TransferRequestList() {
   const [requests, setRequests] = useState([]);
@@ -20,47 +23,36 @@ export default function TransferRequestList() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  // ==============================================================
+  // GỌI API QUA HÀM ĐÃ TÁCH
+  // ==============================================================
   useEffect(() => {
-    fetchRequests();
+    loadRequests();
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
-  const fetchRequests = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/transfer-requests");
-      if (res.ok) {
-        const data = await res.json();
-        setRequests(data);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách yêu cầu chuyển kho: " + error.message);
-    }
+  const loadRequests = async () => {
+      const data = await fetchTransferRequestsApi();
+      setRequests(data);
   };
 
-  const fetchRequestDetails = async (requestId) => {
-    setIsLoadingDetails(true);
-    try {
-      const res = await fetch(`http://localhost:9999/api/transfer-requests/${requestId}/details`);
-      if (res.ok) {
-        const data = await res.json();
-        setRequestDetails(data);
-      } else {
-        toast.error("Không thể tải chi tiết yêu cầu");
-      }
-    } catch (error) {
-      toast.error("Lỗi: " + error.message);
-    } finally {
+  const loadRequestDetails = async (requestId) => {
+      setIsLoadingDetails(true);
+      const data = await fetchTransferRequestDetailsApi(requestId);
+      setRequestDetails(data);
       setIsLoadingDetails(false);
-    }
   };
 
+  // ==============================================================
+  // LOGIC HIỂN THỊ UI
+  // ==============================================================
   const handleOpenDetailModal = (req) => {
     setSelectedRequest(req);
     setIsModalOpen(true);
-    fetchRequestDetails(req._id);
+    loadRequestDetails(req._id);
   };
 
   const handleCloseModal = () => {

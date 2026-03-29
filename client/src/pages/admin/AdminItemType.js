@@ -1,7 +1,16 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, ChevronRight, Tag } from "lucide-react";
+
+// IMPORT TỪ FILE API MỚI TẠO
+import { 
+    fetchItemTypesPaginatedApi, 
+    fetchAllRecipesApi, 
+    deleteItemTypeApi, 
+    createItemTypeApi, 
+    updateItemTypeApi 
+} from "../../api/admin/itemType";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -36,52 +45,48 @@ export default function AdminItemType() {
         return `http://localhost:9999${url}`;
     };
 
-    useEffect(() => { fetchRecipes(); }, []);
-
-    // 🌟 GỌI API THEO PHÂN TRANG VÀ TÌM KIẾM
-    useEffect(() => { fetchItemType(); }, [pagination.currentPage]);
+    // ==============================================================
+    // GỌI API THÔNG QUA HÀM TÁCH
+    // ==============================================================
+    useEffect(() => { loadRecipes(); }, []);
+    useEffect(() => { loadItemTypes(); }, [pagination.currentPage]);
 
     useEffect(() => {
         const timeout = setTimeout(() => { 
             setPagination(prev => ({...prev, currentPage: 1}));
-            fetchItemType(); 
+            loadItemTypes(); 
         }, 500);
         return () => clearTimeout(timeout);
     }, [searchKeyword]);
 
-    const fetchItemType = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams({
-                page: pagination.currentPage, 
-                limit: pagination.limit,
-                search: searchKeyword
-            });
+    const loadItemTypes = async () => {
+        setLoading(true);
+        const params = new URLSearchParams({
+            page: pagination.currentPage, 
+            limit: pagination.limit,
+            search: searchKeyword
+        });
 
-            const { data } = await axios.get(`http://localhost:9999/api/item_types?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await fetchItemTypesPaginatedApi(params);
+        if (data) {
             setItemTypes(data.data || []);
             if (data.pagination) setPagination(data.pagination);
-        } catch (error) { toast.error("Lỗi tải dữ liệu"); } 
-        finally { setLoading(false); }
+        }
+        setLoading(false);
     };
 
-    const fetchRecipes = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await axios.get("http://localhost:9999/api/recipes/all", { headers: { Authorization: `Bearer ${token}` } });
-            setRecipes(res.data.data || []);
-        } catch (err) { console.error("Lỗi tải công thức:", err); }
+    const loadRecipes = async () => {
+        const data = await fetchAllRecipesApi();
+        setRecipes(data);
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
-        try {
-            const token = localStorage.getItem("token");
-            await axios.delete(`http://localhost:9999/api/item_types/delete/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        const isSuccess = await deleteItemTypeApi(id);
+        if (isSuccess) {
             toast.success("Xóa thành công!");
-            fetchItemType();
-        } catch (error) { toast.error("Lỗi khi xóa danh mục"); }
+            loadItemTypes();
+        }
     };
 
     const handleOpenModal = (itemType = null) => {
@@ -152,34 +157,33 @@ export default function AdminItemType() {
         const finalCode = formData.baseCode === 'OTH' ? subUpper : (subUpper ? `${formData.baseCode}-${subUpper}` : formData.baseCode);
         if (!finalCode) return toast.warning("Mã Code không được để trống!");
 
-        try {
-            const token = localStorage.getItem("token");
-            const submitData = new FormData();
-            submitData.append('name', formData.name);
-            submitData.append('code', finalCode); 
-            
-            let finalLinkedRecipes = [...formData.linkedRecipes];
-            if (tempLink.recipeId && tempLink.partName) {
-                const isDuplicate = finalLinkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
-                if (!isDuplicate) finalLinkedRecipes.push(tempLink);
-            }
-            if (finalLinkedRecipes.length > 0) submitData.append('linkedRecipes', JSON.stringify(finalLinkedRecipes));
-            
-            if (imageFile) submitData.append('image', imageFile);
-            else if (formData.image && !formData.image.startsWith('blob:')) submitData.append('image', formData.image); 
+        const submitData = new FormData();
+        submitData.append('name', formData.name);
+        submitData.append('code', finalCode); 
+        
+        let finalLinkedRecipes = [...formData.linkedRecipes];
+        if (tempLink.recipeId && tempLink.partName) {
+            const isDuplicate = finalLinkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
+            if (!isDuplicate) finalLinkedRecipes.push(tempLink);
+        }
+        if (finalLinkedRecipes.length > 0) submitData.append('linkedRecipes', JSON.stringify(finalLinkedRecipes));
+        
+        if (imageFile) submitData.append('image', imageFile);
+        else if (formData.image && !formData.image.startsWith('blob:')) submitData.append('image', formData.image); 
 
-            const config = { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data'} };
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updateItemTypeApi(editingId, submitData);
+            if (isSuccess) toast.success("Cập nhật thành công");
+        } else {
+            isSuccess = await createItemTypeApi(submitData);
+            if (isSuccess) toast.success("Thêm mới thành công");
+        }
 
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, config);
-                toast.success("Cập nhật thành công");
-            } else {
-                await axios.post(`http://localhost:9999/api/item_types/create`, submitData, config);
-                toast.success("Thêm mới thành công");
-            }
+        if (isSuccess) {
             setShowModal(false);
-            fetchItemType();
-        } catch (error) { toast.error(error.response?.data?.message || "Lỗi lưu dữ liệu"); }
+            loadItemTypes();
+        }
     };
 
     // 🌟 GỘP NHÓM & SẮP XẾP "KHÁC" XUỐNG CUỐI
@@ -209,6 +213,7 @@ export default function AdminItemType() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Package className="text-blue-600" size={28} />
@@ -219,6 +224,7 @@ export default function AdminItemType() {
                 </button>
             </div>
 
+            {/* BỘ LỌC TÌM KIẾM BÊN NGOÀI DANH SÁCH */}
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
                 <div className="relative w-full md:w-1/2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />

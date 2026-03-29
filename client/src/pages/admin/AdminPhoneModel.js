@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { Plus, Edit, Smartphone, Search, ChevronRight, ChevronDown, X, Image as ImageIcon, Package } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Plus, Edit, Smartphone, Search, ChevronRight, ChevronDown, X, Image as ImageIcon } from "lucide-react";
+
+// IMPORT TỪ FILE API MỚI
+import { 
+    fetchPhoneBrandsApi, 
+    fetchPhoneModelsApi, 
+    createPhoneModelApi, 
+    updatePhoneModelApi 
+} from "../../api/admin/phoneModel";
 
 const initialFormState = {
     name: '',
@@ -36,41 +44,32 @@ export default function AdminPhoneModel() {
     const [expandedType, setExpandedType] = useState({ new: true, used: true });
     const [expandedBrand, setExpandedBrand] = useState({});
 
+    // ==============================================================
+    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
+    // ==============================================================
     useEffect(() => {
-        fetchPhoneBrands();
-        fetchPhoneModels();
+        loadInitialData();
     }, []);
 
-    const fetchPhoneBrands = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/phone_brands/all`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setPhoneBrands(data.data || []);
-        } catch (error) {
-            console.error("Lỗi tải danh sách hãng", error);
-        }
+    const loadInitialData = async () => {
+        setLoading(true);
+        const [brands, models] = await Promise.all([
+            fetchPhoneBrandsApi(),
+            fetchPhoneModelsApi()
+        ]);
+        setPhoneBrands(brands);
+        setPhoneModels(models);
+        setLoading(false);
     };
 
-    const fetchPhoneModels = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem("token");
-            
-            // Dùng API lấy toàn bộ + Tồn kho thay vì phân trang
-            const { data } = await axios.get(`http://localhost:9999/api/phone_models/all`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            
-            setPhoneModels(data.data || []);
-        } catch (error) {
-            toast.error("Lỗi lấy dữ liệu");
-        } finally {
-            setLoading(false);
-        }
+    const loadPhoneModelsOnly = async () => {
+        const models = await fetchPhoneModelsApi();
+        setPhoneModels(models);
     };
 
+    // ==============================================================
+    // CÁC HÀM XỬ LÝ GIAO DIỆN
+    // ==============================================================
     const handleAddPhoneModel = () => {
         setIsEditing(false);
         setFormData(initialFormState);
@@ -114,25 +113,25 @@ export default function AdminPhoneModel() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            const submitData = new FormData();
-            submitData.append("name", formData.name);
-            submitData.append("brand", formData.brand);
-            submitData.append("specifications", JSON.stringify(formData.specifications));
-            if (formData.imageFile) submitData.append("image", formData.imageFile);
+        
+        const submitData = new FormData();
+        submitData.append("name", formData.name);
+        submitData.append("brand", formData.brand);
+        submitData.append("specifications", JSON.stringify(formData.specifications));
+        if (formData.imageFile) submitData.append("image", formData.imageFile);
 
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/phone_models/update/${editingId}`, submitData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Cập nhật thành công!");
-            } else {
-                await axios.post("http://localhost:9999/api/phone_models/create", submitData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Thêm mới thành công!");
-            }
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updatePhoneModelApi(editingId, submitData);
+            if (isSuccess) toast.success("Cập nhật thành công!");
+        } else {
+            isSuccess = await createPhoneModelApi(submitData);
+            if (isSuccess) toast.success("Thêm mới thành công!");
+        }
+
+        if (isSuccess) {
             handleCloseModal();
-            fetchPhoneModels(); // Refresh lại danh sách
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lưu thất bại!");
+            loadPhoneModelsOnly(); // Refresh lại danh sách
         }
     };
 
@@ -166,6 +165,7 @@ export default function AdminPhoneModel() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
@@ -225,15 +225,6 @@ export default function AdminPhoneModel() {
                                                                 </div>
                                                                 <div>
                                                                     <p className="font-bold text-gray-800">{model.name}</p>
-                                                                    
-                                                                    {/* 🌟 CHỖ HIỂN THỊ TỒN KHO 🌟 */}
-                                                                    <div className="flex items-center gap-1.5 mt-1 text-[13px]">
-                                                                        <Package size={14} className={model.stockCount > 0 ? "text-emerald-600" : "text-gray-400"}/> 
-                                                                        <span className="text-gray-500">Tồn kho toàn hệ thống:</span> 
-                                                                        <strong className={model.stockCount > 0 ? "text-emerald-600 bg-emerald-50 px-1.5 rounded" : "text-red-500 bg-red-50 px-1.5 rounded"}>
-                                                                            {model.stockCount || 0} chiếc
-                                                                        </strong>
-                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <button onClick={() => handleEditPhoneModel(model)} className="text-blue-600 bg-blue-50 p-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition"><Edit size={16} /></button>
@@ -252,7 +243,7 @@ export default function AdminPhoneModel() {
 
             {/* MODAL THÊM / SỬA */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between p-5 border-b bg-gray-50">
                             <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Cập nhật Dòng máy' : 'Thêm Dòng máy mới'}</h2>
@@ -294,7 +285,7 @@ export default function AdminPhoneModel() {
                                     ].map(f => (
                                         <div key={f.n}>
                                             <label className="text-xs font-semibold text-gray-600 mb-1 block">{f.l}</label>
-                                            <input type="text" name={f.n} value={formData.specifications[f.n.replace('spec_', '')]} onChange={handleInputChange} className="w-full border border-gray-200 p-2 rounded-lg text-sm outline-none focus:border-blue-400" />
+                                            <input type="text" name={f.n} value={formData.specifications[f.n.replace('spec_', '')] || ''} onChange={handleInputChange} className="w-full border border-gray-200 p-2 rounded-lg text-sm outline-none focus:border-blue-400" />
                                         </div>
                                     ))}
                                 </div>

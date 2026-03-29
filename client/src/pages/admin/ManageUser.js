@@ -9,16 +9,23 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Store // Thêm icon Store
+  Store 
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 
+// Import API và đổi tên để tránh trùng lặp với hàm nội bộ
+import { 
+  fetchUsers as apiFetchUsers, 
+  fetchRoles as apiFetchRoles, 
+  fetchStores as apiFetchStores 
+} from "../../api/admin/manageUser";
+
 export default function ManageUser() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [stores, setStores] = useState([]); // State lưu danh sách cửa hàng
+  const [stores, setStores] = useState([]); 
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("STAFF");
@@ -35,58 +42,40 @@ export default function ManageUser() {
     number: "",
     birthday: "",
     roleId: "",
-    storeId: "", // Thêm storeId
+    storeId: "", 
     status: "active",
     password: "",
   });
   const [errors, setErrors] = useState({});
 
+  // =========================================================
+  // HÀM HỨNG DỮ LIỆU TỪ API VÀ ĐẨY VÀO STATE
+  // =========================================================
+  const loadUsers = async () => {
+    const data = await apiFetchUsers();
+    if (data) setUsers(Array.isArray(data) ? data : data.data || []);
+  };
+
+  const loadRoles = async () => {
+    const data = await apiFetchRoles();
+    if (data) setRoles(Array.isArray(data) ? data : data.data || []);
+  };
+
+  const loadStores = async () => {
+    const data = await apiFetchStores();
+    if (data) setStores(Array.isArray(data) ? data : data.data || []);
+  };
+
   useEffect(() => {
-    fetchUsers();
-    fetchRoles();
-    fetchStores(); // Gọi API lấy cửa hàng
+    loadUsers();
+    loadRoles();
+    loadStores(); 
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedFilter]);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách người dùng: " + error.message);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/roles");
-      if (res.ok) {
-        const data = await res.json();
-        setRoles(data);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách vai trò: " + error.message);
-    }
-  };
-
-  // Hàm lấy danh sách cửa hàng
-  const fetchStores = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/stores");
-      if (res.ok) {
-        const data = await res.json();
-        setStores(Array.isArray(data) ? data : data.data || []);
-      }
-    } catch (error) {
-      console.log("Lỗi tải cửa hàng", error);
-    }
-  };
 
   const isStaffRole = (roleCode) => ["SALE_STAFF", "TECHNICIAN", "MANAGER"].includes(roleCode);
   const isAdminRole = (roleCode) => roleCode === "ADMIN";
@@ -202,7 +191,7 @@ export default function ManageUser() {
       number: "",
       birthday: "",
       roleId: staffRole ? staffRole._id : "",
-      storeId: "", // Reset storeId
+      storeId: "", 
       status: "active",
       password: "",
     });
@@ -223,7 +212,7 @@ export default function ManageUser() {
       number: user.number || "",
       birthday: user.birthday ? user.birthday.split("T")[0] : "",
       roleId: user.roleId?._id || "",
-      storeId: user.storeId || "", // Lấy storeId từ user
+      storeId: user.storeId || "", 
       status: user.status,
     });
     setErrors({});
@@ -239,7 +228,6 @@ export default function ManageUser() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Lọc bỏ storeId nếu không phải là nhân viên
     const selectedRoleObj = roles.find(r => r._id === formData.roleId);
     const submitData = { ...formData };
     if (!isStaffRole(selectedRoleObj?.id)) {
@@ -258,7 +246,7 @@ export default function ManageUser() {
         );
         if (res.ok) {
           toast.success("Cập nhật thông tin thành công!");
-          fetchUsers();
+          loadUsers(); // Gọi lại loadUsers thay vì fetchUsers
           handleCloseModal();
         } else {
           const errData = await res.json();
@@ -272,7 +260,7 @@ export default function ManageUser() {
         });
         if (res.ok) {
           toast.success("Tạo tài khoản nhân viên thành công!");
-          fetchUsers();
+          loadUsers(); // Gọi lại loadUsers thay vì fetchUsers
           handleCloseModal();
         } else {
           const errData = await res.json();
@@ -325,7 +313,7 @@ export default function ManageUser() {
 
           if (res.ok) {
             toast.success("Đã khóa tài khoản thành công!");
-            fetchUsers();
+            loadUsers(); // Gọi lại loadUsers thay vì fetchUsers
           } else {
             const errData = await res.json();
             toast.error(errData.message || "Khóa tài khoản thất bại.");

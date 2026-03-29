@@ -4,12 +4,14 @@ import {
   Eye,
   X,
   FileText,
-  Calendar,
   Smartphone,
   Package,
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API MỚI TẠO
+import { fetchOrdersApi, fetchOrderDetailsApi } from "../../api/admin/purchaseHistory";
 
 export default function PurchaseHistory() {
   const [orders, setOrders] = useState([]);
@@ -18,87 +20,49 @@ export default function PurchaseHistory() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 10;
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  // ==============================================================
+  // GỌI API QUA HÀM ĐÃ TÁCH
+  // ==============================================================
   useEffect(() => {
-    fetchOrders();
+    loadOrders();
   }, []);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
-  const fetchOrders = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/purchase-orders");
-      if (res.ok) {
-        const data = await res.json();
-        const updatedOrders = await Promise.all(
-          data.map(async (order) => {
-            const detailRes = await fetch(
-              `http://localhost:9999/api/purchase-orders/${order._id}/details`,
-            );
-            if (detailRes.ok) {
-              const details = await detailRes.json();
-
-              // CHỈ TÍNH LẠI NẾU CÓ CHI TIẾT SẢN PHẨM (MẢNG > 0)
-              if (details.length > 0) {
-                const total = details.reduce((sum, d) => {
-                  const pPrice = d.phoneId?.importPrice || d.purchasePrice || 0;
-                  const iPrice = d.itemId?.baseCost || d.itemId?.price || 0;
-                  const subItemsTotal =
-                    d.items?.reduce(
-                      (s, item) => s + (item.purchasePrice || 0),
-                      0,
-                    ) || 0;
-                  return sum + pPrice + iPrice + subItemsTotal;
-                }, 0);
-                return { ...order, totalPrice: total };
-              }
-            }
-            // NẾU MẢNG DETAILS RỖNG (Đơn huỷ sớm), GIỮ NGUYÊN order GỐC TỪ DB
-            return order;
-          }),
-        );
-        setOrders(updatedOrders.filter((o) => o.orderType === "PURCHASE"));
-      }
-    } catch (error) {
-      toast.error("Lỗi đồng bộ giá: " + error.message);
-    }
+  const loadOrders = async () => {
+      const data = await fetchOrdersApi();
+      setOrders(data);
   };
 
-  const fetchOrderDetails = async (orderId) => {
-    setIsLoadingDetails(true);
-    try {
-      const res = await fetch(
-        `http://localhost:9999/api/purchase-orders/${orderId}/details`,
-      );
-      if (res.ok) setOrderDetails(await res.json());
-    } catch (error) {
-      toast.error("Lỗi tải chi tiết");
-    } finally {
+  const loadOrderDetails = async (orderId) => {
+      setIsLoadingDetails(true);
+      const data = await fetchOrderDetailsApi(orderId);
+      setOrderDetails(data);
       setIsLoadingDetails(false);
-    }
   };
 
+  // ==============================================================
+  // CÁC HÀM XỬ LÝ LOGIC UI
+  // ==============================================================
   const calculateGrandTotal = () => {
     return orderDetails.reduce((total, d) => {
       const pPrice = d.phoneId?.importPrice || d.purchasePrice || 0;
       const iPrice = d.itemId?.baseCost || d.itemId?.price || 0;
-      const subItemsTotal =
-        d.items?.reduce((s, item) => s + (item.purchasePrice || 0), 0) || 0;
+      const subItemsTotal = d.items?.reduce((s, item) => s + (item.purchasePrice || 0), 0) || 0;
       return total + pPrice + iPrice + subItemsTotal;
     }, 0);
   };
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(amount || 0);
-  const formatDate = (date) =>
-    date ? new Date(date).toLocaleString("vi-VN") : "N/A";
+  const formatCurrency = (amount) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
+  const formatDate = (date) => date ? new Date(date).toLocaleString("vi-VN") : "N/A";
+  
   const getStatusBadge = (s) =>
     s === "Completed"
       ? "bg-green-100 text-green-800"
@@ -108,9 +72,8 @@ export default function PurchaseHistory() {
 
   const filteredOrders = orders.filter(
     (o) =>
-      (o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.customerPhone?.includes(searchQuery)) &&
-      (statusFilter === "ALL" || o.status === statusFilter),
+      (o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) || o.customerPhone?.includes(searchQuery)) &&
+      (statusFilter === "ALL" || o.status === statusFilter)
   );
 
   const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
@@ -119,7 +82,6 @@ export default function PurchaseHistory() {
     currentPage * ordersPerPage,
   );
 
-  // ĐỊNH NGHĨA HÀM PAGINATE
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
@@ -131,10 +93,7 @@ export default function PurchaseHistory() {
         </h2>
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
-            <Search
-              className="absolute left-3 top-2.5 text-gray-400"
-              size={18}
-            />
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
               type="text"
               placeholder="Tìm tên/SĐT..."
@@ -163,9 +122,7 @@ export default function PurchaseHistory() {
                 <th className="p-3 font-semibold text-gray-700">Tổng tiền</th>
                 <th className="p-3 font-semibold text-gray-700">Ngày tạo</th>
                 <th className="p-3 font-semibold text-gray-700">Trạng thái</th>
-                <th className="p-3 font-semibold text-gray-700 text-center">
-                  Chi tiết
-                </th>
+                <th className="p-3 font-semibold text-gray-700 text-center">Chi tiết</th>
               </tr>
             </thead>
             <tbody>
@@ -189,9 +146,7 @@ export default function PurchaseHistory() {
                     {formatDate(order.purchaseOrderDate)}
                   </td>
                   <td className="p-3">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}
-                    >
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
                       {order.status}
                     </span>
                   </td>
@@ -200,7 +155,7 @@ export default function PurchaseHistory() {
                       onClick={() => {
                         setSelectedOrder(order);
                         setIsModalOpen(true);
-                        fetchOrderDetails(order._id);
+                        loadOrderDetails(order._id);
                       }}
                       className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100"
                     >
@@ -212,6 +167,7 @@ export default function PurchaseHistory() {
             </tbody>
           </table>
         </div>
+
         {/* Pagination UI */}
         {totalPages > 1 && (
           <div className="flex justify-center gap-2 mt-6">
@@ -234,10 +190,7 @@ export default function PurchaseHistory() {
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="p-6 border-b flex justify-between items-center bg-white">
               <h3 className="text-xl font-bold">
-                Chi tiết thu mua #
-                {selectedOrder._id
-                  ?.substring(selectedOrder._id.length - 6)
-                  .toUpperCase()}
+                Chi tiết thu mua #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -246,6 +199,7 @@ export default function PurchaseHistory() {
                 <X size={24} />
               </button>
             </div>
+            
             <div className="p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border">
                 <div>
@@ -254,16 +208,12 @@ export default function PurchaseHistory() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 font-bold">TỔNG CHI</p>
-                  {/* LẤY GRAND TOTAL NẾU CÓ DETAILS, KHÔNG THÌ LẤY TOTAL PRICE GỐC */}
                   <p className="text-xl font-black text-red-600">
-                    {formatCurrency(
-                      orderDetails.length > 0
-                        ? calculateGrandTotal()
-                        : selectedOrder.totalPrice,
-                    )}
+                    {formatCurrency(orderDetails.length > 0 ? calculateGrandTotal() : selectedOrder.totalPrice)}
                   </p>
                 </div>
               </div>
+
               <table className="w-full text-sm">
                 <thead className="bg-gray-100">
                   <tr>
@@ -274,25 +224,21 @@ export default function PurchaseHistory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orderDetails.length > 0 ? (
-                    // LOGIC CŨ KHI ĐƠN CÓ CHI TIẾT
+                  {isLoadingDetails ? (
+                    <tr><td colSpan="4" className="text-center p-4 text-gray-500">Đang tải chi tiết...</td></tr>
+                  ) : orderDetails.length > 0 ? (
                     orderDetails.map((detail, idx) => {
                       let rows = [];
                       if (detail.phoneId)
                         rows.push({
-                          icon: (
-                            <Smartphone size={16} className="text-blue-500" />
-                          ),
+                          icon: <Smartphone size={16} className="text-blue-500" />,
                           name: detail.phoneId.phoneModelId?.name,
                           code: `IMEI: ${detail.phoneId.imei}`,
-                          price:
-                            detail.phoneId.importPrice || detail.purchasePrice,
+                          price: detail.phoneId.importPrice || detail.purchasePrice,
                         });
                       if (detail.itemId)
                         rows.push({
-                          icon: (
-                            <Package size={16} className="text-orange-500" />
-                          ),
+                          icon: <Package size={16} className="text-orange-500" />,
                           name: detail.itemId.item_type?.name,
                           code: `SN: ${detail.itemId.serialCode}`,
                           price: detail.itemId.baseCost || detail.itemId.price,
@@ -320,9 +266,7 @@ export default function PurchaseHistory() {
                           </td>
                           <td className="p-3 text-center text-xs">
                             {detail.warranty ? (
-                              <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                                Có
-                              </span>
+                              <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Có</span>
                             ) : (
                               "Không"
                             )}
@@ -333,17 +277,12 @@ export default function PurchaseHistory() {
                         </tr>
                       ));
                     })
-                  ) : // GIAO DIỆN DỰ PHÒNG KHI ĐƠN BỊ HUỶ SỚM (KHÔNG CÓ DETAILS)
-                  selectedOrder.tempPhoneData &&
-                    selectedOrder.tempPhoneData.imei ? (
+                  ) : selectedOrder.tempPhoneData && selectedOrder.tempPhoneData.imei ? (
                     <tr className="border-t bg-gray-50">
                       <td className="p-3">
                         <div className="flex items-center gap-2 text-gray-500">
                           <Smartphone size={16} />{" "}
-                          <b>
-                            {selectedOrder.tempPhoneData.phoneModelId?.name ||
-                              "Máy khách bán"}
-                          </b>
+                          <b>{selectedOrder.tempPhoneData.phoneModelId?.name || "Máy khách bán"}</b>
                         </div>
                         <div className="text-xs font-mono text-gray-400">
                           IMEI: {selectedOrder.tempPhoneData.imei}
@@ -352,19 +291,14 @@ export default function PurchaseHistory() {
                       <td className="p-3 text-right font-bold text-gray-500">
                         {formatCurrency(selectedOrder.totalPrice)}
                       </td>
-                      <td className="p-3 text-center text-xs text-gray-400">
-                        —
-                      </td>
+                      <td className="p-3 text-center text-xs text-gray-400">—</td>
                       <td className="p-3 text-xs italic text-red-500">
                         {selectedOrder.note || "Đơn huỷ chưa nhập kho"}
                       </td>
                     </tr>
                   ) : (
                     <tr>
-                      <td
-                        colSpan="4"
-                        className="p-4 text-center text-gray-400 italic"
-                      >
+                      <td colSpan="4" className="p-4 text-center text-gray-400 italic">
                         Không có thông tin thiết bị
                       </td>
                     </tr>
@@ -372,6 +306,7 @@ export default function PurchaseHistory() {
                 </tbody>
               </table>
             </div>
+
             <div className="p-4 border-t bg-gray-50 flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
