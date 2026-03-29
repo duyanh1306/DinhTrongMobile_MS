@@ -1,7 +1,13 @@
 import React, {useEffect, useState} from "react";
-import axios from "axios";
 import {toast} from "react-toastify";
 import {Plus, Edit, Search, ChevronLeft, ChevronRight, X, Wrench, ArrowUpDown} from "lucide-react";
+
+// IMPORT TỪ FILE API
+import { 
+    fetchRepairServicesApi, 
+    createRepairServiceApi, 
+    updateRepairServiceApi 
+} from "../../api/admin/repairService";
 
 export default function ManageRepairService() {
     const [repairServices, setRepairServices] = useState([]);
@@ -15,50 +21,46 @@ export default function ManageRepairService() {
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
+    
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        price: ''
-    });
+    const [formData, setFormData] = useState({ name: '', price: '' });
     const [editingId, setEditingId] = useState(null);
 
+    // ==============================================================
+    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
+    // ==============================================================
     useEffect(() => {
-        fetchRepairServices();
+        loadRepairServices();
     }, []);
 
     useEffect(() => {
         if (!loading) {
-            fetchRepairServices();
+            loadRepairServices();
         }
     }, [pagination.currentPage, search, sortBy, sortOrder]);
 
-    const fetchRepairServices = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams({
-                page: pagination.currentPage,
-                limit: pagination.itemsPerPage,
-                ...(search && {search}),
-                sortBy,
-                sortOrder
-            });
+    const loadRepairServices = async () => {
+        setLoading(true);
+        const params = new URLSearchParams({
+            page: pagination.currentPage,
+            limit: pagination.itemsPerPage,
+            ...(search && {search}),
+            sortBy,
+            sortOrder
+        });
 
-            const {data} = await axios.get(`http://localhost:9999/api/repair_services?${params}`, {
-                headers: {Authorization: `Bearer ${token}`},
-            });
-
-            setRepairServices(data.data);
-            setPagination(data.pagination);
-        } catch (error) {
-            console.error("Error fetching repair services:", error);
-            toast.error("Lấy danh sách dịch vụ sửa chữa thất bại");
-        } finally {
-            setLoading(false);
+        const data = await fetchRepairServicesApi(params);
+        if (data) {
+            setRepairServices(data.data || []);
+            if (data.pagination) setPagination(data.pagination);
         }
+        setLoading(false);
     };
 
+    // ==============================================================
+    // CÁC HÀM XỬ LÝ GIAO DIỆN
+    // ==============================================================
     const handleCreate = () => {
         setIsEditing(false);
         setFormData({name: '', price: ''});
@@ -84,30 +86,23 @@ export default function ManageRepairService() {
             return;
         }
 
-        try {
-            const token = localStorage.getItem("token");
-            const payload = {
-                name: formData.name.trim(),
-                ...(formData.price && { price: parseFloat(formData.price) })
-            };
+        const payload = {
+            name: formData.name.trim(),
+            ...(formData.price && { price: parseFloat(formData.price) })
+        };
 
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/repair_services/update/${editingId}`, payload, {
-                    headers: {Authorization: `Bearer ${token}`},
-                });
-                toast.success("Cập nhật dịch vụ sửa chữa thành công");
-            } else {
-                await axios.post("http://localhost:9999/api/repair_services/create", payload, {
-                    headers: {Authorization: `Bearer ${token}`},
-                });
-                toast.success("Tạo dịch vụ sửa chữa thành công");
-            }
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updateRepairServiceApi(editingId, payload);
+            if (isSuccess) toast.success("Cập nhật dịch vụ sửa chữa thành công");
+        } else {
+            isSuccess = await createRepairServiceApi(payload);
+            if (isSuccess) toast.success("Tạo dịch vụ sửa chữa thành công");
+        }
 
+        if (isSuccess) {
             setShowModal(false);
-            fetchRepairServices();
-        } catch (error) {
-            console.error("Error saving repair service:", error);
-            toast.error(error.response?.data?.message || "Lưu dịch vụ sửa chữa thất bại");
+            loadRepairServices();
         }
     };
 
@@ -164,7 +159,7 @@ export default function ManageRepairService() {
                                 placeholder="Tìm kiếm dịch vụ sửa chữa..."
                                 value={search}
                                 onChange={handleSearch}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                             />
                         </div>
                     </div>
@@ -273,7 +268,7 @@ export default function ManageRepairService() {
                                     <p className="text-sm text-gray-700">
                                         Hiển thị{' '}
                                         <span className="font-medium">
-                                            {(pagination.currentPage - 1) * pagination.itemsPerPage + 1}
+                                            {Math.min((pagination.currentPage - 1) * pagination.itemsPerPage + 1, pagination.totalItems)}
                                         </span>{' '}
                                         đến{' '}
                                         <span className="font-medium">
@@ -329,7 +324,7 @@ export default function ManageRepairService() {
                                 </h3>
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="text-gray-400 hover:text-gray-500"
+                                    className="text-gray-400 hover:text-gray-500 outline-none"
                                 >
                                     <X className="w-6 h-6"/>
                                 </button>

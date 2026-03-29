@@ -18,6 +18,17 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import { useNavigate, useParams } from "react-router-dom";
 
+// IMPORT TỪ FILE API
+import { 
+    fetchUsersApi, 
+    fetchRolesApi, 
+    fetchStoreInfoApi, 
+    fetchStoresApi,
+    createStaffApi,
+    updateStaffApi,
+    resetPasswordApi
+} from "../../api/admin/staffStore";
+
 export default function ManageStaffStore() {
   const navigate = useNavigate();
   const { storeId } = useParams();
@@ -50,12 +61,31 @@ export default function ManageStaffStore() {
   const [errors, setErrors] = useState({});
   const [targetStoreId, setTargetStoreId] = useState("");
 
+  // ==============================================================
+  // GỌI API QUA HÀM ĐÃ TÁCH
+  // ==============================================================
   useEffect(() => {
-    fetchUsers();
-    fetchRoles();
-    fetchStores();
-    fetchStoreInfo();
+    loadInitialData();
   }, [storeId]);
+
+  const loadInitialData = async () => {
+      const [usersData, rolesData, storesData, storeInfo] = await Promise.all([
+          fetchUsersApi(),
+          fetchRolesApi(),
+          fetchStoresApi(),
+          fetchStoreInfoApi(storeId)
+      ]);
+      setUsers(usersData);
+      setRoles(rolesData);
+      setStores(storesData);
+      if (storeInfo) setStoreName(storeInfo.name || "");
+  };
+
+  // Hàm load lại users sau khi thêm/sửa/xóa
+  const reloadUsers = async () => {
+      const usersData = await fetchUsersApi();
+      setUsers(usersData);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -63,54 +93,6 @@ export default function ManageStaffStore() {
 
   const isStaffRole = (roleCode) => ["SALE_STAFF", "TECHNICIAN", "MANAGER"].includes(roleCode);
   const isAdminRole = (roleCode) => roleCode === "ADMIN";
-
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(Array.isArray(data) ? data : []);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách nhân viên: " + error.message);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/roles");
-      if (res.ok) {
-        const data = await res.json();
-        setRoles(Array.isArray(data) ? data : []);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải vai trò: " + error.message);
-    }
-  };
-
-  const fetchStoreInfo = async () => {
-    try {
-      const res = await fetch(`http://localhost:9999/api/stores/${storeId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setStoreName(data?.name || "");
-      }
-    } catch {
-    }
-  };
-
-  const fetchStores = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/stores");
-      if (res.ok) {
-        const data = await res.json();
-        const storesArray = Array.isArray(data) ? data : data.data || [];
-        setStores(storesArray);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách cửa hàng: " + error.message);
-    }
-  };
 
   const filteredUsers = users.filter((user) => {
     const roleCode = user.roleId?.id;
@@ -285,22 +267,11 @@ export default function ManageStaffStore() {
 
     if (!confirm.isConfirmed) return;
 
-    try {
-      const res = await fetch(`http://localhost:9999/api/users/${selectedUser._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId: targetStoreId }),
-      });
-      if (res.ok) {
+    const isSuccess = await updateStaffApi(selectedUser._id, { storeId: targetStoreId });
+    if (isSuccess) {
         toast.success("Đổi cửa hàng thành công!");
-        fetchUsers();
+        reloadUsers();
         handleCloseModal();
-      } else {
-        const errData = await res.json();
-        toast.error(errData.message || "Đổi cửa hàng thất bại.");
-      }
-    } catch (error) {
-      toast.error("Lỗi khi đổi cửa hàng: " + error.message);
     }
   };
 
@@ -309,38 +280,19 @@ export default function ManageStaffStore() {
     if (!validateForm()) return;
 
     const submitData = { ...formData, storeId };
-    try {
-      if (modalType === "UPDATE") {
-        const res = await fetch(`http://localhost:9999/api/users/${selectedUser._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(submitData),
-        });
-        if (res.ok) {
-          toast.success("Cập nhật thông tin thành công!");
-          fetchUsers();
-          handleCloseModal();
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Cập nhật thất bại");
-        }
-      } else if (modalType === "CREATE_STAFF") {
-        const res = await fetch("http://localhost:9999/api/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(submitData),
-        });
-        if (res.ok) {
-          toast.success("Tạo tài khoản nhân viên thành công!");
-          fetchUsers();
-          handleCloseModal();
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Tạo tài khoản thất bại");
-        }
-      }
-    } catch (error) {
-      toast.error("Lỗi khi lưu: " + error.message);
+    
+    let isSuccess = false;
+    if (modalType === "UPDATE") {
+        isSuccess = await updateStaffApi(selectedUser._id, submitData);
+        if (isSuccess) toast.success("Cập nhật thông tin thành công!");
+    } else if (modalType === "CREATE_STAFF") {
+        isSuccess = await createStaffApi(submitData);
+        if (isSuccess) toast.success("Tạo tài khoản nhân viên thành công!");
+    }
+
+    if (isSuccess) {
+        reloadUsers();
+        handleCloseModal();
     }
   };
 
@@ -355,28 +307,17 @@ export default function ManageStaffStore() {
       text: `Bạn có chắc muốn khóa tài khoản của ${user.fullName}?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Khoa",
-      cancelButtonText: "Huy",
+      confirmButtonText: "Khóa",
+      cancelButtonText: "Hủy",
       reverseButtons: true,
     });
 
     if (!result.isConfirmed) return;
 
-    try {
-      const res = await fetch(`http://localhost:9999/api/users/${user._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "inactive" }),
-      });
-      if (res.ok) {
+    const isSuccess = await updateStaffApi(user._id, { status: "inactive" });
+    if (isSuccess) {
         toast.success("Đã khóa tài khoản thành công!");
-        fetchUsers();
-      } else {
-        const errData = await res.json();
-        toast.error(errData.message || "Khóa tài khoản thất bại.");
-      }
-    } catch (error) {
-      toast.error("Lỗi hệ thống: " + error.message);
+        reloadUsers();
     }
   };
 
@@ -386,8 +327,8 @@ export default function ManageStaffStore() {
       input: "password",
       inputLabel: "Nhập mật khẩu mới",
       showCancelButton: true,
-      confirmButtonText: "Luu",
-      cancelButtonText: "Huy",
+      confirmButtonText: "Lưu",
+      cancelButtonText: "Hủy",
       inputValidator: (value) => {
         const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
         if (!value) return "Vui lòng nhập mật khẩu mới!";
@@ -399,20 +340,9 @@ export default function ManageStaffStore() {
 
     if (!newPassword) return;
 
-    try {
-      const res = await fetch(`http://localhost:9999/api/users/${id}/reset-password`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPassword }),
-      });
-      if (res.ok) {
+    const isSuccess = await resetPasswordApi(id, newPassword);
+    if (isSuccess) {
         toast.success("Đặt lại mật khẩu thành công!");
-      } else {
-        const errData = await res.json();
-        toast.error(errData.message || "Đặt lại mật khẩu thất bại.");
-      }
-    } catch (error) {
-      toast.error("Lỗi khi đặt lại mật khẩu: " + error.message);
     }
   };
 
@@ -563,11 +493,11 @@ export default function ManageStaffStore() {
         {totalPages > 1 && (
           <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
             <span className="text-sm text-gray-600">
-              Hien thi <span className="font-semibold text-gray-900">{indexOfFirstUser + 1}</span> den{" "}
+              Hiển thị <span className="font-semibold text-gray-900">{indexOfFirstUser + 1}</span> đến{" "}
               <span className="font-semibold text-gray-900">
                 {Math.min(indexOfLastUser, filteredUsers.length)}
               </span>{" "}
-              trong tong so <span className="font-semibold text-gray-900">{filteredUsers.length}</span> nhan vien
+              trong tổng số <span className="font-semibold text-gray-900">{filteredUsers.length}</span> nhân viên
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -638,7 +568,7 @@ export default function ManageStaffStore() {
                 </div>
                 <div>
                   <span className="text-gray-500 block mb-1">Số điện thoại</span>
-                  <span className="font-medium text-gray-800">{selectedUser.number || "Trong"}</span>
+                  <span className="font-medium text-gray-800">{selectedUser.number || "Trống"}</span>
                 </div>
                 <div>
                   <span className="text-gray-500 block mb-1">Ngày sinh</span>
@@ -662,7 +592,7 @@ export default function ManageStaffStore() {
                 </div>
                 <div className="col-span-2">
                   <span className="text-gray-500 block mb-1">Địa chỉ</span>
-                  <span className="font-medium text-gray-800">{selectedUser.address || "Trong"}</span>
+                  <span className="font-medium text-gray-800">{selectedUser.address || "Trống"}</span>
                 </div>
               </div>
             )}
@@ -671,7 +601,7 @@ export default function ManageStaffStore() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ho va ten *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên *</label>
                     <input
                       type="text"
                       name="fullName"
@@ -687,7 +617,7 @@ export default function ManageStaffStore() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ten dang nhap *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập *</label>
                     <input
                       type="text"
                       name="userName"
@@ -723,7 +653,7 @@ export default function ManageStaffStore() {
 
                   {modalType === "CREATE_STAFF" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mat khau *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu *</label>
                       <input
                         type="password"
                         name="password"
@@ -740,7 +670,7 @@ export default function ManageStaffStore() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">So dien thoai</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
                     <input
                       type="text"
                       name="number"
@@ -756,7 +686,7 @@ export default function ManageStaffStore() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngay sinh *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngày sinh *</label>
                     <input
                       type="date"
                       name="birthday"
@@ -772,7 +702,7 @@ export default function ManageStaffStore() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Vai tro *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò *</label>
                     <select
                       name="roleId"
                       value={formData.roleId}
@@ -783,7 +713,7 @@ export default function ManageStaffStore() {
                           : "border-gray-300 focus:ring-blue-500 outline-none"
                       }`}
                     >
-                      <option value="">Chon vai tro</option>
+                      <option value="">Chọn vai trò</option>
                       {roles
                         .filter((r) => isStaffRole(r.id))
                         .map((role) => (
@@ -796,7 +726,7 @@ export default function ManageStaffStore() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Trang thai</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
                     <select
                       name="status"
                       value={formData.status}

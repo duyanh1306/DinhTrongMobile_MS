@@ -289,7 +289,7 @@ const createAssembledPhone = async (req, res) => {
             phoneModelId: phone_model,
             colorName: 'Assembled',
             capacity: 'N/A',
-            storeId: storeId || '000000000000000000000000',
+            storeId: storeId || "N/A",
             status: 'in_stock',  // ✅ Valid enum value
             source: 'assembled',
             items: items,

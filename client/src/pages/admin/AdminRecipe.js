@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useRef } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter } from "lucide-react";
+
+// IMPORT TỪ FILE API
+import { 
+    fetchInitialDataApi, 
+    createRecipeApi, 
+    updateRecipeApi, 
+    deleteRecipeApi 
+} from "../../api/admin/recipe";
 
 // ĐỒNG BỘ DANH SÁCH MÃ CHUẨN ĐỂ LÀM BỘ LỌC
 const BASE_CODES = [
@@ -37,32 +45,31 @@ export default function AdminRecipe() {
         requiredParts: []
     });
 
+    // ==============================================================
+    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
+    // ==============================================================
     useEffect(() => {
-        fetchData();
+        loadInitialData();
     }, []);
 
-    const fetchData = async () => {
+    const loadInitialData = async () => {
         setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            const headers = { Authorization: `Bearer ${token}` };
-            
-            const [recipeRes, modelRes, typeRes] = await Promise.all([
-                axios.get("http://localhost:9999/api/recipes/all", { headers }),
-                axios.get("http://localhost:9999/api/phone_models/all", { headers }),
-                axios.get("http://localhost:9999/api/item_types/all", { headers })
-            ]);
-            
-            setRecipes(recipeRes.data.data || []);
-            setPhoneModels(modelRes.data.data || []);
-            setItemTypes(typeRes.data.data || []);
-        } catch (error) {
-            toast.error("Lỗi tải dữ liệu");
-        } finally {
-            setLoading(false);
-        }
+        const data = await fetchInitialDataApi();
+        setRecipes(data.recipes);
+        setPhoneModels(data.phoneModels);
+        setItemTypes(data.itemTypes);
+        setLoading(false);
     };
 
+    // Hàm gọi riêng Recipes khi cần refresh lại bảng sau lúc thêm/sửa/xóa
+    const reloadRecipesOnly = async () => {
+        const data = await fetchInitialDataApi();
+        setRecipes(data.recipes);
+    };
+
+    // ==============================================================
+    // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ FORM
+    // ==============================================================
     const handleOpenModal = (recipe = null) => {
         if (recipe) {
             setIsEditing(true);
@@ -101,7 +108,7 @@ export default function AdminRecipe() {
             requiredParts: [...prev.requiredParts, { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: '' }]
         }));
 
-        // 🌟 TỰ ĐỘNG CUỘN XUỐNG DƯỚI SAU KHI THÊM 🌟
+        // TỰ ĐỘNG CUỘN XUỐNG DƯỚI SAU KHI THÊM
         setTimeout(() => {
             if (endOfListRef.current) {
                 endOfListRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -131,6 +138,15 @@ export default function AdminRecipe() {
             newParts[partIndex].acceptedItemTypes = [...currentAccepted, typeId];
         }
         setFormData(prev => ({ ...prev, requiredParts: newParts }));
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa công thức này?")) return;
+        const isSuccess = await deleteRecipeApi(id);
+        if (isSuccess) {
+            toast.success("Đã xóa công thức");
+            reloadRecipesOnly();
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -171,33 +187,18 @@ export default function AdminRecipe() {
             })
         };
 
-        try {
-            const token = localStorage.getItem("token");
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/recipes/update/${editingId}`, payload, config);
-                toast.success("Cập nhật công thức thành công");
-            } else {
-                await axios.post("http://localhost:9999/api/recipes/create", payload, config);
-                toast.success("Tạo công thức thành công");
-            }
-            setShowModal(false);
-            fetchData();
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi lưu dữ liệu");
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updateRecipeApi(editingId, payload);
+            if (isSuccess) toast.success("Cập nhật công thức thành công");
+        } else {
+            isSuccess = await createRecipeApi(payload);
+            if (isSuccess) toast.success("Tạo công thức thành công");
         }
-    };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa công thức này?")) return;
-        try {
-            const token = localStorage.getItem("token");
-            await axios.delete(`http://localhost:9999/api/recipes/delete/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-            toast.success("Đã xóa công thức");
-            fetchData();
-        } catch (error) {
-            toast.error("Lỗi khi xóa");
+        if (isSuccess) {
+            setShowModal(false);
+            reloadRecipesOnly();
         }
     };
 
@@ -205,6 +206,7 @@ export default function AdminRecipe() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Settings className="text-blue-600" size={28} />
@@ -240,6 +242,9 @@ export default function AdminRecipe() {
                                 </td>
                             </tr>
                         ))}
+                        {recipes.length === 0 && (
+                            <tr><td colSpan="4" className="text-center py-10 text-gray-500">Chưa có công thức nào!</td></tr>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -258,18 +263,18 @@ export default function AdminRecipe() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label className="block text-sm font-bold mb-2 text-gray-700">Dành cho Dòng Máy <span className="text-red-500">*</span></label>
-                                    <select required value={formData.phoneModelId} onChange={e => setFormData({...formData, phoneModelId: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
+                                    <select required value={formData.phoneModelId} onChange={e => setFormData({...formData, phoneModelId: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
                                         <option value="">-- Chọn Dòng Máy --</option>
                                         {phoneModels.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold mb-2 text-gray-700">Mô tả tóm tắt</label>
-                                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" placeholder="VD: Cấu hình chuẩn..." />
+                                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" placeholder="VD: Cấu hình chuẩn..." />
                                 </div>
                             </div>
 
-                            <div className="border-t pt-6">
+                            <div className="border-t border-gray-200 pt-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Layers size={20}/> Danh sách Slot linh kiện</h3>
                                     <button type="button" onClick={handleAddPart} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 transition">
@@ -313,7 +318,7 @@ export default function AdminRecipe() {
                                                             <select 
                                                                 value={part.filterCode || ''} 
                                                                 onChange={e => handlePartChange(index, 'filterCode', e.target.value)} 
-                                                                className="w-full border p-2 rounded-lg text-sm outline-none focus:border-blue-500 bg-blue-50/30 font-medium text-gray-700"
+                                                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30 font-medium text-gray-700"
                                                             >
                                                                 <option value="">-- Vui lòng chọn --</option>
                                                                 {BASE_CODES.map(b => {
@@ -345,7 +350,7 @@ export default function AdminRecipe() {
                                                                 Vui lòng chọn Nhóm Linh Kiện ở trên để hiển thị danh sách.
                                                             </div>
                                                         ) : (
-                                                            <div className="max-h-40 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2 p-1 border rounded bg-white custom-scrollbar">
+                                                            <div className="max-h-40 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2 p-1 border border-gray-200 rounded bg-white custom-scrollbar">
                                                                 {filteredItemTypes.map(type => (
                                                                     <label key={type._id} className="flex items-center gap-2 p-1.5 hover:bg-blue-50 rounded cursor-pointer border border-transparent hover:border-blue-100 transition">
                                                                         <input 
@@ -357,7 +362,7 @@ export default function AdminRecipe() {
                                                                         <span className="text-sm text-gray-700 line-clamp-1">{type.name} <span className="text-gray-400 text-xs">({type.code})</span></span>
                                                                     </label>
                                                                 ))}
-                                                                {filteredItemTypes.length === 0 && <span className="text-sm text-gray-500 col-span-full p-2">Không tìm thấy danh mục nào thuộc nhóm này.</span>}
+                                                                {filteredItemTypes.length === 0 && <span className="text-sm text-gray-500 col-span-full p-2 text-center italic">Không tìm thấy danh mục nào thuộc nhóm này.</span>}
                                                             </div>
                                                         )}
                                                     </div>
@@ -372,8 +377,8 @@ export default function AdminRecipe() {
                             </div>
                         </div>
 
-                        <div className="p-5 border-t bg-gray-50 flex justify-end gap-3 flex-shrink-0">
-                            <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-white border font-semibold text-gray-700 rounded-xl hover:bg-gray-100 transition">Hủy bỏ</button>
+                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                            <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-white border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-100 transition">Hủy bỏ</button>
                             <button onClick={handleSubmit} className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md flex items-center gap-2 transition">
                                 <Save size={18}/> {isEditing ? 'Lưu cập nhật' : 'Hoàn tất tạo'}
                             </button>

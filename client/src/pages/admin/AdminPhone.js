@@ -1,9 +1,18 @@
-import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Plus, Edit, Trash2, Smartphone, Search, ChevronRight, ChevronDown, X, MapPin, Tag, Image as ImageIcon, QrCode } from "lucide-react";
 
-// 🌟 ĐÃ KHAI BÁO ĐẦY ĐỦ CÁC TRƯỜNG CHỨA ẢNH ĐỂ TRÁNH LỖI UNDEFINED
+// IMPORT TỪ FILE API
+import { 
+    fetchStoresAndModelsApi, 
+    fetchPhonesApi, 
+    deletePhoneApi, 
+    fetchPhoneQrCodeApi, 
+    createPhoneApi, 
+    updatePhoneApi 
+} from "../../api/admin/phone";
+
 const initialFormState = {
     serialCode: '',
     phoneModelId: '',
@@ -39,40 +48,32 @@ export default function AdminPhone() {
     const [expandedBrand, setExpandedBrand] = useState({});
     const [expandedModel, setExpandedModel] = useState({});
 
+    // ==============================================================
+    // LOAD DỮ LIỆU BAN ĐẦU QUA FILE API
+    // ==============================================================
     useEffect(() => {
-        fetchStoresAndModels();
+        loadStoresAndModels();
     }, []);
 
-    useEffect(() => {
-        fetchPhones();
-    }, [selectedStoreFilter]);
-
-    const fetchStoresAndModels = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const [storesRes, modelsRes] = await Promise.all([
-                axios.get(`http://localhost:9999/api/stores/all`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`http://localhost:9999/api/phone_models/all`, { headers: { Authorization: `Bearer ${token}` } })
-            ]);
-            
-            const fetchedStores = storesRes.data.data || storesRes.data || [];
-            setStores(fetchedStores);
-            if (fetchedStores.length > 0 && !selectedStoreFilter) setSelectedStoreFilter(fetchedStores[0]._id);
-            setModels(modelsRes.data.data || []);
-        } catch (error) { toast.error("Lỗi lấy dữ liệu ban đầu"); }
+    const loadStoresAndModels = async () => {
+        const { stores, models } = await fetchStoresAndModelsApi();
+        setStores(stores);
+        setModels(models);
+        if (stores.length > 0 && !selectedStoreFilter) {
+            setSelectedStoreFilter(stores[0]._id);
+        }
     };
 
-    const fetchPhones = async () => {
+    useEffect(() => {
+        loadPhones();
+    }, [selectedStoreFilter]);
+
+    const loadPhones = async () => {
         if (!selectedStoreFilter) return;
-        try {
-            setLoading(true);
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/phones?storeId=${selectedStoreFilter}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setPhones(data.data || []);
-        } catch (error) { toast.error("Lỗi tải danh sách máy"); } 
-        finally { setLoading(false); }
+        setLoading(true);
+        const data = await fetchPhonesApi(selectedStoreFilter);
+        setPhones(data);
+        setLoading(false);
     };
 
     const handleOpenModal = (phone = null) => {
@@ -106,25 +107,24 @@ export default function AdminPhone() {
 
     const handleDelete = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa máy này?")) return;
-        try {
-            const token = localStorage.getItem("token");
-            await axios.delete(`http://localhost:9999/api/phones/delete/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        const isSuccess = await deletePhoneApi(id);
+        if (isSuccess) {
             toast.success("Xóa máy thành công!");
-            fetchPhones();
-        } catch (error) { toast.error("Lỗi khi xóa máy"); }
+            loadPhones();
+        }
     };
 
     const handleGenerateQR = async (phoneId, serialCode) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`http://localhost:9999/api/phones/qrcode/${phoneId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob'
-            });
+            const blobData = await fetchPhoneQrCodeApi(phoneId);
+            if (!blobData) {
+                toast.error("Không thể tải ảnh QR để in.");
+                return;
+            }
 
-            const blob = new Blob([response.data], { type: "image/png" });
+            const blob = new Blob([blobData], { type: "image/png" });
             const qrUrl = window.URL.createObjectURL(blob);
-            // Use a hidden iframe instead of popup window to avoid browser crashes.
+            
             const iframe = document.createElement("iframe");
             iframe.style.position = "fixed";
             iframe.style.right = "0";
@@ -200,7 +200,6 @@ export default function AdminPhone() {
             }
         } catch (error) {
             toast.error("Lỗi khi tạo mã QR");
-            console.error("QR Code generation error:", error);
         }
     };
 
@@ -238,54 +237,50 @@ export default function AdminPhone() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            const submitData = new FormData();
-            
-            submitData.append("serialCode", formData.serialCode);
-            submitData.append("phoneModelId", formData.phoneModelId);
-            submitData.append("storeId", formData.storeId);
-            submitData.append("colorName", formData.colorName);
-            
-            let finalCapacity = formData.capacity.trim().toUpperCase();
-            if (finalCapacity && !finalCapacity.includes('GB') && !finalCapacity.includes('TB')) {
-                finalCapacity += 'GB';
-            }
-            submitData.append("capacity", finalCapacity);
-            
-            submitData.append("grade", formData.grade);
-            submitData.append("status", formData.status);
-            submitData.append("importPrice", formData.importPrice);
-            submitData.append("sellingPrice", formData.sellingPrice);
-            submitData.append("warrantyPeriod", formData.warrantyPeriod);
-            submitData.append("source", formData.source);
-            submitData.append("notes", formData.notes);
+        
+        const submitData = new FormData();
+        submitData.append("serialCode", formData.serialCode);
+        submitData.append("phoneModelId", formData.phoneModelId);
+        submitData.append("storeId", formData.storeId);
+        submitData.append("colorName", formData.colorName);
+        
+        let finalCapacity = formData.capacity.trim().toUpperCase();
+        if (finalCapacity && !finalCapacity.includes('GB') && !finalCapacity.includes('TB')) {
+            finalCapacity += 'GB';
+        }
+        submitData.append("capacity", finalCapacity);
+        
+        submitData.append("grade", formData.grade);
+        submitData.append("status", formData.status);
+        submitData.append("importPrice", formData.importPrice);
+        submitData.append("sellingPrice", formData.sellingPrice);
+        submitData.append("warrantyPeriod", formData.warrantyPeriod);
+        submitData.append("source", formData.source);
+        submitData.append("notes", formData.notes);
 
-            if (isEditing && formData.retainedImages && formData.retainedImages.length > 0) {
-                submitData.append("retainedImages", JSON.stringify(formData.retainedImages));
-            }
-            
-            if (formData.imageFiles && formData.imageFiles.length > 0) {
-                formData.imageFiles.forEach(file => submitData.append("images", file));
-            }
+        if (isEditing && formData.retainedImages && formData.retainedImages.length > 0) {
+            submitData.append("retainedImages", JSON.stringify(formData.retainedImages));
+        }
+        
+        if (formData.imageFiles && formData.imageFiles.length > 0) {
+            formData.imageFiles.forEach(file => submitData.append("images", file));
+        }
 
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/phones/update/${editingId}`, submitData, { 
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } 
-                });
-                toast.success("Cập nhật thành công!");
-            } else {
-                await axios.post("http://localhost:9999/api/phones/create", submitData, { 
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } 
-                });
-                toast.success("Thêm máy thành công!");
-            }
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updatePhoneApi(editingId, submitData);
+            if (isSuccess) toast.success("Cập nhật thành công!");
+        } else {
+            isSuccess = await createPhoneApi(submitData);
+            if (isSuccess) toast.success("Thêm máy thành công!");
+        }
+
+        if (isSuccess) {
             setShowModal(false);
-            fetchPhones();
-        } catch (error) { toast.error(error.response?.data?.message || "Lưu thất bại!"); }
+            loadPhones();
+        }
     };
 
-    // 🌟 ĐÃ BỌC AN TOÀN CHỐNG UNDEFINED CHO BỘ LỌC
     const groupedData = useMemo(() => {
         const result = {};
         const safeKeyword = searchKeyword.toLowerCase();
@@ -315,6 +310,7 @@ export default function AdminPhone() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
@@ -463,7 +459,6 @@ export default function AdminPhone() {
                                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer relative min-h-[100px]">
                                         <input type="file" multiple accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                         <div className="flex flex-wrap gap-3 justify-center mb-2 pointer-events-none">
-                                            {/* 🌟 THÊM CHẤM HỎI AN TOÀN ĐỂ CHỐNG LỖI LENGTH */}
                                             {formData.previewImages?.length > 0 ? (
                                                 formData.previewImages.map((src, idx) => (
                                                     <img key={idx} src={src} alt="preview" className="h-16 w-16 object-cover rounded-md shadow-sm border border-gray-200" />

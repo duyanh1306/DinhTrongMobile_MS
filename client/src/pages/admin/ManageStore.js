@@ -5,6 +5,9 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 
+// IMPORT TỪ FILE API MỚI
+import { fetchStoresApi, createStoreApi, updateStoreApi, deleteStoreApi } from "../../api/admin/store";
+
 export default function ManageStore() {
   const navigate = useNavigate();
   const [stores, setStores] = useState([]);
@@ -14,26 +17,17 @@ export default function ManageStore() {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    fetchStores();
+    loadStores();
   }, []);
 
-  const fetchStores = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/stores");
-      if (res.ok) {
-        const data = await res.json();
-        
-        // SỬA Ở ĐÂY: Trích xuất đúng mảng data, nếu không có thì trả về mảng rỗng []
-        const storesArray = Array.isArray(data) ? data : data.data || [];
-        setStores(storesArray);
-        
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách cửa hàng: " + error.message);
-    }
+  // ==============================================================
+  // GỌI API QUA HÀM ĐÃ TÁCH
+  // ==============================================================
+  const loadStores = async () => {
+    const data = await fetchStoresApi();
+    setStores(data);
   };
 
-  // --- HÀM XÁC NHẬN VÀ XÓA VỚI SWEETALERT2 ---
   const handleDelete = async (id) => {
     Swal.fire({
       title: "Bạn có chắc chắn không?",
@@ -46,18 +40,10 @@ export default function ManageStore() {
       cancelButtonText: "Hủy"
     }).then(async (result) => {
       if (result.isConfirmed) {
-        try {
-          const res = await fetch(`http://localhost:9999/api/stores/${id}`, {
-            method: "DELETE",
-          });
-          if (res.ok) {
-            setStores(stores.filter((store) => store._id !== id));
-            toast.success("Xóa cửa hàng thành công!");
-          } else {
-            toast.error("Xóa cửa hàng thất bại.");
-          }
-        } catch (error) {
-          toast.error("Lỗi khi xóa cửa hàng: " + error.message);
+        const isSuccess = await deleteStoreApi(id);
+        if (isSuccess) {
+          setStores(stores.filter((store) => store._id !== id));
+          toast.success("Xóa cửa hàng thành công!");
         }
       }
     });
@@ -102,7 +88,6 @@ export default function ManageStore() {
     let newErrors = {};
     let isValid = true;
 
-    // Validate Code (Không rỗng, viết hoa, không dấu cách)
     if (!formData.code.trim()) {
       newErrors.code = "Vui lòng nhập Mã cửa hàng";
       isValid = false;
@@ -111,7 +96,6 @@ export default function ManageStore() {
       isValid = false;
     }
 
-    // Validate Name (Không rỗng, ít nhất 3 ký tự)
     if (!formData.name.trim()) {
       newErrors.name = "Vui lòng nhập Tên cửa hàng";
       isValid = false;
@@ -120,7 +104,6 @@ export default function ManageStore() {
       isValid = false;
     }
 
-    // Validate Location (Không rỗng, ít nhất 5 ký tự)
     if (!formData.location.trim()) {
       newErrors.location = "Vui lòng nhập địa chỉ";
       isValid = false;
@@ -133,54 +116,30 @@ export default function ManageStore() {
     return isValid;
   };
 
-  // --- XỬ LÝ SUBMIT VỚI TOAST NOTIFICATION ---
+  // --- XỬ LÝ SUBMIT VỚI API TÁCH RỜI ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Dừng lại nếu form không hợp lệ
     if (!validateForm()) return;
 
-    try {
-      if (editingId) {
-        const res = await fetch(`http://localhost:9999/api/stores/${editingId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-
-        if (res.ok) {
-          const updatedStore = await res.json();
-          setStores(stores.map((store) => (store._id === editingId ? updatedStore : store)));
-          toast.success("Cập nhật thông tin cửa hàng thành công!");
-          handleCloseModal();
-        } else {
-          toast.error("Cập nhật thất bại");
+    if (editingId) {
+        const { success, data } = await updateStoreApi(editingId, formData);
+        if (success) {
+            setStores(stores.map((store) => (store._id === editingId ? data : store)));
+            toast.success("Cập nhật thông tin cửa hàng thành công!");
+            handleCloseModal();
         }
-      } else {
-        const res = await fetch("http://localhost:9999/api/stores", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-
-        if (res.ok) {
-          const newStore = await res.json();
-          setStores([...stores, newStore]);
-          toast.success("Thêm cửa hàng mới thành công!");
-          handleCloseModal();
-        } else {
-          const errorData = await res.json();
-          toast.error(errorData.message || "Thêm cửa hàng thất bại"); 
+    } else {
+        const { success, data } = await createStoreApi(formData);
+        if (success) {
+            setStores([...stores, data]);
+            toast.success("Thêm cửa hàng mới thành công!");
+            handleCloseModal();
         }
-      }
-    } catch (error) {
-      toast.error("Lỗi khi lưu: " + error.message);
     }
   };
 
   return (
     <>
-      {/* Component chứa các Toast Notifications */}
       <ToastContainer position="top-right" autoClose={3000} />
 
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -276,7 +235,7 @@ export default function ManageStore() {
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                     errors.code ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-blue-500"
                   }`}
-                  disabled={!!editingId} // Thường không cho phép sửa mã Store khi update
+                  disabled={!!editingId} // Không cho phép sửa mã Store khi update
                 />
                 {errors.code && <p className="text-red-500 text-xs mt-1">{errors.code}</p>}
               </div>
