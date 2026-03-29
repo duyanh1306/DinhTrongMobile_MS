@@ -54,11 +54,11 @@ export default function ManagerSidebar() {
       icon: <ClipboardList size={20} />,
       items: [
         { text: "Duyệt yêu cầu kho", link: "/manager/transfer_approvals", icon: <FileText size={18} /> },
-        {
-          text: "Làm đơn vận chuyển",
-          link: "/manager/transfer_requests",
-          icon: <FileText size={18} />
-        }
+        // {
+        //   text: "Làm đơn vận chuyển",
+        //   link: "/manager/transfer_requests",
+        //   icon: <FileText size={18} />
+        // }
       ],
     },
   ];

@@ -44,15 +44,13 @@ const createTransferRequest = async (req, res) => {
     try {
         const {fromStoreId, toStoreId, requestedBy, items, itemType, note} = req.body;
 
-        // Validate required fields
-        if (!fromStoreId || !toStoreId || !requestedBy || !items || items.length === 0) {
+        if (!fromStoreId || !toStoreId || !requestedBy) {
             return res.status(400).json({
                 success: false,
-                message: "Missing required fields: fromStoreId, toStoreId, requestedBy, items"
+                message: "Missing required fields: fromStoreId, toStoreId, requestedBy"
             });
         }
 
-        // Check if fromStore and toStore are different
         if (fromStoreId === toStoreId) {
             return res.status(400).json({
                 success: false,
@@ -60,7 +58,6 @@ const createTransferRequest = async (req, res) => {
             });
         }
 
-        // Create transfer request
         const transferRequest = new TransferRequest({
             fromStoreId,
             toStoreId,
@@ -72,30 +69,29 @@ const createTransferRequest = async (req, res) => {
 
         const savedRequest = await transferRequest.save();
 
-        // Create transfer request details
-        const details = items.map(item => ({
+        const transferRequestDetail = new TransferRequestDetail({
             transferRequestId: savedRequest._id,
-            itemId: [item?.itemId || item],
+            itemId: [],
+            phoneId: [],
             status: "PENDING",
-            note: item.note || ""
-        }));
+            note: note || ""
+        });
 
-        const savedDetails = await TransferRequestDetail.insertMany(details);
+        const savedDetail = await transferRequestDetail.save();
 
-        // Populate and return the complete request
         const populatedRequest = await TransferRequest.findById(savedRequest._id)
             .populate("fromStoreId", "name code")
             .populate("toStoreId", "name code")
-            .populate("requestedBy", "fullName");
+            .populate("requestedBy", "fullName")
+            .populate("itemType.itemTypes", "name");
 
         res.status(201).json({
             success: true,
             message: "Transfer request created successfully",
             data: populatedRequest,
-            details: savedDetails
+            detail: savedDetail
         });
     } catch (error) {
-        console.error("Lỗi tạo đơn vận chuyển:", error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -106,7 +102,6 @@ const createTransferRequest = async (req, res) => {
 // Tạo yêu cầu chuyển kho tự động cho repair order
 const createTransferRequestForRepairOrder = async (repairOrderId, selectedItems, currentStoreId, requestedBy) => {
     try {
-        // Group items by their store
         const itemsByStore = {};
 
         selectedItems.forEach(item => {
@@ -121,7 +116,6 @@ const createTransferRequestForRepairOrder = async (repairOrderId, selectedItems,
 
         const transferRequests = [];
 
-        // Create transfer request for each store
         for (const [fromStoreId, items] of Object.entries(itemsByStore)) {
             const transferRequest = new TransferRequest({
                 fromStoreId,
@@ -133,7 +127,6 @@ const createTransferRequestForRepairOrder = async (repairOrderId, selectedItems,
 
             const savedRequest = await transferRequest.save();
 
-            // Create transfer request details
             const details = items.map(item => ({
                 transferRequestId: savedRequest._id,
                 itemId: item._id,
@@ -156,7 +149,6 @@ const createTransferRequestForRepairOrder = async (repairOrderId, selectedItems,
 
         return transferRequests;
     } catch (error) {
-        console.error("Lỗi tự động tạo đơn vận chuyển:", error);
         throw error;
     }
 };
@@ -185,7 +177,6 @@ const getTransferRequestById = async (req, res) => {
     }
 };
 
-// Duyệt yêu cầu chuyển kho
 const approveTransferRequest = async (req, res) => {
     try {
         const {id} = req.params;
@@ -207,7 +198,6 @@ const approveTransferRequest = async (req, res) => {
             });
         }
 
-        // Update status to APPROVED and set approvedBy
         transferRequest.status = "APPROVED";
         transferRequest.approvedBy = userId;
         await transferRequest.save();
@@ -229,7 +219,6 @@ const approveTransferRequest = async (req, res) => {
     }
 };
 
-// Từ chối yêu cầu chuyển kho
 const rejectTransferRequest = async (req, res) => {
     try {
         const {id} = req.params;
@@ -360,11 +349,9 @@ const confirmReceipt = async (req, res) => {
             });
         }
 
-        // Update status to COMPLETED
         transferRequest.status = "COMPLETED";
         await transferRequest.save();
 
-        // Update all items' storeId to the receiving store
         const TransferRequestDetail = require("../models/Transfer_request_detail");
         const Item = require("../models/Item");
 
