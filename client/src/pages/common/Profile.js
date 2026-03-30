@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import axiosClient from "../../api/axiosClient";
 import { toast } from "react-toastify";
 import { Camera, Lock, Shield, User, Eye, EyeOff } from "lucide-react";
+
+// IMPORT TỪ FILE API MỚI TẠO
+import { updateProfileApi, changePasswordApi } from "../../api/admin/profile";
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -21,6 +23,9 @@ export default function Profile() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
+  // ==============================================================
+  // LOAD DỮ LIỆU BAN ĐẦU
+  // ==============================================================
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (storedUser) {
@@ -39,6 +44,9 @@ export default function Profile() {
     }
   }, []);
 
+  // ==============================================================
+  // CÁC HÀM XỬ LÝ FORM
+  // ==============================================================
   const handleInfoChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
   const handlePassChange = (e) => setPassData({ ...passData, [e.target.name]: e.target.value });
 
@@ -50,7 +58,6 @@ export default function Profile() {
     }
   };
 
-  // --- VALIDATION BẰNG TOAST THÔNG BÁO ---
   const validateProfile = () => {
     if (!formData.fullName.trim()) {
       toast.error("Họ và tên là bắt buộc.");
@@ -93,32 +100,26 @@ export default function Profile() {
     return true;
   };
 
-  // --- SUBMIT HANDLERS ---
+  // ==============================================================
+  // SUBMIT GỌI API ĐÃ TÁCH
+  // ==============================================================
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     if (!validateProfile()) return;
     
     setLoadingProfile(true);
-    try {
-      const submitData = new FormData();
-      submitData.append("userId", user._id);
-      submitData.append("fullName", formData.fullName);
-      submitData.append("number", formData.number);
-      submitData.append("address", formData.address);
-      submitData.append("birthday", formData.birthday);
-      if (avatarFile) submitData.append("avatar", avatarFile);
+    
+    const submitData = new FormData();
+    submitData.append("userId", user._id);
+    submitData.append("fullName", formData.fullName);
+    submitData.append("number", formData.number);
+    submitData.append("address", formData.address);
+    submitData.append("birthday", formData.birthday);
+    if (avatarFile) submitData.append("avatar", avatarFile);
 
-      const res = await axiosClient.put("/users/profile", submitData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      toast.success(res.data.message || "Cập nhật hồ sơ thành công!");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Cập nhật hồ sơ thất bại.");
-    } finally {
-      setLoadingProfile(false);
-    }
+    await updateProfileApi(submitData);
+    
+    setLoadingProfile(false);
   };
 
   const handlePasswordSubmit = async (e) => {
@@ -126,20 +127,20 @@ export default function Profile() {
     if (!validatePassword()) return;
 
     setLoadingPass(true);
-    try {
-      const res = await axiosClient.put("/users/change-password", {
+    
+    const payload = {
         userId: user._id,
         oldPassword: passData.oldPassword,
         newPassword: passData.newPassword
-      });
+    };
 
-      toast.success(res.data.message || "Đổi mật khẩu thành công!");
-      setPassData({ oldPassword: "", newPassword: "", confirmPassword: "" }); // Xóa trắng form sau khi đổi thành công
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Đổi mật khẩu thất bại. Vui lòng kiểm tra lại.");
-    } finally {
-      setLoadingPass(false);
+    const isSuccess = await changePasswordApi(payload);
+    
+    if (isSuccess) {
+        setPassData({ oldPassword: "", newPassword: "", confirmPassword: "" }); // Xóa trắng form
     }
+    
+    setLoadingPass(false);
   };
 
   if (!user) return <div className="p-8 text-center text-gray-500">Đang tải...</div>;
@@ -197,7 +198,7 @@ export default function Profile() {
           </div>
 
           <div className="pt-4 flex justify-end">
-            <button type="submit" disabled={loadingProfile} className="bg-primary text-white px-8 py-2.5 rounded-lg font-semibold hover:bg-blue-600 transition shadow-md disabled:opacity-70">
+            <button type="submit" disabled={loadingProfile} className="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md disabled:opacity-70">
               {loadingProfile ? "Đang lưu..." : "Lưu thay đổi"}
             </button>
           </div>

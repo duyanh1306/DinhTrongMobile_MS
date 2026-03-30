@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Edit, Wrench, CheckCircle, ShoppingCart, ChevronLeft, Search, Plus, X, Filter, Trash2, Package, MapPin, ChevronDown } from "lucide-react";
-import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API MỚI TẠO
+import { fetchBuildPhoneDataApi, addToCartApi } from "../../api/customer/buildPhone";
 
 export default function BuildPhone() {
     const navigate = useNavigate();
@@ -30,50 +33,47 @@ export default function BuildPhone() {
     const [modalPage, setModalPage] = useState(1);
     const itemsPerPage = 5;
 
+    // ==============================================================
+    // GỌI API QUA HÀM ĐÃ TÁCH
+    // ==============================================================
     useEffect(() => {
-        const fetchBuildData = async () => {
-            try {
-                setLoading(true);
-                const [recipesRes, itemsRes, itemTypesRes, storesRes] = await Promise.all([
-                    axiosClient.get('/recipes/all'),
-                    axiosClient.get('/items/all'),
-                    axiosClient.get('/item_types/all').catch(() => ({ data: { data: [] } })),
-                    axiosClient.get('/stores/all') 
-                ]);
-                
-                const storeData = storesRes.data.data || storesRes.data || [];
-                setStores(storeData);
-
-                let activeStore = selectedStore;
-                if (!activeStore && storeData.length > 0) {
-                    activeStore = storeData[0]._id;
-                    setSelectedStore(activeStore);
-                    localStorage.setItem('selectedStoreId', activeStore);
-                }
-
-                setRecipes(recipesRes.data.data || []);
-                
-                const availableItems = (itemsRes.data.data || []).filter(i => {
-                    const iStoreId = i.storeId?._id || i.storeId;
-                    return i.status === 'in_stock' && String(iStoreId) === String(activeStore);
-                });
-                setAllItems(availableItems);
-
-                const typesMap = {};
-                (itemTypesRes.data.data || []).forEach(type => {
-                    typesMap[type._id] = type;
-                });
-                setItemTypesMap(typesMap);
-
-            } catch (error) {
-                toast.error("Không thể tải dữ liệu.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchBuildData();
+        loadBuildData();
     }, [selectedStore]);
 
+    const loadBuildData = async () => {
+        setLoading(true);
+        const data = await fetchBuildPhoneDataApi();
+        
+        const storeData = data.stores;
+        setStores(storeData);
+
+        let activeStore = selectedStore;
+        if (!activeStore && storeData.length > 0) {
+            activeStore = storeData[0]._id;
+            setSelectedStore(activeStore);
+            localStorage.setItem('selectedStoreId', activeStore);
+        }
+
+        setRecipes(data.recipes);
+        
+        const availableItems = data.items.filter(i => {
+            const iStoreId = i.storeId?._id || i.storeId;
+            return i.status === 'in_stock' && String(iStoreId) === String(activeStore);
+        });
+        setAllItems(availableItems);
+
+        const typesMap = {};
+        data.itemTypes.forEach(type => {
+            typesMap[type._id] = type;
+        });
+        setItemTypesMap(typesMap);
+
+        setLoading(false);
+    };
+
+    // ==============================================================
+    // CÁC HÀM XỬ LÝ LOGIC UI
+    // ==============================================================
     const handleStoreChange = (e) => {
         const storeId = e.target.value;
         setSelectedStore(storeId);
@@ -240,15 +240,14 @@ export default function BuildPhone() {
             price: totalPrice,
             quantity: 1,
             selectedParts: selectedPartIds,
-            storeId: selectedStore // 🌟 GỬI KÈM STORE ID ĐỂ BIẾT NÓ ĐƯỢC RÁP Ở ĐÂU 🌟
+            storeId: selectedStore 
         };
 
-        try {
-            await axiosClient.post('/cart/add', { userId: currentUserId, item: newItem });
+        const isSuccess = await addToCartApi({ userId: currentUserId, item: newItem });
+        if (isSuccess) {
             window.dispatchEvent(new Event('cartUpdated')); 
-            toast.success("Đã thêm máy tự ráp vào giỏ hàng!");
             navigate('/cart');
-        } catch (error) { toast.error("Lỗi khi thêm vào giỏ hàng."); }
+        }
     };
 
     const getImageUrl = (url) => {
@@ -261,6 +260,7 @@ export default function BuildPhone() {
 
     return (
         <CustomerLayout>
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="max-w-7xl mx-auto py-8 px-4">
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 pb-4 border-b border-gray-200 gap-4">
                     <div>
@@ -474,12 +474,7 @@ export default function BuildPhone() {
                 </div>
             )}
             
-            <style jsx="true">{`
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-            `}</style>
+            <style dangerouslySetInnerHTML={{__html: `.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }`}} />
         </CustomerLayout>
     );
 }
