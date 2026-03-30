@@ -370,7 +370,7 @@ const RepairOrderList = () => {
     );
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       <ToastContainer
         position="top-right"
         autoClose={3000}

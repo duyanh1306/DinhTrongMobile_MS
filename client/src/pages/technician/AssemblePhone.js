@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
 import { Smartphone, Package, Check, X } from "lucide-react";
+import { categories } from "../../constraints";
+import { fetchPhoneModels, fetchItemTypes, fetchItems, assemblePhone } from "../../api/repair-order/assemble";
 
 export default function AssemblePhone() {
     const [phoneModels, setPhoneModels] = useState([]);
@@ -14,42 +15,33 @@ export default function AssemblePhone() {
     const [selectedCategory, setSelectedCategory] = useState(null);
 
     useEffect(() => {
-        fetchPhoneModels();
-        fetchItemTypes();
-        fetchItems();
+        loadPhoneModels();
+        loadItemTypes();
+        loadItems();
     }, []);
 
-    const fetchPhoneModels = async () => {
+    const loadPhoneModels = async () => {
         try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get("http://localhost:9999/api/phone_models/all", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setPhoneModels(data.data || []);
+            const data = await fetchPhoneModels();
+            setPhoneModels(data);
         } catch (error) {
             toast.error("Failed to fetch phone models");
         }
     };
 
-    const fetchItemTypes = async () => {
+    const loadItemTypes = async () => {
         try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get("http://localhost:9999/api/item_types/all", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setItemTypes(data.data || []);
+            const data = await fetchItemTypes();
+            setItemTypes(data);
         } catch (error) {
             toast.error("Failed to fetch item types");
         }
     };
 
-    const fetchItems = async () => {
+    const loadItems = async () => {
         try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get("http://localhost:9999/api/items/all", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setItems(data.data || []);
+            const data = await fetchItems();
+            setItems(data);
             setLoading(false);
         } catch (error) {
             toast.error("Failed to fetch items");
@@ -63,23 +55,6 @@ export default function AssemblePhone() {
     };
 
     const getComponentCategories = useMemo(() => {
-        const categories = [
-            { code: 'LCD', name: 'Màn hình (LCD)', required: true },
-            { code: 'BAT', name: 'Pin (Battery)', required: true },
-            { code: 'MAIN', name: 'Mainboard', required: true },
-            { code: 'CAM', name: 'Camera', required: true },
-            { code: 'SPK', name: 'Loa (Speaker)', required: false },
-            { code: 'MIC', name: 'Microphone', required: false },
-            { code: 'VIB', name: 'Rung (Vibrator)', required: false },
-            { code: 'FLE', name: 'Cáp Flex (Flex Cable)', required: false },
-            { code: 'BUT', name: 'Nút bấm (Buttons)', required: false },
-            { code: 'CAS', name: 'Vỏ máy (Case)', required: false },
-            { code: 'GLA', name: 'Kính (Glass)', required: false },
-            { code: 'ANT', name: 'Antenna', required: false },
-            { code: 'CHG', name: 'Cổng sạc (Charging Port)', required: false },
-            { code: 'JAC', name: 'Jack tai nghe (Jack)', required: false },
-            { code: 'SEN', name: 'Cảm biến (Sensors)', required: false }
-        ];
 
         return categories.map(category => {
             const categoryItemTypes = itemTypes.filter(itemType => 
@@ -181,7 +156,6 @@ export default function AssemblePhone() {
         }
 
         try {
-            const token = localStorage.getItem("token");
             const phoneData = {
                 phone_model: selectedPhoneModel._id,
                 items: Object.values(selectedItems),
@@ -190,9 +164,7 @@ export default function AssemblePhone() {
                 assembled_date: new Date()
             };
 
-            await axios.post("http://localhost:9999/api/phones/assemble", phoneData, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await assemblePhone(phoneData);
 
             toast.success("Phone assembled successfully!");
             // Reset form

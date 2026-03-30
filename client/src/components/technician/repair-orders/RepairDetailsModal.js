@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { X, User, Phone, Store, Check, Wrench, Package, ChevronDown, XCircle } from "lucide-react";
 import dayjs from "dayjs";
-import { getAllRepairServices } from "../../../api/repairOrder";
-import { getAllItems } from "../../../api/item";
+import { getAllRepairServices } from "../../../api/repair-order/repairOrder";
+import { getAllItems} from "../../../api/repair-order/item";
 
 const RepairDetailsModal = ({
   selectedOrder,
