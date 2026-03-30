@@ -2,8 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trash2, ChevronLeft, CreditCard, MapPin, ChevronDown } from "lucide-react";
 import CustomerLayout from "../../layouts/CustomerLayout";
-import axiosClient from "../../api/axiosClient";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API MỚI TẠO
+import { fetchCartDataApi, updateCartQuantityApi, removeCartItemApi } from "../../api/customer/cart";
 
 export default function Cart() {
     const navigate = useNavigate();
@@ -19,68 +22,40 @@ export default function Cart() {
     const user = JSON.parse(localStorage.getItem('user'));
     const userId = user ? (user._id || user.id) : null;
 
+    // ==============================================================
+    // GỌI API TỪ HÀM ĐÃ TÁCH
+    // ==============================================================
     useEffect(() => {
         if (!userId) {
             toast.warning("Vui lòng đăng nhập để xem giỏ hàng");
             navigate('/login');
             return;
         }
-        fetchCartAndStock();
+        loadCartData();
     }, [userId, selectedStore]); 
 
-    const fetchCartAndStock = async () => {
-        try {
-            setLoading(true);
-            const [cartRes, phonesRes, storesRes] = await Promise.all([
-                axiosClient.get(`/cart/${userId}`),
-                axiosClient.get(`/phones/all`),
-                axiosClient.get('/stores/all')
-            ]);
-
-            const storeData = storesRes.data.data || storesRes.data || [];
-            setStores(storeData);
-
-            let activeStore = selectedStore;
-            if (!activeStore && storeData.length > 0) {
-                activeStore = storeData[0]._id;
-                setSelectedStore(activeStore);
-                localStorage.setItem('selectedStoreId', activeStore);
+    const loadCartData = async () => {
+        setLoading(true);
+        const data = await fetchCartDataApi(userId, selectedStore);
+        
+        if (data) {
+            setStores(data.stores);
+            
+            if (data.activeStore !== selectedStore) {
+                setSelectedStore(data.activeStore);
+                localStorage.setItem('selectedStoreId', data.activeStore);
             }
 
-            const fetchedCart = cartRes.data.data || { items: [], totalPrice: 0 };
-            
-            const storeSpecificItems = fetchedCart.items.filter(item => {
-                const iStoreId = item.storeId?._id || item.storeId;
-                if (!iStoreId) {
-                    return storeData.length > 0 && String(activeStore) === String(storeData[0]._id);
-                }
-                return String(iStoreId) === String(activeStore);
-            });
-
-            setCart({ ...fetchedCart, items: storeSpecificItems });
-            setSelectedItemIds(storeSpecificItems.map(item => item._id));
-
-            const allPhones = phonesRes.data.data || [];
-            const newStockMap = {};
-            
-            allPhones.forEach(p => {
-                const pStoreId = p.storeId?._id || p.storeId;
-                if (p.status === 'in_stock' && String(pStoreId) === String(activeStore)) {
-                    const modelId = typeof p.phoneModelId === 'object' ? p.phoneModelId._id : p.phoneModelId;
-                    const key = `${modelId}-${p.capacity}-${p.colorName}`;
-                    newStockMap[key] = (newStockMap[key] || 0) + 1;
-                }
-            });
-            setStockMap(newStockMap);
-
-        } catch (error) {
-            console.error("Lỗi lấy dữ liệu:", error);
-            toast.error("Không thể tải dữ liệu giỏ hàng.");
-        } finally {
-            setLoading(false);
+            setCart(data.cart);
+            setSelectedItemIds(data.cart.items.map(item => item._id));
+            setStockMap(data.stockMap);
         }
+        setLoading(false);
     };
 
+    // ==============================================================
+    // LOGIC GIAO DIỆN
+    // ==============================================================
     const handleStoreChange = (e) => {
         const storeId = e.target.value;
         setSelectedStore(storeId);
@@ -124,33 +99,27 @@ export default function Cart() {
         const updatedItems = cart.items.map(i => i._id === item._id ? { ...i, quantity: newQuantity } : i);
         setCart({ ...cart, items: updatedItems });
 
-        try {
-            await axiosClient.put('/cart/update-quantity', { userId, itemId: item._id, quantity: newQuantity });
+        const isSuccess = await updateCartQuantityApi({ userId, itemId: item._id, quantity: newQuantity });
+        if (isSuccess) {
             window.dispatchEvent(new Event('cartUpdated'));
-        } catch (error) {
-            toast.error("Lỗi cập nhật số lượng");
-            fetchCartAndStock(); 
+        } else {
+            loadCartData(); // Load lại nếu lỗi
         }
     };
 
     const removeItem = async (itemId) => {
-        try {
-            await axiosClient.delete(`/cart/remove/${userId}/${itemId}`);
-            toast.success("Đã xóa sản phẩm");
+        const isSuccess = await removeCartItemApi(userId, itemId);
+        if (isSuccess) {
             setSelectedItemIds(prev => prev.filter(id => id !== itemId));
-            fetchCartAndStock();
+            loadCartData();
             window.dispatchEvent(new Event('cartUpdated'));
-        } catch (error) { toast.error("Lỗi khi xóa sản phẩm"); }
+        }
     };
 
-    // 🌟 CHUYỂN HƯỚNG SANG TRANG CHECKOUT VÀ GỬI KÈM DỮ LIỆU
     const handleCheckout = () => {
         if (selectedItemIds.length === 0) return toast.warning("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán!");
         
-        // Lấy ra danh sách các món hàng mà khách đang tick chọn
         const selectedItems = cart.items.filter(item => selectedItemIds.includes(item._id));
-        
-        // Chuyển hướng sang trang Checkout kèm theo data
         navigate('/checkout', { state: { selectedItems } });
     };
 
@@ -158,6 +127,7 @@ export default function Cart() {
 
     return (
         <CustomerLayout>
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="max-w-5xl mx-auto py-6 px-4">
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 border-b border-gray-200 pb-4 gap-4">
                     <div>
