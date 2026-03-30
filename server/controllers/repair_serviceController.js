@@ -166,10 +166,45 @@ const getAllRepairServices = async (req, res) => {
     }
 };
 
+// DELETE /api/repair_services/:id
+const deleteRepairService = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const repairService = await Repair_service.findById(id);
+        if (!repairService) {
+            return res.status(404).json({
+                success: false,
+                message: "Repair service not found"
+            });
+        }
+
+        await Repair_service.findByIdAndDelete(id);
+
+        res.status(200).json({
+            success: true,
+            message: "Repair service deleted successfully"
+        });
+    } catch (error) {
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid repair service ID"
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 module.exports = {
     getAllRepairServices,
     getRepairServices,
     createRepairService,
-    updateRepairService
+    updateRepairService,
+    deleteRepairService
 
 }

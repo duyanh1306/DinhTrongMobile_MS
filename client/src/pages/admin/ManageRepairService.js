@@ -1,12 +1,13 @@
 import React, {useEffect, useState} from "react";
 import {toast} from "react-toastify";
-import {Plus, Edit, Search, ChevronLeft, ChevronRight, X, Wrench, ArrowUpDown} from "lucide-react";
+import {Plus, Edit, Search, ChevronLeft, ChevronRight, X, Wrench, ArrowUpDown, Trash2} from "lucide-react";
 
 // IMPORT TỪ FILE API
-import { 
-    fetchRepairServicesApi, 
-    createRepairServiceApi, 
-    updateRepairServiceApi 
+import {
+    fetchRepairServicesApi,
+    createRepairServiceApi,
+    updateRepairServiceApi,
+    deleteRepairServiceApi
 } from "../../api/admin/repairService";
 
 export default function ManageRepairService() {
@@ -21,10 +22,10 @@ export default function ManageRepairService() {
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
-    
+
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({ name: '', price: '' });
+    const [formData, setFormData] = useState({name: '', price: ''});
     const [editingId, setEditingId] = useState(null);
 
     // ==============================================================
@@ -78,6 +79,16 @@ export default function ManageRepairService() {
         setShowModal(true);
     };
 
+    const handleDelete = async (service) => {
+        if (window.confirm(`Bạn có chắc chắn muốn xóa dịch vụ "${service.name}" không?`)) {
+            const isSuccess = await deleteRepairServiceApi(service._id);
+            if (isSuccess) {
+                toast.success("Xóa dịch vụ sửa chữa thành công");
+                loadRepairServices();
+            }
+        }
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -88,7 +99,7 @@ export default function ManageRepairService() {
 
         const payload = {
             name: formData.name.trim(),
-            ...(formData.price && { price: parseFloat(formData.price) })
+            ...(formData.price && {price: parseFloat(formData.price)})
         };
 
         let isSuccess = false;
@@ -236,7 +247,14 @@ export default function ManageRepairService() {
                                             >
                                                 <Edit className="w-4 h-4"/>
                                             </button>
+                                            <button
+                                                onClick={() => handleDelete(service)}
+                                                className="text-red-600 hover:text-red-900"
+                                            >
+                                                <Trash2 className="w-4 h-4"/>
+                                            </button>
                                         </td>
+
                                     </tr>
                                 ))
                             )}

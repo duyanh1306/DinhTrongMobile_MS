@@ -34,3 +34,14 @@ export const updateRepairServiceApi = async (id, payload) => {
         return false;
     }
 };
+
+// Hàm Xóa Dịch vụ Sửa chữa
+export const deleteRepairServiceApi = async (id) => {
+    try {
+        await axiosClient.delete(`/repair_services/${id}`);
+        return true;
+    } catch (error) {
+        toast.error(error.response?.data?.message || "Xóa dịch vụ sửa chữa thất bại");
+        return false;
+    }
+};
