@@ -1,15 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { Plus, Edit, Smartphone, Search, ChevronRight, ChevronDown, X, Image as ImageIcon } from "lucide-react";
+import { toast } from "react-toastify";
+import { Plus, Edit, Smartphone, Search, ChevronDown, X, Image as ImageIcon, Package, Tag } from "lucide-react";
 
-// IMPORT TỪ FILE API MỚI
-import { 
-    fetchPhoneBrandsApi, 
-    fetchPhoneModelsApi, 
-    createPhoneModelApi, 
-    updatePhoneModelApi 
-} from "../../api/admin/phoneModel";
+// 🌟 IMPORT API TỪ FILE phoneModel.js CỦA BẠN
+import { fetchPhoneBrandsApi, fetchPhoneModelsApi, createPhoneModelApi, updatePhoneModelApi } from "../../api/admin/phoneModel";
 
 const initialFormState = {
     name: '',
@@ -23,7 +17,6 @@ const initialFormState = {
     }
 };
 
-// Hàm dùng chung để phát hiện Máy Cũ qua tên
 const checkIsUsedModel = (name) => {
     const lowerName = name.toLowerCase();
     return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
@@ -33,58 +26,54 @@ export default function AdminPhoneModel() {
     const [phoneModels, setPhoneModels] = useState([]);
     const [phoneBrands, setPhoneBrands] = useState([]);
     const [loading, setLoading] = useState(true);
+    
     const [searchKeyword, setSearchKeyword] = useState('');
+    const [selectedBrandFilter, setSelectedBrandFilter] = useState('');
+    const [selectedTypeFilter, setSelectedTypeFilter] = useState(''); // 'new' hoặc 'used'
+
+    // STATE PHÂN TRANG THEO NHÓM
+    const [currentPage, setCurrentPage] = useState(1);
+    const groupsPerPage = 3;
 
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState(initialFormState);
     const [editingId, setEditingId] = useState(null);
 
-    // STATE ĐIỀU KHIỂN ĐÓNG MỞ CÂY THƯ MỤC (ACCORDION)
-    const [expandedType, setExpandedType] = useState({ new: true, used: true });
-    const [expandedBrand, setExpandedBrand] = useState({});
-
-    // ==============================================================
-    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
-    // ==============================================================
     useEffect(() => {
-        loadInitialData();
+        fetchPhoneBrands();
+        fetchPhoneModels();
     }, []);
 
-    const loadInitialData = async () => {
+    // Reset phân trang khi đổi bộ lọc
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchKeyword, selectedBrandFilter, selectedTypeFilter]);
+
+    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG
+    const fetchPhoneBrands = async () => {
+        const data = await fetchPhoneBrandsApi();
+        setPhoneBrands(data);
+    };
+
+    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG
+    const fetchPhoneModels = async () => {
         setLoading(true);
-        const [brands, models] = await Promise.all([
-            fetchPhoneBrandsApi(),
-            fetchPhoneModelsApi()
-        ]);
-        setPhoneBrands(brands);
-        setPhoneModels(models);
+        const data = await fetchPhoneModelsApi();
+        setPhoneModels(data);
         setLoading(false);
     };
 
-    const loadPhoneModelsOnly = async () => {
-        const models = await fetchPhoneModelsApi();
-        setPhoneModels(models);
-    };
-
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ GIAO DIỆN
-    // ==============================================================
     const handleAddPhoneModel = () => {
-        setIsEditing(false);
-        setFormData(initialFormState);
-        setEditingId(null);
-        setShowModal(true);
+        setIsEditing(false); setEditingId(null);
+        setFormData(initialFormState); setShowModal(true);
     };
 
     const handleEditPhoneModel = (model) => {
-        setIsEditing(true);
-        setEditingId(model._id);
+        setIsEditing(true); setEditingId(model._id);
         setFormData({
-            name: model.name,
-            brand: model.brand?._id || model.brand || '',
-            imageFile: null,
-            previewImage: model.image || '',
+            name: model.name, brand: model.brand?._id || model.brand || '',
+            imageFile: null, previewImage: model.image || '',
             specifications: model.specifications || initialFormState.specifications
         });
         setShowModal(true);
@@ -95,10 +84,7 @@ export default function AdminPhoneModel() {
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         if (name.startsWith('spec_')) {
-            setFormData(prev => ({
-                ...prev,
-                specifications: { ...prev.specifications, [name.replace('spec_', '')]: value }
-            }));
+            setFormData(prev => ({ ...prev, specifications: { ...prev.specifications, [name.replace('spec_', '')]: value } }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -106,11 +92,10 @@ export default function AdminPhoneModel() {
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            setFormData(prev => ({ ...prev, imageFile: file, previewImage: URL.createObjectURL(file) }));
-        }
+        if (file) setFormData(prev => ({ ...prev, imageFile: file, previewImage: URL.createObjectURL(file) }));
     };
 
+    // 🌟 SỬ DỤNG API TẠO/CẬP NHẬT TỪ FILE RIÊNG
     const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -121,6 +106,7 @@ export default function AdminPhoneModel() {
         if (formData.imageFile) submitData.append("image", formData.imageFile);
 
         let isSuccess = false;
+
         if (isEditing) {
             isSuccess = await updatePhoneModelApi(editingId, submitData);
             if (isSuccess) toast.success("Cập nhật thành công!");
@@ -131,119 +117,213 @@ export default function AdminPhoneModel() {
 
         if (isSuccess) {
             handleCloseModal();
-            loadPhoneModelsOnly(); // Refresh lại danh sách
+            fetchPhoneModels();
         }
     };
 
-    // 🌟 THUẬT TOÁN GỘP NHÓM THEO: HÀNG MỚI/CŨ -> HÃNG -> DÒNG MÁY
-    const groupedData = useMemo(() => {
-        const result = {
-            new: { label: 'ĐIỆN THOẠI MỚI', brands: {} },
-            used: { label: 'ĐIỆN THOẠI CŨ', brands: {} }
-        };
+    // 1. LỌC VÀ GOM NHÓM DỮ LIỆU
+    const allGroupedData = useMemo(() => {
+        const result = {};
+        const safeKeyword = searchKeyword.toLowerCase();
 
-        const filtered = phoneModels.filter(m => m.name.toLowerCase().includes(searchKeyword.toLowerCase()));
+        const filtered = phoneModels.filter(m => {
+            const nameMatch = m.name.toLowerCase().includes(safeKeyword);
+            const brandId = m.brand?._id || m.brand;
+            const brandPass = selectedBrandFilter ? brandId === selectedBrandFilter : true;
+            const isUsed = checkIsUsedModel(m.name);
+            const typePass = selectedTypeFilter === 'used' ? isUsed : selectedTypeFilter === 'new' ? !isUsed : true;
+
+            return nameMatch && brandPass && typePass;
+        });
 
         filtered.forEach(model => {
             const isUsed = checkIsUsedModel(model.name);
-            const typeKey = isUsed ? 'used' : 'new';
+            const typeLabel = isUsed ? 'ĐIỆN THOẠI CŨ' : 'ĐIỆN THOẠI MỚI';
             const brandName = model.brand?.name || 'Khác';
-
-            if (!result[typeKey].brands[brandName]) {
-                result[typeKey].brands[brandName] = [];
-            }
-            result[typeKey].brands[brandName].push(model);
+            
+            const groupKey = `${typeLabel} | ${brandName}`;
+            
+            if (!result[groupKey]) result[groupKey] = [];
+            result[groupKey].push(model);
         });
 
         return result;
-    }, [phoneModels, searchKeyword]);
+    }, [phoneModels, searchKeyword, selectedBrandFilter, selectedTypeFilter]);
 
-    const toggleType = (typeKey) => setExpandedType(prev => ({ ...prev, [typeKey]: !prev[typeKey] }));
-    const toggleBrand = (brandKey) => setExpandedBrand(prev => ({ ...prev, [brandKey]: !prev[brandKey] }));
+    // 2. ÁP DỤNG PHÂN TRANG THEO NHÓM (GROUPS)
+    const paginatedData = useMemo(() => {
+        const entries = Object.entries(allGroupedData);
+        // Sắp xếp để ĐIỆN THOẠI MỚI hiện lên trước
+        entries.sort((a, b) => b[0].localeCompare(a[0])); 
 
-    if (loading) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>;
+        const totalGroups = entries.length;
+        const totalPages = Math.ceil(totalGroups / groupsPerPage);
+        
+        const startIndex = (currentPage - 1) * groupsPerPage;
+        const endIndex = startIndex + groupsPerPage;
+        const currentGroups = entries.slice(startIndex, endIndex);
+
+        let totalItemsCount = 0;
+        entries.forEach(([_, list]) => { totalItemsCount += list.length });
+
+        return {
+            groups: currentGroups,
+            totalPages: totalPages || 1,
+            totalItemsCount: totalItemsCount
+        };
+    }, [allGroupedData, currentPage]);
+
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Danh mục Dòng Máy</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Dòng Máy (Models)</h1>
                 </div>
-                <button onClick={handleAddPhoneModel} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-                    <Plus size={20} /><span>Thêm Dòng máy</span>
+                <button onClick={handleAddPhoneModel} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition">
+                    <Plus size={20} /><span>Thêm Dòng máy mới</span>
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="relative w-full md:w-1/2">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <input type="text" placeholder="Tìm kiếm tên dòng máy..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+            {/* BỘ LỌC ĐƯỢC CHUYỂN LÊN TRÊN */}
+            <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-4 items-center border border-gray-100">
+                <div className="relative min-w-[200px]">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <select 
+                        value={selectedBrandFilter} 
+                        onChange={(e) => setSelectedBrandFilter(e.target.value)} 
+                        className="w-full appearance-none border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                        <option value="">Tất cả Hãng (Brands)</option>
+                        {phoneBrands.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                </div>
+
+                <div className="relative min-w-[180px]">
+                    <select 
+                        value={selectedTypeFilter} 
+                        onChange={(e) => setSelectedTypeFilter(e.target.value)} 
+                        className="w-full border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 px-4 rounded-lg outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                        <option value="">Tất cả loại hàng</option>
+                        <option value="new">Chỉ Điện thoại Mới</option>
+                        <option value="used">Chỉ Điện thoại Cũ</option>
+                    </select>
+                </div>
+
+                <div className="relative flex-1 min-w-[250px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input 
+                        type="text" placeholder="Tìm kiếm tên dòng máy (VD: iPhone 15)..." 
+                        value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} 
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg outline-none focus:border-blue-500 text-sm" 
+                    />
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto pb-10">
-                {Object.entries(groupedData).map(([typeKey, typeData]) => (
-                    <div key={typeKey} className="mb-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        
-                        {/* HEADER: HÀNG MỚI / CŨ */}
-                        <div className="bg-blue-50/50 p-4 cursor-pointer flex justify-between items-center border-b border-gray-100 hover:bg-blue-100/50 transition" onClick={() => toggleType(typeKey)}>
-                            <h2 className="text-lg font-bold text-blue-800 uppercase tracking-wide flex items-center gap-2">
-                                {typeKey === 'new' ? <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"/> : <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block"/>}
-                                {typeData.label}
-                            </h2>
-                            {expandedType[typeKey] ? <ChevronDown className="text-blue-600"/> : <ChevronRight className="text-blue-600"/>}
-                        </div>
-                        
-                        {expandedType[typeKey] && (
-                            <div className="p-5 space-y-4 bg-gray-50/30">
-                                {Object.keys(typeData.brands).length === 0 && <p className="text-gray-500 italic text-center py-4">Chưa có dữ liệu cho phân loại này</p>}
-                                
-                                {Object.entries(typeData.brands).map(([brandName, models]) => {
-                                    const brandKey = `${typeKey}-${brandName}`;
-                                    return (
-                                        <div key={brandName} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                                            
-                                            {/* HEADER: HÃNG (APPLE, SAMSUNG...) */}
-                                            <div className="bg-gray-100/80 p-3 px-5 cursor-pointer flex justify-between items-center hover:bg-gray-200 transition" onClick={() => toggleBrand(brandKey)}>
-                                                <h3 className="font-bold text-gray-700 flex items-center gap-2">
-                                                    Hãng: <span className="text-blue-700">{brandName}</span> 
-                                                    <span className="bg-white text-xs px-2 py-0.5 rounded-full border border-gray-200 ml-2">{models.length} model</span>
-                                                </h3>
-                                                {expandedBrand[brandKey] ? <ChevronDown size={18} className="text-gray-500"/> : <ChevronRight size={18} className="text-gray-500"/>}
-                                            </div>
-                                            
-                                            {/* LIST: CÁC DÒNG MÁY */}
-                                            {expandedBrand[brandKey] && (
-                                                <div className="divide-y divide-gray-100">
-                                                    {models.map(model => (
-                                                        <div key={model._id} className="p-3 pl-8 flex items-center justify-between hover:bg-blue-50/40 transition">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-12 h-12 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden">
-                                                                    {model.image ? <img src={model.image} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300"/>}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-bold text-gray-800">{model.name}</p>
-                                                                </div>
-                                                            </div>
-                                                            <button onClick={() => handleEditPhoneModel(model)} className="text-blue-600 bg-blue-50 p-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition"><Edit size={16} /></button>
+            {/* HIỂN THỊ DANH SÁCH BẢNG */}
+            <div className="flex-1 overflow-y-auto pb-4">
+                {loading ? (
+                    <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
+                ) : paginatedData.groups.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy Dòng máy nào phù hợp.</div>
+                ) : (
+                    paginatedData.groups.map(([groupKey, modelsList]) => {
+                        const [typeLabel, brandName] = groupKey.split(' | ');
+                        const isNew = typeLabel === 'ĐIỆN THOẠI MỚI';
+
+                        return (
+                            <div key={groupKey} className="mb-6 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className={`${isNew ? 'bg-blue-50/60' : 'bg-yellow-50/60'} p-3 px-4 flex justify-between items-center border-b border-gray-200`}>
+                                    <h3 className={`font-bold flex items-center gap-2 text-lg ${isNew ? 'text-blue-900' : 'text-yellow-800'}`}>
+                                        <Smartphone size={20} className={isNew ? 'text-blue-600' : 'text-yellow-600'}/> 
+                                        {typeLabel} - Hãng {brandName}
+                                        <span className={`${isNew ? 'bg-blue-600' : 'bg-yellow-600'} text-white text-xs px-2.5 py-1 rounded-full ml-2 shadow-sm`}>
+                                            {modelsList.length} Dòng
+                                        </span>
+                                    </h3>
+                                </div>
+
+                                <div className="bg-white overflow-x-auto">
+                                <table className="w-full table-fixed text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 uppercase text-xs">
+                                        <tr>
+                                            <th className="px-6 py-3 font-semibold w-[45%]">Hình Ảnh & Tên Dòng Máy</th>
+                                            <th className="px-4 py-3 font-semibold text-center w-[15%]">Tồn kho Hệ thống</th>
+                                            <th className="px-4 py-3 font-semibold w-[30%]">Thông số cơ bản</th>
+                                            <th className="px-6 py-3 font-semibold text-right w-[10%]">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {modelsList.map(model => (
+                                            <tr key={model._id} className="hover:bg-gray-50/50 transition">
+                                                <td className="px-6 py-3 truncate">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                            {model.image ? <img src={model.image} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300"/>}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
+                                                        <span className="font-bold text-gray-800 text-base truncate" title={model.name}>{model.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-sm min-w-[100px] ${model.stockCount > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-600 bg-red-50 border-red-200"}`}>
+                                                        <Package size={16}/> {model.stockCount || 0} chiếc
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-xs text-gray-500 truncate">
+                                                    {model.specifications?.screenSize && <div className="truncate" title={`Màn: ${model.specifications.screenSize}`}>Màn: {model.specifications.screenSize}</div>}
+                                                    {model.specifications?.chipset && <div className="truncate" title={`Chip: ${model.specifications.chipset}`}>Chip: {model.specifications.chipset}</div>}
+                                                </td>
+                                                <td className="px-6 py-3 text-right">
+                                                    <div className="flex justify-end">
+                                                        <button onClick={() => handleEditPhoneModel(model)} className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-sm border border-blue-100">
+                                                            <Edit size={16} /> 
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                </div>
                             </div>
-                        )}
-                    </div>
-                ))}
+                        )
+                    })
+                )}
             </div>
+
+            {/* THANH PHÂN TRANG THEO NHÓM */}
+            {!loading && paginatedData.totalItemsCount > 0 && (
+                <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
+                    <div className="text-sm text-gray-600 flex items-center gap-2">
+                        <span>Đang xem trang <strong className="text-blue-600">{currentPage}</strong> / {paginatedData.totalPages}</span>
+                        <span className="text-gray-300">|</span>
+                        <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedData.totalItemsCount}</strong> Dòng máy</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            disabled={currentPage <= 1} 
+                            onClick={() => setCurrentPage(prev => prev - 1)} 
+                            className="px-5 py-2 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+                        >
+                            Trang trước
+                        </button>
+                        <button 
+                            disabled={currentPage >= paginatedData.totalPages} 
+                            onClick={() => setCurrentPage(prev => prev + 1)} 
+                            className="px-5 py-2 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+                        >
+                            Trang sau
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* MODAL THÊM / SỬA */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between p-5 border-b bg-gray-50">
                             <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Cập nhật Dòng máy' : 'Thêm Dòng máy mới'}</h2>
@@ -285,7 +365,7 @@ export default function AdminPhoneModel() {
                                     ].map(f => (
                                         <div key={f.n}>
                                             <label className="text-xs font-semibold text-gray-600 mb-1 block">{f.l}</label>
-                                            <input type="text" name={f.n} value={formData.specifications[f.n.replace('spec_', '')] || ''} onChange={handleInputChange} className="w-full border border-gray-200 p-2 rounded-lg text-sm outline-none focus:border-blue-400" />
+                                            <input type="text" name={f.n} value={formData.specifications[f.n.replace('spec_', '')]} onChange={handleInputChange} className="w-full border border-gray-200 p-2 rounded-lg text-sm outline-none focus:border-blue-400" />
                                         </div>
                                     ))}
                                 </div>
