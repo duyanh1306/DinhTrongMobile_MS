@@ -21,10 +21,6 @@ services:
     container_name: mobile_client
     ports:
       - "3000:3000"
-    build:
-      context: ./client
-      args:
-        - REACT_APP_API_URL=http://server:9999/api
     environment:
       - REACT_APP_API_URL=http://server:9999/api
     depends_on:
