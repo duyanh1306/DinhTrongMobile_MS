@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
-import {ArrowLeft, Package, Store, Check, X, Smartphone, Wrench, CheckCircle} from "lucide-react";
+import {ArrowLeft, Package, Store, Check, X, Smartphone, Wrench, CheckCircle, Search} from "lucide-react";
 
 const RepairInProgressDetail = () => {
     const {orderId} = useParams();
@@ -17,6 +17,7 @@ const RepairInProgressDetail = () => {
     const [showItemTypeModal, setShowItemTypeModal] = useState(false);
     const [showItemsModal, setShowItemsModal] = useState(false);
     const [showServiceModal, setShowServiceModal] = useState(false);
+    const [itemSearchQuery, setItemSearchQuery] = useState("");
 
     // Selection states
     const [selectedPhone, setSelectedPhone] = useState(null);
@@ -259,6 +260,7 @@ const RepairInProgressDetail = () => {
         setCurrentPartIndex(partIndex);
         setShowItemTypeModal(false);
         setShowItemsModal(true);
+        setItemSearchQuery(""); // Reset search query when opening modal
 
         try {
             // Get all accepted item types for this part
@@ -1009,8 +1011,24 @@ const RepairInProgressDetail = () => {
                         </div>
 
                         <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            <div className="mb-4">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm kiếm linh kiện theo tên..."
+                                        value={itemSearchQuery}
+                                        onChange={(e) => setItemSearchQuery(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none transition-colors"
+                                    />
+                                </div>
+                            </div>
                             <div className="space-y-4">
-                                {availableItems.map((item) => (<div
+                                {availableItems
+                                    .filter(item => 
+                                        item.name.toLowerCase().includes(itemSearchQuery.toLowerCase())
+                                    )
+                                    .map((item) => (<div
                                         key={item._id}
                                         onClick={() => handleItemSelectForPart(item)}  // THIS IS THE IMPORTANT LINE
                                         className="border rounded-lg p-4 cursor-pointer transition-colors hover:bg-gray-50"
@@ -1042,6 +1060,13 @@ const RepairInProgressDetail = () => {
                                             </div>
                                         </div>
                                     </div>))}
+                                {availableItems.filter(item => 
+                                    item.name.toLowerCase().includes(itemSearchQuery.toLowerCase())
+                                ).length === 0 && (
+                                    <div className="text-center py-8 text-gray-500">
+                                        Không tìm thấy linh kiện nào
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
