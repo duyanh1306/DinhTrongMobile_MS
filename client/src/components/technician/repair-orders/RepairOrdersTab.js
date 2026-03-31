@@ -11,6 +11,7 @@ const RepairOrdersTab = ({
   selectedOrder, 
   orderDetails, 
   showDetailsModal,
+  viewMode,
   onFilterChange, 
   onApplyFilters, 
   onResetFilters, 
@@ -24,18 +25,21 @@ const RepairOrdersTab = ({
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <FilterPanel 
-        filters={filters}
-        stores={stores}
-        filterLoading={filterLoading}
-        onFilterChange={onFilterChange}
-        onApplyFilters={onApplyFilters}
-        onResetFilters={onResetFilters}
-      />
+      {viewMode === "PENDING" && (
+        <FilterPanel 
+          filters={filters}
+          stores={stores}
+          filterLoading={filterLoading}
+          onFilterChange={onFilterChange}
+          onApplyFilters={onApplyFilters}
+          onResetFilters={onResetFilters}
+        />
+      )}
 
       <RepairOrdersTable 
         filteredOrders={filteredOrders}
         filterLoading={filterLoading}
+        viewMode={viewMode}
         onViewDetails={onViewDetails}
         onAccept={onAccept}
         onCancel={onCancel}

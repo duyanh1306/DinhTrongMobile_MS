@@ -6,6 +6,7 @@ import OrderActions from "../shared/OrderActions";
 const RepairOrdersTable = ({ 
   filteredOrders, 
   filterLoading, 
+  viewMode,
   onViewDetails, 
   onAccept, 
   onCancel,
@@ -31,7 +32,9 @@ const RepairOrdersTable = ({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cửa hàng</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại sửa chữa</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+              {viewMode === "PENDING" && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -67,15 +70,17 @@ const RepairOrdersTable = ({
                 <td className="px-6 py-4 whitespace-nowrap">
                   <StatusBadge status={order.status} />
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <OrderActions 
-                    order={order} 
-                    onViewDetails={onViewDetails} 
-                    onAccept={onAccept} 
-                    onCancel={onCancel}
-                    onComplete={onComplete}
-                  />
-                </td>
+                {viewMode === "PENDING" && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <OrderActions 
+                      order={order} 
+                      onViewDetails={onViewDetails} 
+                      onAccept={onAccept} 
+                      onCancel={onCancel}
+                      onComplete={onComplete}
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
