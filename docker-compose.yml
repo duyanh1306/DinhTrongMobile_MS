@@ -1,8 +1,6 @@
 services:
   server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: ghcr.io/duyanh1306/DinhTrongMobile_MS-server:latest
     container_name: mobile_server
     ports:
       - "9999:9999"
@@ -12,16 +10,12 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/dinh_trong_mobile
     depends_on:
       - mongo
-    volumes:
-      - ./server:/app
-      - /app/node_modules
     networks:
       - app-network
+    restart: unless-stopped
 
   client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
+    image: ghcr.io/duyanh1306/DinhTrongMobile_MS-client:latest
     container_name: mobile_client
     ports:
       - "3000:3000"
@@ -31,6 +25,7 @@ services:
       - server
     networks:
       - app-network
+    restart: unless-stopped
 
   mongo:
     image: mongo:7.0
