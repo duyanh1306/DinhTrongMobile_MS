@@ -71,8 +71,10 @@ const RepairOrderList = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState([]);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [viewMode, setViewMode] = useState("PENDING");
+  const [showMyOrdersOnly, setShowMyOrdersOnly] = useState(false);
   const [filters, setFilters] = useState({
-    status: "ALL",
+    status: "Pending",
     type: "ALL",
     storeId: "ALL",
     customerName: "",
@@ -89,10 +91,14 @@ const RepairOrderList = () => {
       fetchWaitingPhones();
       fetchItemTypes();
     } else if (activeTab === "REPAIR") {
-      fetchRepairOrders();
+      if (viewMode === "PENDING") {
+        fetchFilteredOrders();
+      } else {
+        fetchHistoryOrders();
+      }
       fetchStores();
     }
-  }, [activeTab]);
+  }, [activeTab, viewMode, showMyOrdersOnly]);
 
   // =========================================================================
   // FUNCTIONS: TRADE IN (ĐỊNH GIÁ)
@@ -309,12 +315,45 @@ const RepairOrderList = () => {
     }
   };
 
+  const fetchHistoryOrders = async () => {
+    try {
+      setFilterLoading(true);
+      const user = JSON.parse(localStorage.getItem('user')) || {};
+      const currentUserId = user?._id || user?.id || "";
+      
+      const queryParams = new URLSearchParams();
+      if (showMyOrdersOnly && currentUserId) {
+        queryParams.append("technicianId", currentUserId);
+      }
+      
+      const url = queryParams.toString()
+        ? `/repair-orders?${queryParams.toString()}`
+        : "/repair-orders";
+      const response = await axiosClient.get(url);
+      setFilteredOrders(response.data);
+      setError(null);
+    } catch (err) {
+      setError("Lỗi tải lịch sử đơn");
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
   const handleFilterChange = (filterType, value) =>
     setFilters((prev) => ({ ...prev, [filterType]: value }));
   const applyFilters = () => fetchFilteredOrders();
   const resetFilters = () => {
     setFilters({ status: "ALL", type: "ALL", storeId: "ALL" });
     setFilteredOrders(orders);
+  };
+  const toggleViewMode = (mode) => {
+    setViewMode(mode);
+    if (mode === "PENDING") {
+      setFilters({ status: "Pending", type: "ALL", storeId: "ALL", customerName: "" });
+    }
+  };
+  const toggleMyOrders = () => {
+    setShowMyOrdersOnly(!showMyOrdersOnly);
   };
   const handleViewDetails = async (order) => {
     setSelectedOrder(order);
@@ -370,7 +409,7 @@ const RepairOrderList = () => {
     );
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -447,22 +486,62 @@ const RepairOrderList = () => {
       )}
 
       {activeTab === "REPAIR" && (
-        <RepairOrdersTab
-          filteredOrders={filteredOrders}
-          filters={filters}
-          stores={stores}
-          filterLoading={filterLoading}
-          selectedOrder={selectedOrder}
-          orderDetails={orderDetails}
-          showDetailsModal={showDetailsModal}
-          onFilterChange={handleFilterChange}
-          onApplyFilters={applyFilters}
-          onResetFilters={resetFilters}
-          onViewDetails={handleViewDetails}
-          onAccept={acceptRepairOrder}
-          onCancel={cancelRepairOrder}
-          onCloseDetailsModal={() => setShowDetailsModal(false)}
-        />
+        <div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 m-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => toggleViewMode("PENDING")}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  viewMode === "PENDING"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Đơn chờ xử lý
+              </button>
+              <button
+                onClick={() => toggleViewMode("HISTORY")}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  viewMode === "HISTORY"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Lịch sử đơn sửa chữa
+              </button>
+            </div>
+            {viewMode === "HISTORY" && (
+              <button
+                onClick={toggleMyOrders}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  showMyOrdersOnly
+                    ? "bg-green-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                {showMyOrdersOnly ? "Hiện tất cả đơn" : "Chỉ hiện đơn của tôi"}
+              </button>
+            )}
+          </div>
+          <RepairOrdersTab
+            filteredOrders={filteredOrders}
+            filters={filters}
+            stores={stores}
+            filterLoading={filterLoading}
+            selectedOrder={selectedOrder}
+            orderDetails={orderDetails}
+            showDetailsModal={showDetailsModal}
+            viewMode={viewMode}
+            onFilterChange={handleFilterChange}
+            onApplyFilters={applyFilters}
+            onResetFilters={resetFilters}
+            onViewDetails={handleViewDetails}
+            onAccept={acceptRepairOrder}
+            onCancel={cancelRepairOrder}
+            onComplete={fetchRepairOrders}
+            onCloseDetailsModal={() => setShowDetailsModal(false)}
+          />
+        </div>
       )}
     </div>
   );
