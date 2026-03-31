@@ -251,6 +251,69 @@ const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, c
       return true;
   } catch (error) { console.error("Lỗi gửi mail cảnh báo:", error); return false; }
 };
+// 3. Email báo cho Manager B khi có người xin hàng
+const sendTransferRequestCreatedEmail = async (managerEmailsArray, requestData, fromStoreName, toStoreName) => {
+    try {
+        const toEmails = managerEmailsArray.length > 0 ? managerEmailsArray.join(',') : "tominhthanh75@gmail.com";
+        const transporter = nodemailer.createTransport({
+            service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
+        });
 
-module.exports = { sendInvoiceEmail, sendEmail, sendConfirmRequestEmail, sendIssueReportEmail };
+        await transporter.sendMail({
+            from: '"Hệ Thống Kho DTM" <tominhthanh75@gmail.com>',
+            to: toEmails,
+            subject: `[DinhTrongMobile] Yêu cầu cấp hàng mới từ ${toStoreName}`,
+            html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 8px; max-width: 600px;">
+                <h2 style="color: #0056b3;">Có yêu cầu xin cấp hàng mới!</h2>
+                <p>Chào Quản lý cửa hàng <strong>${fromStoreName}</strong>,</p>
+                <p>Cửa hàng <strong>${toStoreName}</strong> vừa tạo một yêu cầu xin cấp luân chuyển Linh kiện / Điện thoại từ kho của bạn.</p>
+                <p><strong>Mã phiếu:</strong> ${requestData._id}</p>
+                <p><strong>Ghi chú:</strong> ${requestData.note || 'Không có ghi chú'}</p>
+                <p>Vui lòng đăng nhập vào hệ thống quản lý, mục <strong>Duyệt Luân Chuyển</strong> để kiểm tra tồn kho và xác nhận phê duyệt (Approve) cho yêu cầu này.</p>
+                <br/>
+                <p style="color: #666; font-size: 13px;"><em>Đây là email tự động từ hệ thống DinhTrongMobile.</em></p>
+            </div>
+            `
+        });
+        console.log(` Đã gửi mail yêu cầu luân chuyển tới Manager: ${toEmails}`);
+        return true;
+    } catch (error) { console.error("Lỗi gửi mail request:", error); return false; }
+};
+
+// 4. Email báo cho Sale B khi Manager B duyệt, yêu cầu Sale xuất kho
+const sendTransferRequestApprovedEmail = async (saleEmailsArray, requestData, fromStoreName, toStoreName) => {
+    try {
+        const toEmails = saleEmailsArray.length > 0 ? saleEmailsArray.join(',') : "tominhthanh75@gmail.com";
+        const transporter = nodemailer.createTransport({
+            service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
+        });
+
+        await transporter.sendMail({
+            from: '"Hệ Thống Kho DTM" <tominhthanh75@gmail.com>',
+            to: toEmails,
+            subject: `[DinhTrongMobile] Lệnh xuất kho luân chuyển đến ${toStoreName}`,
+            html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 8px; max-width: 600px;">
+                <h2 style="color: #d70018;">Lệnh xuất hàng luân chuyển!</h2>
+                <p>Chào bộ phận Sale cửa hàng <strong>${fromStoreName}</strong>,</p>
+                <p>Quản lý vừa <strong>PHÊ DUYỆT</strong> phiếu xuất hàng luân chuyển tới cửa hàng <strong>${toStoreName}</strong>.</p>
+                <p><strong>Mã phiếu:</strong> ${requestData._id}</p>
+                <p><strong>Nhiệm vụ của bạn:</strong></p>
+                <ol>
+                    <li>Đăng nhập vào hệ thống bằng tài khoản Sale.</li>
+                    <li>Vào mục <strong>Xuất Luân Chuyển</strong>.</li>
+                    <li>Sử dụng máy quét mã vạch (hoặc nhập tay) đúng Serial các Linh kiện / Điện thoại để đóng gói.</li>
+                    <li>Bấm xác nhận xuất kho để chuyển hàng cho Đơn vị vận chuyển.</li>
+                </ol>
+                <br/>
+                <p style="color: #666; font-size: 13px;"><em>Vui lòng thực hiện sớm để cửa hàng ${toStoreName} kịp có hàng bán!</em></p>
+            </div>
+            `
+        });
+        console.log(`✅ Đã gửi lệnh xuất kho tới Sale: ${toEmails}`);
+        return true;
+    } catch (error) { console.error("Lỗi gửi lệnh xuất kho:", error); return false; }
+};
+module.exports = { sendInvoiceEmail, sendEmail, sendConfirmRequestEmail, sendIssueReportEmail, sendTransferRequestCreatedEmail, sendTransferRequestApprovedEmail };
 

@@ -16,8 +16,8 @@ router.get("/", getAllTransferRequests);
 router.get("/:id/details", getTransferRequestDetailsById);
 router.post("/", createTransferRequest);
 router.get("/:id", getTransferRequestById);
-router.put("/:id/confirm-shipment", confirmShipment);
-router.put("/:id/confirm-receipt", confirmReceipt);
+router.put("/:id/shipment", confirmShipment);
+router.put("/:id/receipt", confirmReceipt); 
 router.put("/:id/approve", approveTransferRequest);
 router.put("/:id/reject", rejectTransferRequest);
 

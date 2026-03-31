@@ -58,6 +58,9 @@ import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import TechStorage from "./pages/technician/TechStorage";
 import TechRequest from "./pages/technician/TechRequest";
+import Warranty from "./pages/technician/Warranty";
+import SaleTransferExportList from "./pages/saleStaff/SaleTransferExportList";
+import SaleTransferExportDetail from "./pages/saleStaff/SaleTransferExportDetail";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
@@ -352,6 +355,26 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+                <Route
+                    path="/sale/transfer-export"
+                    element={
+                        <PrivateRoute allowedRoles={["SALE_STAFF"]}>
+                            <SaleLayout>
+                                <SaleTransferExportList/>
+                            </SaleLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/sale/transfer-export/:id"
+                    element={
+                        <PrivateRoute allowedRoles={["SALE_STAFF"]}>
+                            <SaleLayout>
+                                <SaleTransferExportDetail/>
+                            </SaleLayout>
+                        </PrivateRoute>
+                    }
+                />
             
 
                 {/* ================= TECHNICIAN ROUTES ================= */}
@@ -443,6 +466,16 @@ function App() {
                         <PrivateRoute allowedRoles={["TECHNICIAN"]}>
                             <TechLayout>
                                 <TechRequest/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/tech/warranty"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <Warranty/>
                             </TechLayout>
                         </PrivateRoute>
                     }

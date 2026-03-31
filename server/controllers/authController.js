@@ -239,7 +239,10 @@ exports.googleAuthCallback = (req, res) => {
     const { password: _, ...userInfo } = user._doc ? user._doc : user;
 
     const userString = encodeURIComponent(JSON.stringify(userInfo));
-    res.redirect(`http://localhost:3000/login-success?token=${token}&user=${userString}`);
+    
+    const ipAddr = process.env.IP_ADDRESS || "http://localhost:3000";
+    
+    res.redirect(`${ipAddr}/login-success?token=${token}&user=${userString}`);
 
   } catch (error) {
     res.status(500).json({ message: error.message });
