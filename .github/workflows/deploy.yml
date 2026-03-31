@@ -36,7 +36,7 @@ jobs:
           images: ${{ env.IMAGE_SERVER }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}
             type=raw,value=latest
 
       - name: Build and push Server
@@ -53,7 +53,7 @@ jobs:
           images: ${{ env.IMAGE_CLIENT }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}
             type=raw,value=latest
 
       - name: Build and push Client
