@@ -42,10 +42,11 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:9999/api/users/auth/google";
+const handleGoogleLogin = () => {
+    // Lấy API URL hiện tại, bỏ chữ /api ở cuối đi để ra đường dẫn gốc
+    const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:9999/api').replace('/api', '');
+    window.location.href = `${baseUrl}/api/users/auth/google`;
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
