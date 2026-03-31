@@ -1,6 +1,6 @@
 services:
   server:
-    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/dinhtrongmobile_ms}-server:latest
+    image: ghcr.io/duyanh1306/dinhtrongmobile_ms-server:latest
     container_name: mobile_server
     ports:
       - "9999:9999"
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   client:
-    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/dinhtrongmobile_ms}-client:latest
+    image: ghcr.io/duyanh1306/dinhtrongmobile_ms-client:latest
     container_name: mobile_client
     ports:
       - "3000:3000"
