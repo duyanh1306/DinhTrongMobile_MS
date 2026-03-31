@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Star, ThumbsUp, X, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { fetchReviewsApi, submitReviewApi } from '../../api/customer/review';
 
 export default function ReviewSection({ phoneModelId }) {
     const [reviews, setReviews] = useState([]);
@@ -18,37 +20,33 @@ export default function ReviewSection({ phoneModelId }) {
     const navigate = useNavigate();
     const currentUser = JSON.parse(localStorage.getItem('user'));
     const currentUserId = currentUser ? (currentUser._id || currentUser.id) : null;
-    const [myReview, setMyReview] = useState(null); // Lưu lại đánh giá cũ của user
+    const [myReview, setMyReview] = useState(null);
 
+    // ==============================================================
+    // GỌI API KHỞI TẠO DATA
+    // ==============================================================
     useEffect(() => {
-        if (phoneModelId) fetchReviews();
+        if (phoneModelId) {
+            loadReviews();
+        }
     }, [phoneModelId, filter]);
 
-    const fetchReviews = async () => {
-        try {
-            setLoading(true);
-            let query = `?`;
-            if (['1','2','3','4','5'].includes(filter)) query += `rating=${filter}`;
-            if (filter === 'purchased') query += `hasPurchased=true`;
-
-            const { data } = await axios.get(`http://localhost:9999/api/reviews/phone/${phoneModelId}${query}`);
-            const fetchedReviews = data.data.reviews;
-            
-            setReviews(fetchedReviews);
-            setStats(data.data.stats);
-
-            // Tìm xem người dùng này đã có đánh giá chưa để cho phép sửa
-            if (currentUserId && filter === 'all') {
-                const userRev = fetchedReviews.find(r => r.user?._id === currentUserId);
-                setMyReview(userRev || null);
+    const loadReviews = async () => {
+        setLoading(true);
+        const data = await fetchReviewsApi(phoneModelId, filter, currentUserId);
+        if (data) {
+            setReviews(data.fetchedReviews);
+            setStats(data.stats);
+            if (filter === 'all') {
+                setMyReview(data.myReview);
             }
-        } catch (error) {
-            console.error("Lỗi tải đánh giá", error);
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
+    // ==============================================================
+    // LOGIC XỬ LÝ NÚT BẤM & FORM
+    // ==============================================================
     const handleOpenReviewModal = () => {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -57,7 +55,6 @@ export default function ReviewSection({ phoneModelId }) {
             return;
         }
 
-        // Nếu đã có đánh giá cũ -> Nạp dữ liệu vào form để Sửa
         if (myReview) {
             setFormData({
                 rating: myReview.rating,
@@ -74,19 +71,12 @@ export default function ReviewSection({ phoneModelId }) {
 
     const submitReview = async (e) => {
         e.preventDefault();
-        try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post(`http://localhost:9999/api/reviews/create`, {
-                phoneModelId, ...formData
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            toast.success(res.data.message);
+        const success = await submitReviewApi(phoneModelId, formData);
+        
+        if (success) {
             setShowModal(false);
-            setFilter('all'); // Reset về "Tất cả" để thấy thay đổi
-            fetchReviews();
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi khi gửi đánh giá");
+            setFilter('all'); 
+            loadReviews();
         }
     };
 
@@ -143,7 +133,7 @@ export default function ReviewSection({ phoneModelId }) {
                 </div>
             </div>
 
-            {/* BỘ LỌC ĐÁNH GIÁ (Đã bỏ nút hình ảnh) */}
+            {/* BỘ LỌC ĐÁNH GIÁ */}
             <div className="py-6 flex flex-wrap items-center gap-3 border-b">
                 <span className="font-semibold text-gray-800 mr-2">Lọc đánh giá theo</span>
                 {[
@@ -169,8 +159,7 @@ export default function ReviewSection({ phoneModelId }) {
                 ) : (
                     reviews.map(review => (
                         <div key={review._id} className="border-b border-gray-100 pb-6 last:border-0 relative group">
-                            
-                            {/* Nút sửa nhanh ở góc bài đánh giá nếu là bài của mình */}
+                            {/* Nút sửa nhanh */}
                             {currentUserId === review.user?._id && (
                                 <button onClick={handleOpenReviewModal} className="absolute right-0 top-0 text-blue-600 bg-blue-50 px-3 py-1 rounded text-xs font-semibold opacity-0 group-hover:opacity-100 transition">
                                     Chỉnh sửa
@@ -180,14 +169,12 @@ export default function ReviewSection({ phoneModelId }) {
                             <div className="flex gap-4">
                                {review.user?.image ? (
                                         <img 
-                                            
                                             src={review.user.image.startsWith('http') 
                                                 ? review.user.image 
                                                 : `http://localhost:9999${review.user.image.startsWith('/') ? '' : '/'}${review.user.image}`
                                             } 
                                             alt={review.user?.fullName} 
                                             className="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200 bg-white"
-                                            // Nếu lỡ ảnh trên server bị xóa mất, tự động fallback về hình chữ U
                                             onError={(e) => {
                                                 e.target.onerror = null; 
                                                 e.target.outerHTML = `<div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg uppercase shadow-sm">${review.user?.fullName?.charAt(0) || 'U'}</div>`;
@@ -244,9 +231,9 @@ export default function ReviewSection({ phoneModelId }) {
                                 <p className="font-semibold text-gray-800 mb-2">Đánh giá chung của bạn</p>
                                 <div className="flex justify-center gap-2">
                                     {[1, 2, 3, 4, 5].map(star => (
-                                        <button type="button" key={star} onClick={() => setFormData({...formData, rating: star})} className="focus:outline-none">
-                                            <Star size={32} className={`transition ${star <= formData.rating ? 'text-yellow-400 fill-yellow-400 transform scale-110' : 'text-gray-300'}`} />
-                                        </button>
+                                        <div key={star} onClick={() => setFormData({...formData, rating: star})} className="focus:outline-none">
+                                            <Star size={32} className={`transition cursor-pointer ${star <= formData.rating ? 'text-yellow-400 fill-yellow-400 transform scale-110' : 'text-gray-300'}`} />
+                                        </div>
                                     ))}
                                 </div>
                             </div>

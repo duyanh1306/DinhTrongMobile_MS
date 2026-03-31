@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, ShoppingCart, ShieldCheck, Truck, RotateCcw, Cpu, Smartphone, Battery, HardDrive, Camera, Check } from "lucide-react";
-import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import ReviewSection from '../../pages/customer/ReviewSection';
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { fetchPhoneDetailApi, calculateVersions, calculateColorsForVersion, addToCartApi } from "../../api/customer/phoneDetail";
 
 export default function PhoneDetail() {
     const { id } = useParams();
@@ -24,63 +27,35 @@ export default function PhoneDetail() {
     const [displayImage, setDisplayImage] = useState("");
     const [loading, setLoading] = useState(true);
 
+    // ==============================================================
+    // GỌI API KHỞI TẠO DATA
+    // ==============================================================
     useEffect(() => {
-        const fetchProductData = async () => {
-            try {
-                const [modelsRes, phonesRes] = await Promise.all([
-                    axiosClient.get('/phone_models/all'),
-                    axiosClient.get('/phones/all')
-                ]);
-
-                const allModels = modelsRes.data.data || [];
-                const allPhones = phonesRes.data.data || [];
-
-                const currentModel = allModels.find(m => m._id === id);
-                if (!currentModel) {
-                    toast.error("Không tìm thấy sản phẩm!");
-                    navigate("/home");
-                    return;
-                }
-                setModel(currentModel);
-
-                const inStockPhones = allPhones.filter(p => 
-                    (p.phoneModelId?._id === id || p.phoneModelId === id) && p.status === 'in_stock'
-                );
-                setAvailablePhones(inStockPhones);
-                if(currentModel.image) setDisplayImage(currentModel.image);
-
-            } catch (error) { toast.error("Lỗi khi tải dữ liệu sản phẩm."); } 
-            finally { setLoading(false); }
+        const loadProductData = async () => {
+            setLoading(true);
+            const data = await fetchPhoneDetailApi(id);
+            if (data) {
+                setModel(data.model);
+                setAvailablePhones(data.availablePhones);
+                if (data.model.image) setDisplayImage(data.model.image);
+            } else {
+                toast.error("Không tìm thấy sản phẩm!");
+                navigate("/home");
+            }
+            setLoading(false);
         };
-        fetchProductData();
+        loadProductData();
     }, [id, navigate]);
 
-    // 🌟 TÍNH TOÁN CÁC PHIÊN BẢN HIỆN CÓ
-    const versions = useMemo(() => {
-        const vMap = {};
-        availablePhones.forEach(p => {
-            const grade = p.grade || "Mới";
-            const key = `${p.capacity}|${grade}`;
-            const price = p.sellingPrice || (p.importPrice * 1.15);
-            
-            if (!vMap[key]) {
-                vMap[key] = {
-                    key: key, capacity: p.capacity, grade: grade,
-                    label: grade === 'Mới' ? p.capacity : `${p.capacity} - ${grade}`,
-                    sortPrice: price
-                };
-            } else if (price < vMap[key].sortPrice) {
-                vMap[key].sortPrice = price; 
-            }
-        });
-        return Object.values(vMap).sort((a, b) => a.sortPrice - b.sortPrice);
-    }, [availablePhones]);
+    // ==============================================================
+    // LOGIC TÍNH TOÁN PHIÊN BẢN & MÀU SẮC DÙNG HÀM API TRẢ VỀ
+    // ==============================================================
+    const versions = useMemo(() => calculateVersions(availablePhones), [availablePhones]);
 
     // 🌟 THÔNG MINH: TỰ ĐỘNG CHỌN PHIÊN BẢN CŨ HOẶC MỚI DỰA VÀO NƠI KHÁCH CLICK
     useEffect(() => {
         if (versions.length > 0 && !selectedVersionKey) {
             let targetVersion = versions[0]; // Mặc định lấy rẻ nhất
-
             if (defaultIsUsed === true) {
                 const cheapestUsed = versions.find(v => v.grade !== 'Mới');
                 if (cheapestUsed) targetVersion = cheapestUsed;
@@ -88,24 +63,11 @@ export default function PhoneDetail() {
                 const cheapestNew = versions.find(v => v.grade === 'Mới');
                 if (cheapestNew) targetVersion = cheapestNew;
             }
-            
             setSelectedVersionKey(targetVersion.key);
         }
     }, [versions, selectedVersionKey, defaultIsUsed]);
 
-    const colors = useMemo(() => {
-        if (!selectedVersionKey) return [];
-        const [selCap, selGrade] = selectedVersionKey.split('|');
-        const cMap = {};
-        
-        availablePhones.filter(p => p.capacity === selCap && (p.grade || "Mới") === selGrade).forEach(p => {
-            const price = p.sellingPrice || (p.importPrice * 1.15);
-            if (!cMap[p.colorName] || price < cMap[p.colorName].price) {
-                cMap[p.colorName] = { name: p.colorName, price: price, image: p.specificImages?.[0] || null };
-            }
-        });
-        return Object.values(cMap).sort((a, b) => a.price - b.price);
-    }, [availablePhones, selectedVersionKey]);
+    const colors = useMemo(() => calculateColorsForVersion(availablePhones, selectedVersionKey), [availablePhones, selectedVersionKey]);
 
     useEffect(() => {
         if (colors.length > 0) {
@@ -146,38 +108,37 @@ export default function PhoneDetail() {
         };
     };
 
-    // 🌟 NÚT "THÊM GIỎ HÀNG" (Chỉ ném vào giỏ, ở lại trang)
+    // ==============================================================
+    // XỬ LÝ NÚT BẤM MUA HÀNG & THÊM GIỎ HÀNG
+    // ==============================================================
     const handleAddToCart = async () => {
         if (isOutOfStock) return;
         const user = JSON.parse(localStorage.getItem('user'));
         if (!user) { toast.warning("Vui lòng đăng nhập để mua hàng!"); navigate('/login'); return; }
 
         const newItem = buildCartItem();
-
-        try {
-            await axiosClient.post('/cart/add', { userId: (user._id || user.id), item: newItem });
+        const success = await addToCartApi(user._id || user.id, newItem);
+        
+        if (success) {
             window.dispatchEvent(new Event('cartUpdated')); 
             toast.success("Đã thêm sản phẩm vào giỏ hàng!");
-        } catch (error) { toast.error("Lỗi khi thêm vào giỏ hàng."); }
+        }
     };
 
-    // 🌟 NÚT "MUA NGAY" (Ném vào giỏ -> Chuyển thẳng sang trang Checkout)
     const handleBuyNow = async () => {
         if (isOutOfStock) return;
         const user = JSON.parse(localStorage.getItem('user'));
         if (!user) { toast.warning("Vui lòng đăng nhập để mua hàng!"); navigate('/login'); return; }
 
         const newItem = buildCartItem();
-
-        try {
-            // Thêm vào giỏ hàng ngầm để lưu lại vết nếu khách huỷ thanh toán
-            await axiosClient.post('/cart/add', { userId: (user._id || user.id), item: newItem });
+        const success = await addToCartApi(user._id || user.id, newItem);
+        
+        if (success) {
             window.dispatchEvent(new Event('cartUpdated')); 
-            
-            // Chuyển thẳng sang trang Checkout kèm theo sản phẩm này
             navigate('/checkout', { state: { selectedItems: [newItem] } });
-        } catch (error) { toast.error("Lỗi khi xử lý mua ngay."); }
+        }
     };
+
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
     if (loading) return <CustomerLayout><div className="min-h-[60vh] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div></div></CustomerLayout>;
@@ -186,6 +147,7 @@ export default function PhoneDetail() {
 
     return (
         <CustomerLayout>
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="max-w-6xl mx-auto py-8 px-4">
                 <div className="text-sm text-gray-500 mb-6">
                     <span className="hover:text-blue-600 cursor-pointer transition" onClick={() => navigate('/home')}>Trang chủ</span> <span className="mx-2">/</span> 

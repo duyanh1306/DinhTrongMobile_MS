@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, XCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone } from "lucide-react";
+import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, XCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useReactToPrint } from "react-to-print";
 import dayjs from "dayjs";
 import axiosClient from "../../api/axiosClient";
+import html2pdf from "html2pdf.js"; // <--- THÊM IMPORT NÀY
+
 // Hàm hỗ trợ đọc số tiền thành chữ
 const docSoThanhChu = (so) => {
   if (!so || so === 0) return "Không đồng";
@@ -178,7 +180,7 @@ export default function SalePOS() {
   // =========================================================
   // STATES DÀNH RIÊNG CHO BẢO HÀNH (WARRANTY)
   // =========================================================
-  const [warrantySearchType, setWarrantySearchType] = useState("PHONE"); // "PHONE" hoặc "INVOICE"
+  const [warrantySearchType, setWarrantySearchType] = useState("PHONE"); 
   const [warrantySearchInput, setWarrantySearchInput] = useState("");
   const [warrantySearchResults, setWarrantySearchResults] = useState([]);
   const [selectedWarrantyInvoice, setSelectedWarrantyInvoice] = useState(null);
@@ -330,10 +332,7 @@ export default function SalePOS() {
     } catch (err) { toast.error("Lỗi kết nối"); }
   };
 
-  // =========================================================================
-  // 🌟 LOGIC BẢO HÀNH: TÌM KIẾM 3 LOẠI HÓA ĐƠN ĐỒNG THỜI
-  // =========================================================================
- const handleSearchWarranty = async () => {
+  const handleSearchWarranty = async () => {
     if (!warrantySearchInput.trim()) return toast.warning("Vui lòng nhập thông tin tìm kiếm!");
     setSelectedWarrantyInvoice(null);
     setWarrantySearchResults([]);
@@ -341,19 +340,16 @@ export default function SalePOS() {
     try {
       const query = warrantySearchInput.trim().toLowerCase().replace('#', '');
 
-      // Dùng axiosClient + Promise.allSettled để nếu 1 cái lỗi 404 thì 2 cái kia vẫn chạy
       const [offlineRes, onlineRes, repairRes] = await Promise.allSettled([
         axiosClient.get(`/purchase-orders?orderType=SALE&status=Completed`),
-        axiosClient.get(`/orders/all`), // <--- CHỈ CẦN THÊM CHỮ /all VÀO ĐÂY
+        axiosClient.get(`/orders/all`), 
         axiosClient.get(`/repair-orders?status=Completed`)
       ]);
 
-      // Lấy data an toàn, nếu API lỗi (Rejected) thì trả về mảng rỗng []
       const offlineSales = offlineRes.status === 'fulfilled' ? (offlineRes.value.data?.data || offlineRes.value.data || []) : [];
       const onlineSales = onlineRes.status === 'fulfilled' ? (onlineRes.value.data?.data || onlineRes.value.data || []) : [];
       const repairSales = repairRes.status === 'fulfilled' ? (repairRes.value.data?.data || repairRes.value.data || []) : [];
 
-      // ĐỒNG BỘ CẤU TRÚC 3 LOẠI ĐƠN
       let allInvoices = [
         ...offlineSales.map(o => ({ 
             ...o, source: 'OFFLINE', displayId: String(o._id), displayName: o.customerName, displayPhone: o.customerPhone 
@@ -369,7 +365,6 @@ export default function SalePOS() {
         }))
       ];
 
-      // LỌC THEO TỪ KHÓA
       let filtered = [];
       if (warrantySearchType === "INVOICE") {
         filtered = allInvoices.filter(o => o.displayId.toLowerCase().includes(query));
@@ -380,7 +375,6 @@ export default function SalePOS() {
       if (filtered.length === 0) {
         toast.error("Không tìm thấy lịch sử mua hàng phù hợp!");
       } else {
-        // Sắp xếp ngày mới nhất lên đầu
         filtered.sort((a, b) => new Date(b.createdAt || b.repairOrderDate) - new Date(a.createdAt || a.repairOrderDate));
         setWarrantySearchResults(filtered);
       }
@@ -458,6 +452,7 @@ export default function SalePOS() {
         toast.error("Lỗi lấy thông tin chi tiết đơn hàng");
     }
   };
+  
   const handleOpenWarrantyModal = (wItem) => {
     setSelectedWarrantyItem(wItem);
     setWarrantyIssue("");
@@ -485,27 +480,43 @@ export default function SalePOS() {
     };
 
     try {
-        const res = await fetch("http://localhost:9999/api/warranty/create", {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-        });
+        const res = await axiosClient.post("/warranty/create", payload);
         
-        if (res.ok) {
+        if (res.status === 201 || res.status === 200) {
             toast.success("Tạo yêu cầu bảo hành thành công! Vui lòng chuyển máy cho Kỹ thuật.");
             setIsWarrantyModalOpen(false);
             setSelectedWarrantyInvoice(null);
             setWarrantySearchResults([]);
             setWarrantySearchInput("");
-        } else {
-            const errData = await res.json();
-            toast.error(errData.message || "Lỗi tạo đơn bảo hành");
         }
     } catch (error) {
-        toast.error("Lỗi hệ thống");
+        toast.error(error.response?.data?.message || "Lỗi hệ thống khi tạo đơn bảo hành");
     }
   };
 
   const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: `Bill_${selectedOrder?._id?.substring(0, 6) || "Moi"}` });
   const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+
+  // =========================================================
+  // 🌟 HÀM XUẤT FILE PDF TỰ ĐỘNG KHÔNG CẦN QUA MÁY IN
+  // =========================================================
+  const handleDownloadPDF = () => {
+      const element = printRef.current;
+      const opt = {
+          margin:       [10, 10, 10, 10], 
+          filename:     `HoaDon_${selectedOrder?._id?.substring(selectedOrder._id.length - 6).toUpperCase() || 'Moi'}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      toast.info("Đang tạo file PDF, vui lòng đợi giây lát...", { autoClose: 2000 });
+      html2pdf().set(opt).from(element).save().then(() => {
+          toast.success("Tải file PDF thành công!");
+      }).catch(err => {
+          toast.error("Có lỗi khi tạo PDF!");
+      });
+  };
 
   return (
     <>
@@ -795,7 +806,7 @@ export default function SalePOS() {
             </div>
         )}
 
-        {/* POP-UP PREVIEW HÓA ĐƠN BÁN HÀNG (Giữ nguyên) */}
+        {/* POP-UP PREVIEW HÓA ĐƠN BÁN HÀNG */}
         {isModalOpen && selectedOrder && orderType === "SALE" && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
@@ -803,11 +814,18 @@ export default function SalePOS() {
                 <h3 className="text-xl font-bold text-orange-600 flex items-center gap-2">
                   <CheckCircle size={24}/> {selectedOrder.status === "Pending" ? "Xác nhận tạo đơn bán" : `Đơn hàng #${selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}`}
                 </h3>
+                
+                {/* 🌟 NÚT TẢI PDF & IN BILL Ở ĐÂY 🌟 */}
                 <div className="flex gap-2">
                   {selectedOrder.status === "Completed" && (
-                    <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs hover:bg-blue-700 shadow-md">
-                      <Printer size={16} /> IN BILL
-                    </button>
+                    <>
+                        <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs hover:bg-blue-700 shadow-md">
+                          <Printer size={16} /> IN BILL
+                        </button>
+                        <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-bold text-xs hover:bg-green-700 shadow-md">
+                          <Download size={16} /> TẢI PDF
+                        </button>
+                    </>
                   )}
                   <button onClick={() => {
                       setIsModalOpen(false);
@@ -876,7 +894,8 @@ export default function SalePOS() {
                 )}
               </div>
 
-              <div className="hidden">
+              {/* 🌟 CHỖ NÀY GIẤU FORM IN BẰNG CSS ĐỂ HTML2PDF CHỤP ĐƯỢC 🌟 */}
+              <div className="absolute left-[-9999px] top-[-9999px] opacity-0 pointer-events-none -z-50">
                 <InvoicePrint contentRef={printRef} order={selectedOrder} details={orderDetails} formatCurrency={formatCurrency} activeTab={orderType} />
               </div>
             </div>

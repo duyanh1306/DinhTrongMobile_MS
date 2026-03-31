@@ -1,33 +1,36 @@
 services:
   server:
-    image: ghcr.io/duyanh1306/dinhtrongmobile_ms-server:latest
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: mobile_server
     ports:
       - "9999:9999"
-    env_file:
-      - ./server/.env
     environment:
       - NODE_ENV=development
       - PORT=9999
       - MONGODB_URI=mongodb://mongo:27017/dinh_trong_mobile
     depends_on:
       - mongo
+    volumes:
+      - ./server:/app
+      - /app/node_modules
     networks:
       - app-network
-    restart: unless-stopped
 
   client:
-    image: ghcr.io/duyanh1306/dinhtrongmobile_ms-client:latest
+    build:
+      context: ./client
+      dockerfile: Dockerfile
     container_name: mobile_client
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://server:9999/api
+      - REACT_APP_API_URL=http://server:9999
     depends_on:
       - server
     networks:
       - app-network
-    restart: unless-stopped
 
   mongo:
     image: mongo:7.0
