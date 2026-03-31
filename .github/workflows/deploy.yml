@@ -62,6 +62,8 @@ jobs:
           context: ./client
           push: true
           tags: ${{ steps.meta-client.outputs.tags }}
+          build-args: |
+            REACT_APP_API_URL=/api
 
       - name: Deploy to SSH Server
         if: github.event_name == 'push'
