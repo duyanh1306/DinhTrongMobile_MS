@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Settings, CheckCircle, X, Hammer, Scissors, Save, Plus, Trash2, Package, Search, Download,Wrench } from "lucide-react";
+import { Settings, CheckCircle, X, Hammer, Scissors, Save, Plus, Trash2, Package, Search, Download, Wrench } from "lucide-react";
 import WaitingDecisionTable from "./WaitingDecisionTable";
 
 const parseChecklistFromNote = (noteStr) => {
@@ -31,7 +31,6 @@ const WaitingDecisionTab = ({
   itemTypes = [],
   replacementParts = [], 
   availablePartsInStock = [], 
-  // THÊM GIÁP CHỐNG SẬP () => {} CHO TẤT CẢ CÁC HÀM
   onFetchAvailableParts = () => {}, 
   onSetReplacementParts = () => {},
   onProcess = () => {}, 
@@ -70,6 +69,35 @@ const WaitingDecisionTab = ({
   const handleExtractPart = (parsedItem) => {
     onAddPart();
   };
+
+  // =====================================================================
+  // 🌟 LOGIC KIỂM TRA ĐIỀU KIỆN BẬT/TẮT NÚT SUBMIT 🌟
+  // =====================================================================
+  let canSubmit = true;
+  let submitButtonText = "XÁC NHẬN LƯU KHO";
+
+  if (decision === "SELL") {
+    // Lọc ra các linh kiện bị hỏng
+    const brokenParts = parsedChecklist.filter(i => i.isBroken);
+    // Kiểm tra xem mọi linh kiện hỏng ĐÃ ĐƯỢC CHỌN đồ thay thế tương ứng chưa
+    const hasFullReplacements = brokenParts.every(bp => replacementParts.some(rp => rp.category === bp.name));
+    // Kiểm tra xem đã có giá bán chưa
+    const hasSellPrice = sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
+
+    if (!hasFullReplacements) {
+      canSubmit = false;
+      submitButtonText = "CHƯA ĐỦ LINH KIỆN THAY THẾ";
+    } else if (!hasSellPrice) {
+      canSubmit = false;
+      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
+    }
+  } else if (decision === "DISMANTLE") {
+    // Nếu rã xác thì phải có ít nhất 1 linh kiện và đã điền đủ trường bắt buộc
+    if (dismantleParts.length === 0 || dismantleParts.some(p => !p.itemTypeId || !p.name || !p.price)) {
+      canSubmit = false;
+      submitButtonText = "ĐIỀN ĐỦ THÔNG TIN RÃ XÁC";
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -136,14 +164,27 @@ const WaitingDecisionTab = ({
                      <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Wrench size={18}/> Đề xuất thay thế linh kiện</h4>
                      <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị "Kém/Hỏng". Hệ thống sẽ tự động tạo phiếu xuất kho linh kiện.</p>
                      
-                     {parsedChecklist.filter(i => i.isBroken).map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-4 mb-3 border border-red-200 bg-red-50/30 rounded-xl">
-                            <span className="font-bold text-red-700">{item.name} bị {item.statusStr.toLowerCase()}</span>
-                            <button onClick={() => handleOpenPartSelector(item.name)} className="bg-white border border-red-300 text-red-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-100 transition shadow-sm">
-                                + Chọn linh kiện thay thế
-                            </button>
+                     {parsedChecklist.filter(i => i.isBroken).map((item, idx) => {
+                        // Kiem tra xem linh kien nay da duoc chon chua
+                        const isReplaced = replacementParts.some(rp => rp.category === item.name);
+
+                        return (
+                        <div key={idx} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 mb-3 border rounded-xl transition-all ${isReplaced ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/30"}`}>
+                            <span className={`font-bold ${isReplaced ? "text-green-700" : "text-red-700"} mb-2 sm:mb-0`}>
+                              {item.name} bị {item.statusStr.toLowerCase()}
+                            </span>
+                            {!isReplaced ? (
+                                <button onClick={() => handleOpenPartSelector(item.name)} className="bg-white border border-red-300 text-red-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-100 transition shadow-sm w-full sm:w-auto">
+                                    + Chọn linh kiện thay thế
+                                </button>
+                            ) : (
+                                <span className="bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1">
+                                    <CheckCircle size={16}/> Đã chọn
+                                </span>
+                            )}
                         </div>
-                     ))}
+                        )
+                     })}
                      {parsedChecklist.filter(i => i.isBroken).length === 0 && (
                        <p className="text-sm text-green-600 italic bg-green-50 p-3 rounded border border-green-200">Không phát hiện linh kiện nào hỏng từ báo cáo.</p>
                      )}
@@ -153,7 +194,7 @@ const WaitingDecisionTab = ({
                             <h5 className="text-sm font-bold text-green-800 mb-3 uppercase">Linh kiện đã chọn xuất kho:</h5>
                             {replacementParts.map((rp, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-sm text-green-700 bg-white p-2 rounded mb-2 border border-green-100 shadow-sm">
-                                    <span className="font-medium">- {rp.name} <span className="text-xs text-gray-500 ml-1 font-mono">(SN: {rp.serialCode})</span></span>
+                                    <span className="font-medium">- Thay {rp.category}: <strong>{rp.name}</strong> <span className="text-xs text-gray-500 ml-1 font-mono">(SN: {rp.serialCode})</span></span>
                                     <button onClick={() => handleRemoveReplacement(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X size={16}/></button>
                                 </div>
                             ))}
@@ -238,9 +279,21 @@ const WaitingDecisionTab = ({
             </div>
 
             <div className="p-5 border-t bg-white flex justify-end gap-4 rounded-b-2xl">
-              <button onClick={onCloseModal} className="px-6 py-2.5 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200">Đóng</button>
-              <button onClick={onSubmit} className="px-8 py-2.5 bg-blue-600 rounded-xl font-black text-white shadow-md hover:bg-blue-700 hover:-translate-y-1 transition-all flex items-center gap-2">
-                <Save size={18}/> XÁC NHẬN LƯU KHO
+              <button onClick={onCloseModal} className="px-6 py-2.5 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition">Đóng</button>
+              
+              {/* 🌟 NÚT SUBMIT ĐÃ BỌC ĐIỀU KIỆN 🌟 */}
+              <button 
+                onClick={onSubmit} 
+                disabled={!canSubmit}
+                className={`px-8 py-2.5 rounded-xl font-black text-white shadow-md transition-all flex items-center gap-2 ${
+                  !canSubmit 
+                    ? "bg-gray-400 cursor-not-allowed" 
+                    : decision === "SELL" 
+                        ? "bg-green-600 hover:bg-green-700 hover:-translate-y-1 shadow-green-200" 
+                        : "bg-red-600 hover:bg-red-700 hover:-translate-y-1 shadow-red-200"
+                }`}
+              >
+                <Save size={18}/> {submitButtonText}
               </button>
             </div>
           </div>

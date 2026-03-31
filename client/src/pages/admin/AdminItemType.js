@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, ChevronRight, Tag } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, Tag } from "lucide-react";
+
+// 🌟 IMPORT API TỪ FILE itemType.js CỦA BẠN
+import { fetchItemTypesPaginatedApi, fetchAllRecipesApi, deleteItemTypeApi, createItemTypeApi, updateItemTypeApi } from "../../api/admin/itemType";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -13,17 +15,17 @@ export default function AdminItemType() {
     const [itemTypes, setItemTypes] = useState([]);
     const [recipes, setRecipes] = useState([]); 
     const [loading, setLoading] = useState(true);
+    
     const [searchKeyword, setSearchKeyword] = useState('');
-    
-    // 🌟 STATE PHÂN TRANG
-    const [pagination, setPagination] = useState({ 
-        currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 
-    });
-    
+    const [selectedBaseFilter, setSelectedBaseFilter] = useState(''); 
+
+    // STATE PHÂN TRANG THEO NHÓM
+    const [currentPage, setCurrentPage] = useState(1);
+    const groupsPerPage = 3; 
+
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [expandedGroup, setExpandedGroup] = useState({});
 
     const [formData, setFormData] = useState({ name: '', baseCode: 'MB', subCode: '', image: '', linkedRecipes: [] });
     const [tempLink, setTempLink] = useState({ recipeId: '', partName: '' }); 
@@ -36,52 +38,38 @@ export default function AdminItemType() {
         return `http://localhost:9999${url}`;
     };
 
-    useEffect(() => { fetchRecipes(); }, []);
+    useEffect(() => { fetchRecipes(); fetchItemType(); }, []);
 
-    // 🌟 GỌI API THEO PHÂN TRANG VÀ TÌM KIẾM
-    useEffect(() => { fetchItemType(); }, [pagination.currentPage]);
-
+    // Reset về trang 1 khi gõ tìm kiếm hoặc đổi bộ lọc
     useEffect(() => {
-        const timeout = setTimeout(() => { 
-            setPagination(prev => ({...prev, currentPage: 1}));
-            fetchItemType(); 
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [searchKeyword]);
+        setCurrentPage(1);
+    }, [searchKeyword, selectedBaseFilter]);
 
+    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG LẤY DANH SÁCH PHÂN LOẠI
     const fetchItemType = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams({
-                page: pagination.currentPage, 
-                limit: pagination.limit,
-                search: searchKeyword
-            });
-
-            const { data } = await axios.get(`http://localhost:9999/api/item_types?${params}`, { headers: { Authorization: `Bearer ${token}` } });
-            setItemTypes(data.data || []);
-            if (data.pagination) setPagination(data.pagination);
-        } catch (error) { toast.error("Lỗi tải dữ liệu"); } 
-        finally { setLoading(false); }
+        setLoading(true);
+        // Kéo tất cả về để Frontend tự chia trang theo Group (giống logic cũ)
+        const data = await fetchItemTypesPaginatedApi('limit=9999');
+        if (data) {
+            setItemTypes(data.data || data || []);
+        }
+        setLoading(false);
     };
 
+    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG LẤY DANH SÁCH RECIPES
     const fetchRecipes = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await axios.get("http://localhost:9999/api/recipes/all", { headers: { Authorization: `Bearer ${token}` } });
-            setRecipes(res.data.data || []);
-        } catch (err) { console.error("Lỗi tải công thức:", err); }
+        const data = await fetchAllRecipesApi();
+        setRecipes(data);
     };
 
+    // 🌟 SỬ DỤNG API XÓA TỪ FILE RIÊNG
     const handleDelete = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
-        try {
-            const token = localStorage.getItem("token");
-            await axios.delete(`http://localhost:9999/api/item_types/delete/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        const isSuccess = await deleteItemTypeApi(id);
+        if (isSuccess) {
             toast.success("Xóa thành công!");
             fetchItemType();
-        } catch (error) { toast.error("Lỗi khi xóa danh mục"); }
+        }
     };
 
     const handleOpenModal = (itemType = null) => {
@@ -146,46 +134,51 @@ export default function AdminItemType() {
         setFormData({ ...formData, linkedRecipes: newLinks });
     };
 
+    // 🌟 SỬ DỤNG API THÊM / SỬA TỪ FILE RIÊNG
     const handleSubmit = async (e) => {
         e.preventDefault();
         const subUpper = formData.subCode.trim().toUpperCase();
         const finalCode = formData.baseCode === 'OTH' ? subUpper : (subUpper ? `${formData.baseCode}-${subUpper}` : formData.baseCode);
         if (!finalCode) return toast.warning("Mã Code không được để trống!");
 
-        try {
-            const token = localStorage.getItem("token");
-            const submitData = new FormData();
-            submitData.append('name', formData.name);
-            submitData.append('code', finalCode); 
-            
-            let finalLinkedRecipes = [...formData.linkedRecipes];
-            if (tempLink.recipeId && tempLink.partName) {
-                const isDuplicate = finalLinkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
-                if (!isDuplicate) finalLinkedRecipes.push(tempLink);
-            }
-            if (finalLinkedRecipes.length > 0) submitData.append('linkedRecipes', JSON.stringify(finalLinkedRecipes));
-            
-            if (imageFile) submitData.append('image', imageFile);
-            else if (formData.image && !formData.image.startsWith('blob:')) submitData.append('image', formData.image); 
+        const submitData = new FormData();
+        submitData.append('name', formData.name);
+        submitData.append('code', finalCode); 
+        
+        let finalLinkedRecipes = [...formData.linkedRecipes];
+        if (tempLink.recipeId && tempLink.partName) {
+            const isDuplicate = finalLinkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
+            if (!isDuplicate) finalLinkedRecipes.push(tempLink);
+        }
+        if (finalLinkedRecipes.length > 0) submitData.append('linkedRecipes', JSON.stringify(finalLinkedRecipes));
+        
+        if (imageFile) submitData.append('image', imageFile);
+        else if (formData.image && !formData.image.startsWith('blob:')) submitData.append('image', formData.image); 
 
-            const config = { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data'} };
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updateItemTypeApi(editingId, submitData);
+            if (isSuccess) toast.success("Cập nhật thành công");
+        } else {
+            isSuccess = await createItemTypeApi(submitData);
+            if (isSuccess) toast.success("Thêm mới thành công");
+        }
 
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/item_types/update/${editingId}`, submitData, config);
-                toast.success("Cập nhật thành công");
-            } else {
-                await axios.post(`http://localhost:9999/api/item_types/create`, submitData, config);
-                toast.success("Thêm mới thành công");
-            }
+        if (isSuccess) {
             setShowModal(false);
             fetchItemType();
-        } catch (error) { toast.error(error.response?.data?.message || "Lỗi lưu dữ liệu"); }
+        }
     };
 
-    // 🌟 GỘP NHÓM & SẮP XẾP "KHÁC" XUỐNG CUỐI
-    const sortedGroupedData = useMemo(() => {
+    const allGroupedData = useMemo(() => {
         const result = {};
-        itemTypes.forEach(type => {
+        const safeKeyword = searchKeyword.toLowerCase();
+
+        const filtered = itemTypes.filter(type => {
+            const nameMatch = (type.name || '').toLowerCase().includes(safeKeyword);
+            const codeMatch = (type.code || '').toLowerCase().includes(safeKeyword);
+            const searchPass = nameMatch || codeMatch;
+
             let base = 'OTH';
             const parts = type.code.split('-');
             if (parts[0] === 'CAM') base = `CAM-${parts[1]}`;
@@ -193,157 +186,218 @@ export default function AdminItemType() {
             else if (BASE_CODES[type.code]) base = type.code;
 
             const baseLabel = BASE_CODES[base] || "Khác";
-            if (!result[baseLabel]) result[baseLabel] = [];
-            result[baseLabel].push(type);
+            const basePass = selectedBaseFilter ? baseLabel === selectedBaseFilter : true;
+
+            type._baseLabel = baseLabel;
+
+            return searchPass && basePass;
         });
 
-        // Sắp xếp object thành array, đẩy "Khác" xuống cuối
+        filtered.forEach(type => {
+            if (!result[type._baseLabel]) result[type._baseLabel] = [];
+            result[type._baseLabel].push(type);
+        });
+
         return Object.entries(result).sort(([groupA], [groupB]) => {
             if (groupA === "Khác") return 1;
             if (groupB === "Khác") return -1;
             return groupA.localeCompare(groupB);
         });
-    }, [itemTypes]);
+    }, [itemTypes, searchKeyword, selectedBaseFilter]);
 
-    const toggleGroup = (grp) => setExpandedGroup(prev => ({ ...prev, [grp]: !prev[grp] }));
+    const paginatedData = useMemo(() => {
+        const totalGroups = allGroupedData.length;
+        const totalPages = Math.ceil(totalGroups / groupsPerPage);
+        
+        const startIndex = (currentPage - 1) * groupsPerPage;
+        const endIndex = startIndex + groupsPerPage;
+        const currentGroups = allGroupedData.slice(startIndex, endIndex);
+
+        let totalItemsCount = 0;
+        allGroupedData.forEach(([_, list]) => { totalItemsCount += list.length });
+
+        return {
+            groups: currentGroups,
+            totalPages: totalPages || 1,
+            totalItemsCount: totalItemsCount
+        };
+    }, [allGroupedData, currentPage]);
+
 
     return (
-        <div className="flex flex-col h-full space-y-6">
+        <div className="flex flex-col h-full space-y-6 text-[13px]">
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                    <Package className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Phân loại Linh Kiện</h1>
+                    <Package className="text-blue-600" size={26} />
+                    <h1 className="text-xl font-bold text-gray-800">Quản lý Phân loại Linh Kiện</h1>
                 </div>
-                <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition">
-                    <Plus size={20} /> <span>Thêm phân loại mới</span>
+                <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition text-sm">
+                    <Plus size={18} /> <span>Thêm phân loại mới</span>
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                <div className="relative w-full md:w-1/2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <input type="text" placeholder="Tìm theo tên danh mục hoặc mã code..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-4 items-center border border-gray-100">
+                <div className="relative min-w-[200px]">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                    <select 
+                        value={selectedBaseFilter} 
+                        onChange={(e) => setSelectedBaseFilter(e.target.value)} 
+                        className="w-full appearance-none border border-gray-200 bg-gray-50 font-semibold py-2 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                        <option value="">Tất cả Danh mục chính</option>
+                        {Object.entries(BASE_CODES).map(([code, label]) => (
+                            <option key={code} value={label}>{label}</option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                </div>
+
+                <div className="relative flex-1 min-w-[250px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                        type="text" placeholder="Tìm theo tên danh mục hoặc mã code..." 
+                        value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} 
+                        className="w-full pl-10 pr-4 py-2 border border-gray-200 bg-gray-50 rounded-lg outline-none focus:border-blue-500" 
+                    />
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto pb-6">
                 {loading ? (
-                    <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
-                ) : sortedGroupedData.length === 0 ? (
-                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy phân loại nào phù hợp.</div>
+                    <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div></div>
+                ) : paginatedData.groups.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300 text-sm">Không tìm thấy phân loại nào phù hợp.</div>
                 ) : (
-                    sortedGroupedData.map(([groupName, typesList]) => (
-                        <div key={groupName} className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-gray-50 p-4 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition" onClick={() => toggleGroup(groupName)}>
-                                <h2 className="text-lg font-bold text-gray-800 uppercase flex items-center gap-2">
-                                    <Tag className="text-blue-600" size={20}/> {groupName} 
-                                    <span className="bg-white border text-xs px-2 py-0.5 rounded-full ml-2 text-gray-500">{typesList.length} phân loại</span>
-                                </h2>
-                                {expandedGroup[groupName] ? <ChevronDown className="text-gray-500"/> : <ChevronRight className="text-gray-500"/>}
+                    paginatedData.groups.map(([groupName, typesList]) => (
+                        <div key={groupName} className="mb-5 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                            <div className="bg-blue-50/60 p-2.5 px-4 flex justify-between items-center border-b border-gray-200">
+                                <h3 className="font-bold text-blue-900 flex items-center gap-2 text-sm uppercase">
+                                    <Tag size={16} className="text-blue-600"/> {groupName} 
+                                    <span className="bg-blue-600 text-white text-[11px] px-2 py-0.5 rounded-full ml-2 shadow-sm">{typesList.length} Phân loại</span>
+                                </h3>
                             </div>
 
-                            {expandedGroup[groupName] && (
-                                <div className="bg-white divide-y divide-gray-100">
-                                    {typesList.map(item => (
-                                        <div key={item._id} className="p-3 pl-8 flex items-center justify-between hover:bg-blue-50/40 transition">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
-                                                    {item.image ? <img src={getImageUrl(item.image)} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300"/>}
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{item.name}</p>
-                                                    <div className="flex items-center gap-2 mt-1 text-[12px]">
-                                                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded font-mono font-bold tracking-wider">{item.code}</span>
-                                                        <span className="text-gray-300">|</span>
-                                                        <span className="text-gray-500">
-                                                            Tồn kho: <strong className={item.stockCount > 0 ? "text-emerald-600 bg-emerald-50 px-1.5 rounded" : "text-red-500 bg-red-50 px-1.5 rounded"}>{item.stockCount || 0}</strong>
-                                                        </span> 
+                            <div className="bg-white overflow-x-auto">
+                            <table className="w-full table-fixed text-left whitespace-nowrap">
+                                    <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 uppercase text-[11px]">
+                                        <tr>
+                                            <th className="px-6 py-3 font-semibold w-[55%]">Hình ảnh & Tên Phân Loại</th>
+                                            <th className="px-4 py-3 font-semibold text-center w-[25%]">Tồn kho Hệ thống</th>
+                                            <th className="px-6 py-3 font-semibold text-right w-[20%]">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {typesList.map(item => (
+                                            <tr key={item._id} className="hover:bg-gray-50/50 transition">
+                                                <td className="px-6 py-3 truncate">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shadow-sm flex-shrink-0">
+                                                            {item.image ? <img src={getImageUrl(item.image)} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300" size={18}/>}
+                                                        </div>
+                                                        <div className="truncate">
+                                                            <p className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</p>
+                                                            <div className="mt-1">
+                                                                <span className="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded font-mono font-bold tracking-wider text-[10px] inline-block">{item.code}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleOpenModal(item)} className="text-blue-600 bg-blue-50 p-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition"><Edit size={16} /></button>
-                                                <button onClick={() => handleDelete(item._id)} className="text-red-500 bg-red-50 p-2.5 rounded-lg hover:bg-red-600 hover:text-white transition"><Trash2 size={16} /></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className={`inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg border font-bold text-[12px] min-w-[80px] ${item.stockCount > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-600 bg-red-50 border-red-200"}`}>
+                                                        <Package size={14}/> {item.stockCount || 0}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button onClick={() => handleOpenModal(item)} className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-sm border border-blue-100"><Edit size={14} /></button>
+                                                        <button onClick={() => handleDelete(item._id)} className="text-red-500 bg-red-50 p-2 rounded-lg hover:bg-red-600 hover:text-white transition shadow-sm border border-red-100"><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* 🌟 THANH CHUYỂN TRANG */}
-            <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto rounded-xl shadow-sm border border-gray-200">
-                <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng tìm thấy: <span className="font-bold">{pagination.totalCount}</span> phân loại</span>
-                <div className="flex gap-2">
-                    <button disabled={pagination.currentPage <= 1} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage - 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Trước</button>
-                    <button disabled={pagination.currentPage >= pagination.totalPages} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage + 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Sau</button>
+            {!loading && paginatedData.totalItemsCount > 0 && (
+                <div className="p-3 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl shadow-sm border border-gray-200">
+                    <div className="text-[13px] text-gray-600 flex items-center gap-2">
+                        <span>Đang xem trang <strong className="text-blue-600">{currentPage}</strong> / {paginatedData.totalPages}</span>
+                        <span className="text-gray-300">|</span>
+                        <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedData.totalItemsCount}</strong> phân loại</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => prev - 1)} className="px-4 py-1.5 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition rounded-lg shadow-sm">Trang trước</button>
+                        <button disabled={currentPage >= paginatedData.totalPages} onClick={() => setCurrentPage(prev => prev + 1)} className="px-4 py-1.5 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition rounded-lg shadow-sm">Trang sau</button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* MODAL THÊM SỬA */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center p-5 border-b bg-gray-50 flex-shrink-0">
-                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Sửa Danh Mục' : 'Thêm Danh Mục Mới'}</h2>
-                            <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24}/></button>
+                        <div className="flex justify-between items-center p-4 border-b bg-gray-50 flex-shrink-0">
+                            <h2 className="text-lg font-bold text-gray-800">{isEditing ? 'Sửa Danh Mục' : 'Thêm Danh Mục Mới'}</h2>
+                            <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={20}/></button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-5">
+                        <div className="p-5 overflow-y-auto flex-1 custom-scrollbar space-y-4">
                             <div>
-                                <label className="block text-sm font-bold mb-1.5 text-gray-700">Tên danh mục hiển thị *</label>
-                                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl focus:border-blue-500 outline-none" placeholder="VD: Pin iPhone 13..." />
+                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Tên danh mục hiển thị *</label>
+                                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 p-2 rounded-lg focus:border-blue-500 outline-none text-[13px]" placeholder="VD: Pin iPhone 13..." />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold mb-1.5 text-gray-700">Mã Code (Tự động nhóm) *</label>
+                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Mã Code (Tự động nhóm) *</label>
                                 <div className="flex gap-2">
-                                    <select value={formData.baseCode} onChange={e => setFormData({...formData, baseCode: e.target.value})} className="w-1/2 border border-gray-300 p-2.5 rounded-xl focus:border-blue-500 outline-none bg-white text-gray-700">
+                                    <select value={formData.baseCode} onChange={e => setFormData({...formData, baseCode: e.target.value})} className="w-1/2 border border-gray-300 p-2 rounded-lg focus:border-blue-500 outline-none bg-white text-gray-700 text-[13px]">
                                         {Object.entries(BASE_CODES).map(([code, label]) => <option key={code} value={code}>{label} ({code})</option>)}
                                     </select>
-                                    <input type="text" value={formData.subCode} onChange={e => setFormData({...formData, subCode: e.target.value.toUpperCase()})} className="w-1/2 border border-gray-300 p-2.5 rounded-xl focus:border-blue-500 outline-none uppercase font-mono text-sm" placeholder={formData.baseCode === 'OTH' ? "Nhập mã..." : "Đuôi (VD: IP13)"} />
+                                    <input type="text" value={formData.subCode} onChange={e => setFormData({...formData, subCode: e.target.value.toUpperCase()})} className="w-1/2 border border-gray-300 p-2 rounded-lg focus:border-blue-500 outline-none uppercase font-mono text-[13px]" placeholder={formData.baseCode === 'OTH' ? "Nhập mã..." : "Đuôi (VD: IP13)"} />
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">Mã hệ thống thực tế: <strong className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded ml-1 border border-blue-200">{formData.baseCode === 'OTH' ? formData.subCode.toUpperCase() : (formData.subCode ? `${formData.baseCode}-${formData.subCode.toUpperCase()}` : formData.baseCode)}</strong></p>
+                                <p className="text-[11px] text-gray-500 mt-1.5">Mã hệ thống: <strong className="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded ml-1 border border-blue-200">{formData.baseCode === 'OTH' ? formData.subCode.toUpperCase() : (formData.subCode ? `${formData.baseCode}-${formData.subCode.toUpperCase()}` : formData.baseCode)}</strong></p>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold mb-2 text-gray-700">Ảnh đại diện chung</label>
+                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Ảnh đại diện chung</label>
                                 <div className="flex items-center gap-4">
-                                    <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden relative group">
-                                        {formData.image ? <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" /> : <ImageIcon size={28} className="text-gray-300" />}
-                                        <div onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"><UploadCloud size={24} className="text-white" /></div>
+                                    <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden relative group">
+                                        {formData.image ? <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" /> : <ImageIcon size={24} className="text-gray-300" />}
+                                        <div onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"><UploadCloud size={20} className="text-white" /></div>
                                     </div>
                                     <div className="flex-1">
                                         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
-                                        <button type="button" onClick={() => fileInputRef.current.click()} className="px-4 py-2 border border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition w-full flex items-center justify-center gap-2"><UploadCloud size={18} /> Tải ảnh lên</button>
+                                        <button type="button" onClick={() => fileInputRef.current.click()} className="px-3 py-1.5 text-[13px] border border-blue-500 text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition w-full flex items-center justify-center gap-2"><UploadCloud size={16} /> Tải ảnh lên</button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-5 border-t border-gray-100 mt-2">
-                                <label className="block text-sm font-bold mb-3 text-indigo-700 flex items-center gap-2"><LinkIcon size={18}/> Cấu hình máy ráp tương thích (Tùy chọn)</label>
-                                <div className="flex flex-col gap-2 mb-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-inner">
+                            <div className="pt-4 border-t border-gray-100 mt-2">
+                                <label className="block text-[13px] font-bold mb-2 text-indigo-700 flex items-center gap-2"><LinkIcon size={16}/> Cấu hình máy ráp tương thích (Tùy chọn)</label>
+                                <div className="flex flex-col gap-2 mb-2 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100 shadow-inner">
                                     <div className="flex gap-2">
-                                        <select value={tempLink.recipeId} onChange={handleRecipeChange} className="w-1/2 border border-indigo-200 p-2.5 rounded-lg text-sm outline-none focus:border-indigo-500 bg-white">
+                                        <select value={tempLink.recipeId} onChange={handleRecipeChange} className="w-1/2 border border-indigo-200 p-2 rounded-lg text-[13px] outline-none focus:border-indigo-500 bg-white">
                                             <option value="">-- Chọn Dòng Máy --</option>
                                             {recipes.map(r => <option key={r._id} value={r._id}>{r.phoneModelId?.name}</option>)}
                                         </select>
-                                        <select value={tempLink.partName} onChange={e => setTempLink({...tempLink, partName: e.target.value})} className="w-1/2 border border-indigo-200 p-2.5 rounded-lg text-sm outline-none focus:border-indigo-500 bg-white" disabled={!tempLink.recipeId}>
+                                        <select value={tempLink.partName} onChange={e => setTempLink({...tempLink, partName: e.target.value})} className="w-1/2 border border-indigo-200 p-2 rounded-lg text-[13px] outline-none focus:border-indigo-500 bg-white" disabled={!tempLink.recipeId}>
                                             <option value="">-- Chọn Slot ghép --</option>
                                             {tempLink.recipeId && recipes.find(r => r._id === tempLink.recipeId)?.requiredParts.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                                         </select>
                                     </div>
-                                    <button type="button" onClick={handleAddLink} className="w-full py-2 bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-lg hover:bg-indigo-200 transition text-sm">+ Thêm vào danh sách</button>
+                                    <button type="button" onClick={handleAddLink} className="w-full py-1.5 bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-lg hover:bg-indigo-200 transition text-[13px]">+ Thêm vào danh sách</button>
                                 </div>
                                 {formData.linkedRecipes.length > 0 && (
-                                    <div className="space-y-2 mt-2">
+                                    <div className="space-y-1.5 mt-2">
                                         {formData.linkedRecipes.map((link, idx) => {
                                             const rName = recipes.find(r => r._id === link.recipeId)?.phoneModelId?.name;
                                             return (
-                                                <div key={idx} className="flex items-center justify-between text-xs text-gray-700 bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm">
+                                                <div key={idx} className="flex items-center justify-between text-[11px] text-gray-700 bg-white px-2 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                                                     <span>Cho: <strong className="text-indigo-700">{rName}</strong> ➜ Slot: <strong>{link.partName}</strong></span>
-                                                    <button type="button" onClick={() => handleRemoveLink(idx)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition"><X size={14}/></button>
+                                                    <button type="button" onClick={() => handleRemoveLink(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded transition"><X size={12}/></button>
                                                 </div>
                                             )
                                         })}
@@ -352,9 +406,9 @@ export default function AdminItemType() {
                             </div>
                         </div>
 
-                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
-                            <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition">Hủy bỏ</button>
-                            <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition">{isEditing ? 'Lưu cập nhật' : 'Thêm danh mục'}</button>
+                        <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
+                            <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-[13px] bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-100 transition">Hủy bỏ</button>
+                            <button type="submit" className="px-4 py-2 text-[13px] bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md transition">{isEditing ? 'Lưu cập nhật' : 'Thêm danh mục'}</button>
                         </div>
                     </form>
                 </div>

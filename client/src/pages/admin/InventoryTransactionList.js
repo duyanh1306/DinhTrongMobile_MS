@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { Search, ArrowRightLeft, Calendar } from "lucide-react";
+import { Search, ArrowRightLeft } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API
+import { fetchTransactionsApi } from "../../api/admin/inventoryTransaction";
 
 export default function InventoryTransactionList() {
   const [transactions, setTransactions] = useState([]);
@@ -16,36 +19,23 @@ export default function InventoryTransactionList() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    fetchTransactions();
+    loadTransactions();
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, typeFilter]);
 
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:9999/api/inventory-transactions");
-      
-      if (res.ok) {
-        const data = await res.json();
-        // Kiểm tra xem data trả về có nằm trong wrapper không
-        const transactionsData = data.data || data; 
-        if (Array.isArray(transactionsData)) {
-          setTransactions(transactionsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-        } else {
-           toast.error("Dữ liệu trả về không đúng định dạng mảng.");
-        }
-      } else {
-         const errorData = await res.json();
-         toast.error(`Lỗi tải dữ liệu (${res.status}): ` + (errorData.message || "Lỗi máy chủ"));
-      }
-    } catch (error) {
-      toast.error("Lỗi kết nối khi tải lịch sử kho: " + error.message);
-    } finally {
-      setLoading(false);
+  // ==============================================================
+  // GỌI API QUA HÀM ĐÃ TÁCH
+  // ==============================================================
+  const loadTransactions = async () => {
+    setLoading(true);
+    const data = await fetchTransactionsApi();
+    if (data) {
+      setTransactions(data);
     }
+    setLoading(false);
   };
 
   const filteredTransactions = transactions.filter((transaction) => {

@@ -57,10 +57,13 @@ import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import TechStorage from "./pages/technician/TechStorage";
+import TechRequest from "./pages/technician/TechRequest";
+import Warranty from "./pages/technician/Warranty";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
 import ManagerTransferRequest from "./pages/manager/ManagerTransferRequest";
+import ManagerCreateTransferRequest from "./pages/manager/ManagerCreateTransferRequest";
 import ManagerTransferRequestList from "./pages/manager/ManagerTransferRequestList";
 import ManagerTransferRequestDetail from "./pages/manager/ManagerTransferRequestDetail";
 import ManagerStaff from "./pages/manager/ManagerStaff";
@@ -435,6 +438,26 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+                <Route
+                    path="/tech/components"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <TechRequest/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/tech/warranty"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <Warranty/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
 
                 {/* ================= MANAGER ROUTES ================= */}
                 <Route
@@ -497,12 +520,34 @@ function App() {
                         </PrivateRoute>
                     }
                 />
+
+                <Route
+                    path="/manager/transfer_requests/new"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerCreateTransferRequest/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
                 <Route
                     path="/manager/transfer_requests/"
                     element={
                         <PrivateRoute allowedRoles={["MANAGER"]}>
                             <ManagerLayout>
                                 <ManagerTransferRequest/>
+                            </ManagerLayout>
+                        </PrivateRoute>
+                    }
+                />
+
+                <Route
+                    path="/manager/transfer_requests/create"
+                    element={
+                        <PrivateRoute allowedRoles={["MANAGER"]}>
+                            <ManagerLayout>
+                                <ManagerCreateTransferRequest/>
                             </ManagerLayout>
                         </PrivateRoute>
                     }
@@ -542,7 +587,19 @@ function App() {
             </Routes>
 
             {/* Component hiển thị thông báo (Toast) toàn cục */}
-            <ToastContainer position="top-right" autoClose={3000}/>
+            <ToastContainer 
+                position="top-right" 
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+                style={{ zIndex: 9999 }}
+            />
         </BrowserRouter>
     );
 }

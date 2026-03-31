@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag, QrCode } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, Tag, QrCode, Image as ImageIcon } from "lucide-react";
+
+// 🌟 IMPORT API TỪ FILE item.js CỦA BẠN
+import { fetchItemTypesApi, fetchStoresApi, fetchItemsPaginatedApi, deleteItemApi, fetchItemQrCodeApi, createItemApi, updateItemApi } from "../../api/admin/item";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -9,7 +11,6 @@ const BASE_CODES = {
     "SPK": "Loa ngoài", "FGL": "Mặt kính", "BGL": "Kính lưng", "OTH": "Khác"
 };
 
-// Hàm hỗ trợ bóc tách Nhóm (BaseCode) từ mã Code linh kiện
 const getBaseCodeFromItemTypeCode = (code) => {
     if (!code) return 'OTH';
     const parts = code.split('-');
@@ -25,17 +26,16 @@ export default function AdminItem() {
     const [stores, setStores] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    const [pagination, setPagination] = useState({ 
-        currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 
-    });
+    // PHÂN TRANG THEO NHÓM
+    const [currentPage, setCurrentPage] = useState(1);
+    const groupsPerPage = 3; 
     
-    const [filters, setFilters] = useState({ search: '', status: '', item_type: '', storeId: '' }); 
+    const [filters, setFilters] = useState({ search: '', status: '', storeId: '' }); 
+    const [selectedBaseFilter, setSelectedBaseFilter] = useState('');
     
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    
-    // 🌟 STATE LƯU TRỮ NHÓM LINH KIỆN ĐANG CHỌN Ở MODAL
     const [selectedBaseCategory, setSelectedBaseCategory] = useState('');
     
     const initialFormState = {
@@ -45,158 +45,91 @@ export default function AdminItem() {
     };
     const [formData, setFormData] = useState(initialFormState);
 
-    const [expandedGroup, setExpandedGroup] = useState({});
-    const [expandedType, setExpandedType] = useState({});
-
-    useEffect(() => { fetchItemTypes(); fetchStores(); }, []);
-    useEffect(() => { fetchItems(); }, [pagination.currentPage, filters.status, filters.item_type, filters.storeId]);
+    useEffect(() => { fetchInitialData(); }, []);
+    useEffect(() => { fetchItems(); }, [filters.storeId]);
 
     useEffect(() => {
-        const timeout = setTimeout(() => { 
-            setPagination(prev => ({...prev, currentPage: 1}));
-            fetchItems(); 
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [filters.search]);
+        setCurrentPage(1);
+    }, [filters.search, selectedBaseFilter]);
 
-    const fetchItemTypes = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`, { headers: { Authorization: `Bearer ${token}` } });
-            setItemTypes(data.data || []);
-        } catch (error) {}
+    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG ĐỂ LẤY DỮ LIỆU BAN ĐẦU
+    const fetchInitialData = async () => {
+        const fetchedTypes = await fetchItemTypesApi();
+        setItemTypes(fetchedTypes);
+        
+        const fetchedStores = await fetchStoresApi();
+        setStores(fetchedStores);
     };
 
-    const fetchStores = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await axios.get(`http://localhost:9999/api/stores/all`, { headers: { Authorization: `Bearer ${token}` } });
-            setStores(Array.isArray(res.data) ? res.data : (res.data.data || []));
-        } catch (err) {}
-    };
-
+    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG ĐỂ LẤY DANH SÁCH ITEM
     const fetchItems = async () => {
         setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams({
-                page: pagination.currentPage, limit: pagination.limit,
-                search: filters.search, status: filters.status, item_type: filters.item_type, storeId: filters.storeId 
-            });
-            const { data } = await axios.get(`http://localhost:9999/api/items?${params}`, { headers: { Authorization: `Bearer ${token}` } });
-            setItems(data.data || []);
-            if (data.pagination) setPagination(data.pagination);
-        } catch (error) { toast.error("Lỗi tải danh sách linh kiện"); } 
-        finally { setLoading(false); }
+        const params = new URLSearchParams({ limit: 9999 }); // Tải hết về để Frontend phân trang nhóm
+        if (filters.storeId) params.append('storeId', filters.storeId);
+        
+        const data = await fetchItemsPaginatedApi(params.toString());
+        if (data && data.data) {
+            setItems(data.data);
+        }
+        setLoading(false);
     };
 
+    // 🌟 SỬ DỤNG API XÓA
     const handleDelete = async (id) => {
         if (window.confirm("Bạn có chắc chắn muốn xóa linh kiện này?")) {
-            try {
-                const token = localStorage.getItem("token");
-                await axios.delete(`http://localhost:9999/api/items/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            const isSuccess = await deleteItemApi(id);
+            if (isSuccess) {
                 toast.success("Xóa thành công");
                 fetchItems();
-            } catch (error) { toast.error("Xóa thất bại"); }
+            }
         }
     };
 
+    // 🌟 SỬ DỤNG API LẤY MÃ QR
     const handleGenerateQR = async (itemId) => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`http://localhost:9999/api/items/${itemId}/qr`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: "blob",
-            });
+        const blobData = await fetchItemQrCodeApi(itemId);
+        
+        if (!blobData) {
+            toast.error("Lỗi khi tải mã QR.");
+            return;
+        }
 
-            const blob = new Blob([response.data], { type: "image/png" });
-            const qrUrl = window.URL.createObjectURL(blob);
+        const blob = new Blob([blobData], { type: "image/png" });
+        const qrUrl = window.URL.createObjectURL(blob);
 
-            // Use hidden iframe to keep printing stable across browsers.
-            const iframe = document.createElement("iframe");
-            iframe.style.position = "fixed";
-            iframe.style.right = "0";
-            iframe.style.bottom = "0";
-            iframe.style.width = "0";
-            iframe.style.height = "0";
-            iframe.style.border = "0";
-            iframe.setAttribute("aria-hidden", "true");
-            document.body.appendChild(iframe);
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed"; iframe.style.right = "0"; iframe.style.bottom = "0";
+        iframe.style.width = "0"; iframe.style.height = "0"; iframe.style.border = "0";
+        document.body.appendChild(iframe);
 
-            const iframeDoc = iframe.contentWindow?.document;
-            if (!iframeDoc || !iframe.contentWindow) {
-                document.body.removeChild(iframe);
-                window.URL.revokeObjectURL(qrUrl);
-                toast.error("Không thể khởi tạo chế độ in.");
-                return;
-            }
+        const iframeDoc = iframe.contentWindow?.document;
+        if (!iframeDoc || !iframe.contentWindow) {
+            document.body.removeChild(iframe); window.URL.revokeObjectURL(qrUrl);
+            toast.error("Không thể khởi tạo chế độ in."); return;
+        }
 
-            iframeDoc.open();
-            iframeDoc.write(`
-              <!doctype html>
-              <html>
-                <head>
-                  <meta charset="utf-8" />
-                  <title>Print QR</title>
-                  <style>
-                    @page { margin: 0; }
-                    html, body {
-                      margin: 0;
-                      padding: 0;
-                      width: 100%;
-                      height: 100%;
-                      background: #fff;
-                    }
-                    body {
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                    }
-                    img {
-                      width: 180px;
-                      height: 180px;
-                      object-fit: contain;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
-                </body>
-              </html>
-            `);
-            iframeDoc.close();
+        iframeDoc.open();
+        iframeDoc.write(`
+          <!doctype html>
+          <html>
+            <head><style>@page { margin: 0; } html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; display: flex; align-items: center; justify-content: center; } img { width: 180px; height: 180px; object-fit: contain; }</style></head>
+            <body><img id="qr-print-image" src="${qrUrl}" alt="QR code" /></body>
+          </html>
+        `);
+        iframeDoc.close();
 
-            const img = iframeDoc.getElementById("qr-print-image");
-            if (img) {
-                img.onload = () => {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                    setTimeout(() => {
-                        window.URL.revokeObjectURL(qrUrl);
-                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    }, 500);
-                };
-                img.onerror = () => {
-                    window.URL.revokeObjectURL(qrUrl);
-                    if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    toast.error("Không thể tải ảnh QR để in.");
-                };
-            } else {
-                window.URL.revokeObjectURL(qrUrl);
-                if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                toast.error("Không thể chuẩn bị nội dung in.");
-            }
-        } catch (error) {
-            toast.error("Lỗi khi tạo mã QR");
-            console.error("Item QR generation error:", error);
+        const img = iframeDoc.getElementById("qr-print-image");
+        if (img) {
+            img.onload = () => {
+                iframe.contentWindow.focus(); iframe.contentWindow.print();
+                setTimeout(() => { window.URL.revokeObjectURL(qrUrl); if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 500);
+            };
         }
     };
 
     const handleOpenModal = (item = null) => {
         if (item) {
             setIsEditing(true); setEditingId(item._id);
-            
-            // 🌟 TÌM RA NHÓM LINH KIỆN CỦA MÓN HÀNG NÀY ĐỂ HIỂN THỊ ĐÚNG TRONG DROPDOWN 1
             const typeObj = itemTypes.find(t => t._id === (item.item_type?._id || item.item_type));
             if (typeObj) setSelectedBaseCategory(getBaseCodeFromItemTypeCode(typeObj.code));
             else setSelectedBaseCategory('');
@@ -211,8 +144,8 @@ export default function AdminItem() {
             });
         } else {
             setIsEditing(false); setEditingId(null);
-            setSelectedBaseCategory(''); // Reset Nhóm
-            setFormData(initialFormState);
+            setSelectedBaseCategory(''); 
+            setFormData({...initialFormState, storeId: filters.storeId});
         }
         setShowModal(true);
     };
@@ -230,51 +163,76 @@ export default function AdminItem() {
         setFormData({ ...formData, serialCode: newSerial });
     };
 
+    // 🌟 SỬ DỤNG API THÊM / SỬA 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            if (isEditing) {
-                await axios.put(`http://localhost:9999/api/items/update/${editingId}`, formData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Cập nhật linh kiện thành công");
-            } else {
-                await axios.post("http://localhost:9999/api/items/create", formData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Thêm linh kiện thành công");
-            }
+        
+        let isSuccess = false;
+        if (isEditing) {
+            isSuccess = await updateItemApi(editingId, formData);
+            if (isSuccess) toast.success("Cập nhật linh kiện thành công");
+        } else {
+            isSuccess = await createItemApi(formData);
+            if (isSuccess) toast.success("Thêm linh kiện thành công");
+        }
+
+        if (isSuccess) {
             setShowModal(false);
             fetchItems();
-        } catch (error) { toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện"); }
+        }
     };
 
-    const sortedGroupedData = useMemo(() => {
+    const allGroupedData = useMemo(() => {
         const result = {};
+        const safeKeyword = filters.search.toLowerCase();
         
-        items.forEach(item => {
-            const typeName = item.item_type?.name || 'Loại không xác định';
+        const filtered = items.filter(item => {
+            if (item.status === 'sold' || item.status === 'assembled_and_sold') return false;
+
+            const serialMatch = (item.serialCode || '').toLowerCase().includes(safeKeyword);
+            const nameMatch = (item.name || '').toLowerCase().includes(safeKeyword);
+            const searchPass = serialMatch || nameMatch;
+
             const typeCode = item.item_type?.code || 'OTH';
             const base = getBaseCodeFromItemTypeCode(typeCode);
-            const baseLabel = BASE_CODES[base] || "Khác";
+            const basePass = selectedBaseFilter ? base === selectedBaseFilter : true;
 
-            if (!result[baseLabel]) result[baseLabel] = {};
-            if (!result[baseLabel][typeName]) result[baseLabel][typeName] = [];
-            result[baseLabel][typeName].push(item);
+            return searchPass && basePass;
         });
 
-        return Object.entries(result).sort(([groupA], [groupB]) => {
-            if (groupA === "Khác") return 1;
-            if (groupB === "Khác") return -1;
-            return groupA.localeCompare(groupB);
+        filtered.forEach(item => {
+            const typeName = item.item_type?.name || 'Loại không xác định';
+            if (!result[typeName]) result[typeName] = [];
+            result[typeName].push(item);
         });
-    }, [items]);
+        
+        return result;
+    }, [items, filters.search, selectedBaseFilter]);
 
-    // 🌟 BỘ LỌC ĐỘNG: CHỈ HIỂN THỊ CÁC PHÂN LOẠI THUỘC NHÓM ĐÃ CHỌN TRONG MODAL
+    const paginatedData = useMemo(() => {
+        const entries = Object.entries(allGroupedData); 
+        const totalGroups = entries.length;
+        const totalPages = Math.ceil(totalGroups / groupsPerPage);
+        
+        const startIndex = (currentPage - 1) * groupsPerPage;
+        const endIndex = startIndex + groupsPerPage;
+        const currentGroups = entries.slice(startIndex, endIndex);
+
+        let totalItemsCount = 0;
+        entries.forEach(([_, list]) => { totalItemsCount += list.length });
+
+        return {
+            groups: currentGroups,
+            totalPages: totalPages || 1,
+            totalItemsCount: totalItemsCount
+        };
+    }, [allGroupedData, currentPage, groupsPerPage]);
+
     const filteredItemTypesForModal = useMemo(() => {
         if (!selectedBaseCategory) return []; 
         return itemTypes.filter(t => getBaseCodeFromItemTypeCode(t.code) === selectedBaseCategory);
     }, [itemTypes, selectedBaseCategory]);
 
-    const toggleGroup = (grp) => setExpandedGroup(prev => ({ ...prev, [grp]: !prev[grp] }));
-    const toggleType = (typ) => setExpandedType(prev => ({ ...prev, [typ]: !prev[typ] }));
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
     const selectedItemTypeObj = itemTypes.find(t => t._id === formData.item_type);
@@ -294,143 +252,148 @@ export default function AdminItem() {
                 </button>
             </div>
 
-            {/* BỘ LỌC TÌM KIẾM BÊN NGOÀI DANH SÁCH */}
-            <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center border border-gray-100">
-                <div className="relative flex-1 min-w-[250px]">
+            <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-4 items-center border border-gray-100">
+                <div className="relative min-w-[250px]">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <select 
+                        value={selectedBaseFilter} 
+                        onChange={(e) => setSelectedBaseFilter(e.target.value)} 
+                        className="w-full appearance-none border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                        <option value="">Tất cả loại linh kiện</option>
+                        {Object.entries(BASE_CODES).map(([code, label]) => (
+                            <option key={code} value={code}>{label}</option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                </div>
+
+                <div className="relative flex-1 min-w-[300px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
-                        type="text" placeholder="Tìm theo tên, mã Serial..." 
+                        type="text" placeholder="Tìm theo Tên linh kiện hoặc mã Serial..." 
                         value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg focus:border-blue-500 outline-none text-sm"
                     />
                 </div>
-                <select value={filters.item_type} onChange={e => setFilters({...filters, item_type: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
-                    <option value="">Tất cả phân loại</option>
-                    {itemTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                </select>
-                <select value={filters.storeId} onChange={e => setFilters({...filters, storeId: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
-                    <option value="">Tất cả kho / cửa hàng</option>
-                    {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                </select>
-                <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="in_stock">Đang tồn kho</option>
-                    <option value="sold">Đã bán</option>
-                    <option value="repairing">Đang lắp ráp</option>
-                </select>
+                
+                <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                    <select value={filters.storeId} onChange={e => setFilters({...filters, storeId: e.target.value})} className="appearance-none border border-gray-200 rounded-lg pl-9 pr-8 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50">
+                        <option value="">Tất cả kho / cửa hàng</option>
+                        {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                </div>
             </div>
 
-            {/* DANH SÁCH DẠNG CÂY */}
             <div className="flex-1 overflow-y-auto pb-4">
                 {loading ? (
                     <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
-                ) : sortedGroupedData.length === 0 ? (
-                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy linh kiện nào.</div>
+                ) : paginatedData.groups.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy linh kiện nào trong kho.</div>
                 ) : (
-                    sortedGroupedData.map(([groupName, typesObj]) => (
-                        <div key={groupName} className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-gray-50 p-4 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition" onClick={() => toggleGroup(groupName)}>
-                                <h2 className="text-lg font-bold text-gray-800 uppercase flex items-center gap-2">
-                                    <Tag className="text-blue-600" size={20}/> Nhóm: {groupName}
-                                </h2>
-                                {expandedGroup[groupName] ? <ChevronDown className="text-gray-500"/> : <ChevronRight className="text-gray-500"/>}
+                    paginatedData.groups.map(([typeName, itemsList]) => (
+                        <div key={typeName} className="mb-6 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                            <div className="bg-blue-50/60 p-3 px-4 flex justify-between items-center border-b border-gray-200">
+                                <h3 className="font-bold text-blue-900 flex items-center gap-2 text-lg">
+                                    <Package size={20} className="text-blue-600"/> {typeName} 
+                                    <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full ml-2 shadow-sm">{itemsList.length} món</span>
+                                </h3>
                             </div>
 
-                            {expandedGroup[groupName] && (
-                                <div className="p-4 space-y-4 bg-gray-50/20">
-                                    {Object.entries(typesObj).map(([typeName, itemsList]) => (
-                                        <div key={typeName} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                                            <div className="bg-blue-50/40 p-3 px-4 cursor-pointer flex justify-between items-center hover:bg-blue-100/50 transition" onClick={() => toggleType(typeName)}>
-                                                <h3 className="font-bold text-blue-800 flex items-center gap-2">
-                                                    {typeName} <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full ml-2">Hiển thị {itemsList.length} món</span>
-                                                </h3>
-                                                {expandedType[typeName] ? <ChevronDown size={18} className="text-blue-500"/> : <ChevronRight size={18} className="text-blue-500"/>}
-                                            </div>
-
-                                            {expandedType[typeName] && (
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-left text-sm whitespace-nowrap">
-                                                        <thead className="bg-gray-50 text-gray-500 border-y border-gray-100">
-                                                            <tr>
-                                                                <th className="p-3 font-semibold">Tên & Mã Serial</th>
-                                                                <th className="p-3 font-semibold text-center">QR</th>
-                                                                <th className="p-3 font-semibold">Tình trạng / Thuộc tính</th>
-                                                                <th className="p-3 font-semibold">Giá vốn / Bán</th>
-                                                                <th className="p-3 font-semibold text-center">Vị trí & Trạng thái</th>
-                                                                <th className="p-3 font-semibold text-right">Thao tác</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-gray-100">
-                                                            {itemsList.map(item => (
-                                                                <tr key={item._id} className="hover:bg-blue-50/30 transition">
-                                                                    <td className="p-3">
-                                                                        <div className="font-bold text-gray-800 text-sm max-w-[250px] truncate" title={item.name}>{item.name}</div>
-                                                                        <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border">{item.serialCode}</div>
-                                                                    </td>
-                                                                    <td className="p-3 text-center">
-                                                                        <button
-                                                                            onClick={() => handleGenerateQR(item._id)}
-                                                                            className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"
-                                                                            title="In mã QR"
-                                                                        >
-                                                                            <QrCode size={16} />
-                                                                        </button>
-                                                                    </td>
-                                                                    <td className="p-3 text-xs text-gray-600">
-                                                                        <div className="mb-1">
-                                                                            {item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Bóc máy</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Hàng mới</span>}
-                                                                        </div>
-                                                                        {(item.ram || item.capacity || item.color) ? (
-                                                                            <div className="flex gap-2">
-                                                                                {item.ram && <span>RAM: <strong>{item.ram}</strong></span>}
-                                                                                {item.capacity && <span>ROM: <strong>{item.capacity}</strong></span>}
-                                                                                {item.color && <span>Màu: <strong>{item.color}</strong></span>}
-                                                                            </div>
-                                                                        ) : <span className="text-gray-400 italic">Bản tiêu chuẩn</span>}
-                                                                    </td>
-                                                                    <td className="p-3">
-                                                                        <div className="text-xs text-gray-400 line-through mb-0.5">{formatMoney(item.baseCost)}</div>
-                                                                        <div className="font-bold text-red-600">{formatMoney(item.price)}</div>
-                                                                    </td>
-                                                                    <td className="p-3 text-center">
-                                                                        <div className="mb-1">
-                                                                            {item.storeId?.name ? <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-xs border border-blue-100">{item.storeId.name}</span> : <span className="italic text-gray-400 text-xs">Chưa phân bổ</span>}
-                                                                        </div>
-                                                                        <div>
-                                                                            {item.status === 'in_stock' ? <span className="text-green-600 font-bold text-xs">Sẵn sàng</span> : 
-                                                                            item.status === 'sold' ? <span className="text-gray-500 font-bold text-xs">Đã bán/Ráp</span> : 
-                                                                            <span className="text-yellow-600 font-bold text-xs">{item.status}</span>}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-3 flex justify-end gap-2">
-                                                                        <button onClick={() => handleOpenModal(item)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><Edit size={16}/></button>
-                                                                        <button onClick={() => handleDelete(item._id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition"><Trash2 size={16}/></button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <div className="bg-white overflow-x-auto">
+                            <table className="w-full table-fixed text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 uppercase text-xs">
+                                        <tr>
+                                            <th className="px-4 py-3 font-semibold w-[28%]">Tên & Mã Serial</th>
+                                            <th className="px-4 py-3 font-semibold text-center w-[8%]">QR</th>
+                                            <th className="px-4 py-3 font-semibold w-[22%]">Tình trạng / Thuộc tính</th>
+                                            <th className="px-4 py-3 font-semibold w-[15%]">Giá vốn / Bán</th>
+                                            <th className="px-4 py-3 font-semibold text-center w-[17%]">Vị trí & Trạng thái</th>
+                                            <th className="px-4 py-3 font-semibold text-right w-[10%]">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {itemsList.map(item => (
+                                            <tr key={item._id} className="hover:bg-blue-50/30 transition">
+                                                <td className="px-4 py-3 truncate">
+                                                    <div className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</div>
+                                                    <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border truncate max-w-full">{item.serialCode}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <button onClick={() => handleGenerateQR(item._id)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition inline-flex justify-center" title="In mã QR">
+                                                        <QrCode size={16} />
+                                                    </button>
+                                                </td>
+                                                <td className="px-4 py-3 text-xs text-gray-600 truncate">
+                                                    <div className="mb-1">
+                                                        {item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Bóc máy</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Hàng mới</span>}
+                                                    </div>
+                                                    {(item.ram || item.capacity || item.color) ? (
+                                                        <div className="flex gap-2 truncate">
+                                                            {item.ram && <span>RAM: <strong>{item.ram}</strong></span>}
+                                                            {item.capacity && <span>ROM: <strong>{item.capacity}</strong></span>}
+                                                            {item.color && <span>Màu: <strong>{item.color}</strong></span>}
+                                                        </div>
+                                                    ) : <span className="text-gray-400 italic">Bản tiêu chuẩn</span>}
+                                                </td>
+                                                <td className="px-4 py-3 truncate">
+                                                    <div className="text-xs text-gray-400 line-through mb-0.5 truncate">{formatMoney(item.baseCost)}</div>
+                                                    <div className="font-bold text-red-600 truncate">{formatMoney(item.price)}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center truncate">
+                                                    <div className="mb-1 truncate">
+                                                        {item.storeId?.name ? <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-xs border border-blue-100 inline-block truncate max-w-full">{item.storeId.name}</span> : <span className="italic text-gray-400 text-xs">Chưa phân bổ</span>}
+                                                    </div>
+                                                    <div className="truncate">
+                                                        {item.status === 'in_stock' ? <span className="text-green-600 font-bold text-xs inline-block">Sẵn sàng</span> : 
+                                                        (item.status === 'sold' || item.status === 'assembled_and_sold') ? <span className="text-gray-500 font-bold text-xs inline-block">Đã xuất</span> : 
+                                                        <span className="text-yellow-600 font-bold text-xs inline-block">{item.status}</span>}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button onClick={() => handleOpenModal(item)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><Edit size={16}/></button>
+                                                        <button onClick={() => handleDelete(item._id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition"><Trash2 size={16}/></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* THANH PHÂN TRANG */}
-            <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
-                <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng tìm thấy: <span className="font-bold">{pagination.totalCount}</span></span>
-                <div className="flex gap-2">
-                    <button disabled={pagination.currentPage <= 1} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage - 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Trước</button>
-                    <button disabled={pagination.currentPage >= pagination.totalPages} onClick={() => setPagination(prev => ({...prev, currentPage: prev.currentPage + 1}))} className="px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm">Sau</button>
+            {!loading && paginatedData.totalItemsCount > 0 && (
+                <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
+                    <div className="text-sm text-gray-600 flex items-center gap-2">
+                        <span>Đang xem trang <strong className="text-blue-600">{currentPage}</strong> / {paginatedData.totalPages}</span>
+                        <span className="text-gray-300">|</span>
+                        <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedData.totalItemsCount}</strong> linh kiện</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            disabled={currentPage <= 1} 
+                            onClick={() => setCurrentPage(prev => prev - 1)} 
+                            className="px-5 py-2 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+                        >
+                            Trang trước
+                        </button>
+                        <button 
+                            disabled={currentPage >= paginatedData.totalPages} 
+                            onClick={() => setCurrentPage(prev => prev + 1)} 
+                            className="px-5 py-2 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+                        >
+                            Trang sau
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* MODAL THÊM SỬA BẢN NÂNG CẤP */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -444,10 +407,9 @@ export default function AdminItem() {
                                 <div className="space-y-4">
                                     <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Định danh & Phân loại</h3>
                                     
-                                    {/* 🌟 2 BƯỚC CHỌN NHÓM -> CHỌN PHÂN LOẠI */}
                                     <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-3">
                                         <div>
-                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 1: Chọn Nhóm linh kiện *</label>
+                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 1: Chọn Danh mục chính *</label>
                                             <select 
                                                 value={selectedBaseCategory} 
                                                 onChange={(e) => {
@@ -456,7 +418,7 @@ export default function AdminItem() {
                                                 }} 
                                                 className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                             >
-                                                <option value="">-- Chọn Nhóm (VD: Màn hình, Pin...) --</option>
+                                                <option value="">-- Chọn Danh mục (VD: Màn hình, Pin...) --</option>
                                                 {Object.entries(BASE_CODES).map(([code, label]) => (
                                                     <option key={code} value={code}>{label}</option>
                                                 ))}
@@ -532,7 +494,7 @@ export default function AdminItem() {
                                         <label className="block text-sm font-semibold mb-1">Trạng thái</label>
                                         <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
                                             <option value="in_stock">Trong kho (Sẵn sàng)</option>
-                                            <option value="sold">Đã bán / Đã ráp máy</option>
+                                            <option value="sold">Đã xuất (Bán/Ráp)</option>
                                             <option value="defective">Hàng lỗi</option>
                                         </select>
                                     </div>

@@ -1,3 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.Toastify__toast-container {
+  z-index: 99999 !important;
+}
+
+.Toastify__toast {
+  z-index: 99999 !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+}
+
+.Toastify__toast--success {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.Toastify__toast--error {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.Toastify__progress-bar {
+  background: #10b981 !important;
+}
+
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

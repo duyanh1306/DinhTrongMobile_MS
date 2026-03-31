@@ -112,10 +112,7 @@ export default function ManagerTransferRequestDetail() {
     const fetchUserStore = async (userId) => {
         try {
             const token = localStorage.getItem("token");
-            console.log("ENV:", process.env.IP_ADDRESS);
-            const BASE_URL = process.env.IP_ADDRESS;
-            console.log("BASE_URL:", BASE_URL);
-            const response = await fetch(`${BASE_URL}/api/stores`, {
+            const response = await fetch(`${process.env.IP_ADDRESS}/api/stores`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json"

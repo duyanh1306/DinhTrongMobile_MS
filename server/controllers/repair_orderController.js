@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const getAllRepairOrders = async (req, res) => {
   try {
     console.log('Full user object from JWT:', req.user);
+    const { technicianId } = req.query;
     
     // Get user's store from staff assignment
     let userStoreId = null;
@@ -58,14 +59,14 @@ const getAllRepairOrders = async (req, res) => {
       }
       console.log('=== STORE LOOKUP DEBUG END ===');
     }
-
-    console.log('User ID:', req.user?.id);
-    console.log('User store ID:', userStoreId);
-
     // Build query with store filter if user has a store
     let query = RepairOrder.find();
     if (userStoreId) {
       query = query.where({ storeId: userStoreId });
+    }
+    
+    if (technicianId) {
+      query = query.where({ createdBy: technicianId });
     }
 
     const orders = await query

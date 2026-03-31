@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { X, User, Phone, Store, Check, Wrench, Package, ChevronDown, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, User, Phone, Store, Check, Wrench, Package, Search, XCircle } from "lucide-react";
 import dayjs from "dayjs";
 import { getAllRepairServices } from "../../../api/repairOrder";
 import { getAllItems } from "../../../api/item";
@@ -17,8 +17,7 @@ const RepairDetailsModal = ({
   const [items, setItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (showDetailsModal) {
@@ -36,19 +35,6 @@ const RepairDetailsModal = ({
       }
     }
   }, [showDetailsModal, orderDetails]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const fetchRepairServices = async () => {
     try {
@@ -257,52 +243,30 @@ const RepairDetailsModal = ({
                 Không có linh kiện nào khả dụng
               </div>
             ) : (
-              <div className="relative" ref={dropdownRef}>
-                <div
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="min-h-[48px] p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-white"
-                >
-                  {selectedItems.length === 0 ? (
-                    <span className="text-gray-500">Chọn linh kiện...</span>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedItems.map(itemId => {
-                        const item = items.find(i => i._id === itemId);
-                        return item ? (
-                          <span
-                            key={itemId}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
-                          >
-                            {item.name}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleItemToggle(itemId);
-                              }}
-                              className="hover:text-green-600"
-                            >
-                              <XCircle size={14} />
-                            </button>
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                  <ChevronDown 
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-transform ${
-                      isDropdownOpen ? 'rotate-180' : ''
-                    }`}
-                    size={20}
-                  />
+              <>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm linh kiện theo tên..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-400 focus:outline-none transition-colors"
+                    />
+                  </div>
                 </div>
 
-                {isDropdownOpen && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                    {items.map((item) => (
+                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                  {items
+                    .filter(item => 
+                      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((item) => (
                       <div
                         key={item._id}
                         onClick={() => handleItemToggle(item._id)}
-                        className={`flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                        className={`flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
                           selectedItems.includes(item._id) ? 'bg-green-50' : ''
                         }`}
                       >
@@ -330,20 +294,49 @@ const RepairDetailsModal = ({
                         </div>
                       </div>
                     ))}
+                  {items.filter(item => 
+                    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                  ).length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      Không tìm thấy linh kiện nào
+                    </div>
+                  )}
+                </div>
+
+                {selectedItems.length > 0 && (
+                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h5 className="font-semibold text-gray-700 mb-2">Linh kiện đã chọn:</h5>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {selectedItems.map(itemId => {
+                        const item = items.find(i => i._id === itemId);
+                        return item ? (
+                          <span
+                            key={itemId}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
+                          >
+                            {item.name}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleItemToggle(itemId);
+                              }}
+                              className="hover:text-green-600"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-green-200">
+                      <span className="font-semibold text-gray-700">Tổng linh kiện:</span>
+                      <span className="text-lg font-bold text-green-600">
+                        {getSelectedItemTotal().toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {selectedItems.length > 0 && (
-              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-700">Tổng linh kiện:</span>
-                  <span className="text-lg font-bold text-green-600">
-                    {getSelectedItemTotal().toLocaleString('vi-VN')} đ
-                  </span>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
