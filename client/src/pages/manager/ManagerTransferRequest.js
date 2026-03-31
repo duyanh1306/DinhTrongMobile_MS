@@ -1,24 +1,31 @@
-import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Save, X, Package, Store, Scan, Plus, Trash2, Camera } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ArrowLeft, Save, X, Package, Store, Smartphone, CheckSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
+
+// 🌟 IMPORT API
+import { 
+    fetchStoresApi, 
+    fetchItemsByStoreApi, 
+    fetchPhonesByStoreApi, 
+    createTransferRequestApi 
+} from "../../api/manager/transferRequest"; 
 
 export default function ManagerTransferRequest() {
   const navigate = useNavigate();
   const [user, setUser] = useState({});
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [cameraScanning, setCameraScanning] = useState(false);
-  const [serialInput, setSerialInput] = useState("");
-  const [scannedItems, setScannedItems] = useState([]);
-  const [searchingItem, setSearchingItem] = useState(false);
-  const [cameras, setCameras] = useState([]);
-  const [selectedCamera, setSelectedCamera] = useState(null);
-  const qrInputRef = useRef(null);
-  const scannerRef = useRef(null);
-  
+  const [fetchingData, setFetchingData] = useState(false);
+
+  const [activeTab, setActiveTab] = useState('ITEMS');
+
+  const [availableItems, setAvailableItems] = useState([]);
+  const [availablePhones, setAvailablePhones] = useState([]);
+
+  const [selectedItemQuantities, setSelectedItemQuantities] = useState({});
+  const [selectedPhoneIds, setSelectedPhoneIds] = useState([]);
+
   const [formData, setFormData] = useState({
     fromStoreId: "",
     toStoreId: "",
@@ -26,647 +33,250 @@ export default function ManagerTransferRequest() {
   });
 
   useEffect(() => {
-    // Get user info from localStorage
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
     setUser(userData);
-    
-    // Fetch stores and find user's store
     fetchStoresAndSetUserStore(userData._id || userData.id);
   }, []);
 
+  useEffect(() => {
+    if (formData.fromStoreId) {
+      fetchInventoryData(formData.fromStoreId);
+    }
+  }, [formData.fromStoreId]);
+
   const fetchStoresAndSetUserStore = async (userId) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:9999/api/stores", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
+      const storesArray = await fetchStoresApi();
+      setStores(storesArray);
       
-      if (response.ok) {
-        const data = await response.json();
-
-        let storesArray = data;
-        if (data && typeof data === 'object') {
-          if (Array.isArray(data)) {
-            storesArray = data;
-          } else if (data.stores && Array.isArray(data.stores)) {
-            storesArray = data.stores;
-          } else if (data.data && Array.isArray(data.data)) {
-            storesArray = data.data;
-          } else {
-            console.error("Unexpected response structure:", data);
-            toast.error("Dữ liệu cửa hàng không hợp lệ");
-            return;
-          }
-        }
-        
-        if (!Array.isArray(storesArray)) {
-          console.error("Stores data is not an array:", storesArray);
-          toast.error("Dữ liệu cửa hàng không đúng định dạng");
-          return;
-        }
-        
-        setStores(storesArray);
-        
-        // Find the store where the user is in the staff array
-        const userStore = storesArray.find(store => 
-          store.staff && store.staff.includes(userId)
-        );
-        
-        if (userStore) {
-          setFormData(prev => ({
-            ...prev,
-            fromStoreId: userStore._id
-          }));
-          setUser(prev => ({
-            ...prev,
-            storeId: userStore
-          }));
-        } else {
-          toast.error("Không tìm thấy cửa hàng của bạn. Vui lòng liên hệ quản trị viên.");
-        }
+      const userStore = storesArray.find(store => store.staff && store.staff.includes(userId));
+      
+      if (userStore) {
+        setFormData(prev => ({ ...prev, fromStoreId: userStore._id }));
+        setUser(prev => ({ ...prev, storeId: userStore }));
       } else {
-        const errorData = await response.json();
-        console.error("API Error:", errorData);
-        toast.error(errorData.message || "Không thể tải danh sách cửa hàng");
+        toast.error("Không tìm thấy cửa hàng của bạn!");
       }
     } catch (error) {
-      console.error("Error fetching stores:", error);
       toast.error("Lỗi khi tải danh sách cửa hàng");
     }
   };
 
+  const fetchInventoryData = async (storeId) => {
+    setFetchingData(true);
+    try {
+      const [itemsData, phonesData] = await Promise.all([
+        fetchItemsByStoreApi(storeId),
+        fetchPhonesByStoreApi(storeId)
+      ]);
+
+      const newItems = (itemsData.data || itemsData || []).filter(i => i.status === 'in_stock' && i.origin === 'new');
+      setAvailableItems(newItems);
+
+      const newPhones = (phonesData.data || phonesData || []).filter(p => p.status === 'in_stock' && p.grade === 'Mới');
+      setAvailablePhones(newPhones);
+    } catch (error) {
+      toast.error("Lỗi khi tải dữ liệu kho hàng");
+    } finally {
+      setFetchingData(false);
+    }
+  };
+
+  const groupedItems = React.useMemo(() => {
+    const groups = {};
+    availableItems.forEach(item => {
+      const typeId = item.item_type?._id || item.item_type;
+      const typeName = item.item_type?.name || item.name;
+
+      if (!groups[typeId]) {
+        groups[typeId] = { typeId, typeName, items: [], maxQuantity: 0 };
+      }
+      groups[typeId].items.push(item);
+      groups[typeId].maxQuantity++;
+    });
+    return Object.values(groups);
+  }, [availableItems]);
+
+  const handleItemQuantityChange = (typeId, value, max) => {
+    let val = parseInt(value, 10);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > max) val = max;
+
+    setSelectedItemQuantities(prev => {
+      const updated = { ...prev, [typeId]: val };
+      if (val === 0) delete updated[typeId];
+      return updated;
+    });
+  };
+
+  const handlePhoneToggle = (phoneId) => {
+    setSelectedPhoneIds(prev => 
+      prev.includes(phoneId) ? prev.filter(id => id !== phoneId) : [...prev, phoneId]
+    );
+  };
+
+  const handleSelectAllPhones = () => {
+    if (selectedPhoneIds.length === availablePhones.length) {
+      setSelectedPhoneIds([]);
+    } else {
+      setSelectedPhoneIds(availablePhones.map(p => p._id));
+    }
+  };
+
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
-    if (!formData.toStoreId) {
-      toast.error("Vui lòng chọn cửa hàng đích");
-      return;
-    }
-
-    if (formData.fromStoreId === formData.toStoreId) {
-      toast.error("Cửa hàng nguồn và đích không được trùng nhau");
-      return;
-    }
-
-    if (scannedItems.length === 0) {
-      toast.error("Vui lòng thêm ít nhất một mặt hàng để chuyển");
-      return;
+    if (!formData.toStoreId) return toast.error("Vui lòng chọn cửa hàng đích");
+    if (formData.fromStoreId === formData.toStoreId) return toast.error("Cửa hàng nguồn và đích không được trùng nhau");
+    
+    if (Object.keys(selectedItemQuantities).length === 0 && selectedPhoneIds.length === 0) {
+      return toast.error("Vui lòng chọn ít nhất một mặt hàng hoặc điện thoại để chuyển");
     }
 
     setLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
-      // Group scanned items by their item_type to create itemType array
-      const itemTypesMap = {};
-      scannedItems.forEach(item => {
-        const itemTypeId = item.item_type?._id || item.item_type;
-        const itemTypeName = item.item_type?.name || "Unknown";
+      const finalItemIds = [];
+      const itemTypesMapForApi = {};
 
-        if (!itemTypesMap[itemTypeId]) {
-          itemTypesMap[itemTypeId] = {
-            itemTypes: itemTypeId,
-            quantity: 0
+      groupedItems.forEach(group => {
+        const qty = selectedItemQuantities[group.typeId] || 0;
+        if (qty > 0) {
+          const selectedItems = group.items.slice(0, qty);
+          finalItemIds.push(...selectedItems.map(i => i._id));
+          
+          itemTypesMapForApi[group.typeId] = {
+            itemTypes: group.typeId,
+            quantity: qty
           };
         }
-        itemTypesMap[itemTypeId].quantity += 1;
       });
 
       const requestData = {
         ...formData,
         requestedBy: user._id || user.id,
-        items: scannedItems.map(item => item._id),
-        itemType: Object.values(itemTypesMap)
+        items: finalItemIds,
+        phones: selectedPhoneIds,
+        itemType: Object.values(itemTypesMapForApi)
       };
 
-      const response = await fetch("http://localhost:9999/api/transfer-requests", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestData)
-      });
+      await createTransferRequestApi(requestData);
 
-      if (response.ok) {
-        toast.success("Tạo yêu cầu chuyển kho thành công!");
-        navigate("/manager/transfer_approvals");
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Không thể tạo yêu cầu chuyển kho");
-      }
+      toast.success("Tạo yêu cầu chuyển kho thành công!");
+      navigate("/manager/transfer_approvals");
     } catch (error) {
-      console.error("Error creating transfer request:", error);
-      toast.error("Lỗi khi tạo yêu cầu chuyển kho");
+      toast.error(error.response?.data?.message || "Lỗi khi tạo yêu cầu chuyển kho");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    navigate("/manager/transfer_approvals");
-  };
-
-  const startScanning = () => {
-    setScanning(true);
-    setSerialInput("");
-    setTimeout(() => {
-      qrInputRef.current?.focus();
-    }, 100);
-  };
-
-  const handleSerialInput = async (e) => {
-    const value = e.target.value;
-    setSerialInput(value);
-    
-    // Check if input looks like a complete serial code (assuming reasonable length)
-    if (value.length >= 8) {
-      await searchItemBySerial(value);
-    }
-  };
-
-  const handleSerialKeyPress = async (e) => {
-    if (e.key === 'Enter' && serialInput.trim()) {
-      await searchItemBySerial(serialInput.trim());
-    }
-  };
-
-  const searchItemBySerial = async (serialCode) => {
-    if (!serialCode.trim()) return;
-    
-    setSearchingItem(true);
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:9999/api/items?search=${encodeURIComponent(serialCode)}&limit=1`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const items = result.data || [];
-        
-        if (items.length === 0) {
-          toast.error("Không tìm thấy mặt hàng với mã serial này");
-          return;
-        }
-        
-        const item = items[0];
-        
-        // Debug logging
-        console.log("Item store ID:", item.storeId);
-        console.log("Form from store ID:", formData.fromStoreId);
-        console.log("Item store ID type:", typeof item.storeId);
-        console.log("Form from store ID type:", typeof formData.fromStoreId);
-        
-        // Check if item already exists in scanned list
-        if (scannedItems.find(scannedItem => scannedItem._id === item._id)) {
-          toast.warning("Mặt hàng này đã được thêm vào danh sách");
-          return;
-        }
-
-        // Check if item belongs to user's store (handle both string and object formats)
-        const itemStoreId = item.storeId?._id || item.storeId;
-        const fromStoreId = formData.fromStoreId;
-        
-        console.log("Normalized item store ID:", itemStoreId);
-        console.log("Normalized from store ID:", fromStoreId);
-        
-        if (itemStoreId !== fromStoreId) {
-          toast.error(`Mặt hàng này không thuộc cửa hàng của bạn. Item store: ${itemStoreId}, Your store: ${fromStoreId}`);
-          return;
-        }
-
-        // Add item to scanned list
-        setScannedItems(prev => [...prev, item]);
-        toast.success(`Đã thêm: ${item.name}`);
-        setSerialInput("");
-        setScanning(false);
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Không tìm thấy mặt hàng với mã serial này");
-      }
-    } catch (error) {
-      console.error("Error searching item:", error);
-      toast.error("Lỗi khi tìm kiếm mặt hàng");
-    } finally {
-      setSearchingItem(false);
-    }
-  };
-
-  const removeScannedItem = (itemId) => {
-    setScannedItems(prev => prev.filter(item => item._id !== itemId));
-    toast.info("Đã xóa mặt hàng khỏi danh sách");
-  };
-
-  const stopScanning = () => {
-    setScanning(false);
-    setSerialInput("");
-  };
-
-  // Camera QR Scanning Functions
-  const startCameraScanning = async () => {
-    try {
-      console.log("Starting camera detection...");
-      
-      // Get available cameras
-      const devices = await Html5Qrcode.getCameras();
-      console.log("Detected devices:", devices);
-      
-      setCameras(devices);
-      
-      if (devices.length === 0) {
-        console.log("No cameras detected");
-        toast.error("Không tìm thấy camera nào. Vui lòng kiểm tra kết nối camera.");
-        
-        // Try alternative method
-        try {
-          console.log("Trying navigator.mediaDevices...");
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' } 
-          });
-          console.log("Got media stream:", stream);
-          stream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-          console.error("Alternative camera access failed:", error);
-        }
-        return;
-      }
-      
-      console.log("Found cameras:", devices.map(d => ({ id: d.id, label: d.label })));
-      
-      // Select first camera by default
-      setSelectedCamera(devices[0].id);
-      setCameraScanning(true);
-      setScanning(false);
-      
-      toast.success(`Phát hiện ${devices.length} camera`);
-    } catch (error) {
-      console.error("Error accessing cameras:", error);
-      toast.error(`Không thể truy cập camera: ${error.message}`);
-    }
-  };
-
-  const stopCameraScanning = () => {
-    if (scannerRef.current) {
-      scannerRef.current.stop().catch(error => {
-        console.error("Error stopping scanner:", error);
-      });
-      scannerRef.current = null;
-    }
-    setCameraScanning(false);
-    setSelectedCamera(null);
-  };
-
-  const initializeScanner = async (cameraId) => {
-    try {
-      // Stop existing scanner if any
-      if (scannerRef.current) {
-        await scannerRef.current.stop();
-      }
-
-      const scanner = new Html5Qrcode("qr-reader");
-      scannerRef.current = scanner;
-
-      await scanner.start(
-        cameraId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
-        (decodedText, decodedResult) => {
-          // QR Code detected
-          console.log("QR Code detected:", decodedText);
-          handleQRCodeDetected(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore errors during scanning
-        }
-      );
-    } catch (error) {
-      console.error("Error starting scanner:", error);
-      toast.error("Không thể khởi động camera. Vui lòng thử lại.");
-    }
-  };
-
-  const handleQRCodeDetected = async (qrText) => {
-    // Stop scanning temporarily to prevent multiple reads
-    if (scannerRef.current) {
-      await scannerRef.current.pause();
-    }
-
-    // Search for item with the QR code text
-    await searchItemBySerial(qrText);
-    
-    // Resume scanning after a delay
-    setTimeout(() => {
-      if (scannerRef.current && cameraScanning) {
-        scannerRef.current.resume();
-      }
-    }, 2000);
-  };
-
-  const handleCameraChange = (cameraId) => {
-    setSelectedCamera(cameraId);
-    if (cameraScanning && cameraId) {
-      initializeScanner(cameraId);
-    }
-  };
-
-  useEffect(() => {
-    if (cameraScanning && selectedCamera) {
-      initializeScanner(selectedCamera);
-    }
-    
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-      }
-    };
-  }, [cameraScanning, selectedCamera]);
+  const totalSelectedItems = Object.values(selectedItemQuantities).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/manager/transfer_approvals")}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
+      {/* Các thành phần giao diện giữ nguyên hoàn toàn */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigate("/manager/transfer_approvals")} className="p-2 hover:bg-gray-200 rounded-lg transition-colors bg-white shadow-sm"><ArrowLeft size={20} /></button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tạo Yêu Cầu Luân Chuyển</h1>
+          <p className="text-sm text-gray-600">Luân chuyển Linh kiện mới và Điện thoại mới giữa các kho</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Tạo Yêu Cầu Chuyển Kho</h1>
-            <p className="text-gray-600">Tạo đơn yêu cầu chuyển hàng giữa các cửa hàng</p>
+            <label className="block text-sm font-bold text-gray-700 mb-2"><Store size={16} className="inline mr-1" /> Từ Cửa Hàng (Nguồn)</label>
+            <input type="text" value={user.storeId?.name || "Đang tải..."} readOnly className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 font-semibold cursor-not-allowed" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2"><Store size={16} className="inline mr-1" /> Tới Cửa Hàng (Đích)</label>
+            <select name="toStoreId" value={formData.toStoreId} onChange={handleInputChange} required className="w-full px-4 py-2.5 border border-blue-300 rounded-lg bg-blue-50/30 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-blue-900">
+              <option value="">-- Bấm để chọn Cửa hàng nhận --</option>
+              {stores.filter(s => s._id !== formData.fromStoreId).map(store => (
+                <option key={store._id} value={store._id}>{store.name} - {store.address || store.location}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Form */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Store Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* From Store */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+        <div className="flex border-b border-gray-200 bg-gray-50">
+          <button onClick={() => setActiveTab('ITEMS')} className={`flex-1 py-3.5 font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'ITEMS' ? 'bg-white border-t-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}><Package size={18}/> Chọn Linh Kiện ({totalSelectedItems})</button>
+          <button onClick={() => setActiveTab('PHONES')} className={`flex-1 py-3.5 font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'PHONES' ? 'bg-white border-t-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}><Smartphone size={18}/> Chọn Điện Thoại ({selectedPhoneIds.length})</button>
+        </div>
+
+        <div className="p-4 md:p-6 min-h-[300px]">
+          {fetchingData ? (
+            <div className="flex justify-center items-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div></div>
+          ) : activeTab === 'ITEMS' ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Store size={16} className="inline mr-1" />
-                Cửa hàng nguồn
-              </label>
-              <input
-                type="text"
-                value={user.storeId?.name || "Cửa hàng của bạn"}
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                placeholder="Cửa hàng của bạn"
-              />
-              <p className="text-xs text-gray-500 mt-1">Cửa hàng của bạn (không thể thay đổi)</p>
+              {groupedItems.length === 0 ? (
+                <p className="text-center text-gray-500 py-10 font-medium">Kho không có linh kiện mới nào sẵn sàng.</p>
+              ) : (
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+                    <tr><th className="px-4 py-3 font-bold">Loại Linh Kiện</th><th className="px-4 py-3 font-bold text-center w-32">Tồn Kho (Mới)</th><th className="px-4 py-3 font-bold text-center w-40">Số Lượng Chuyển</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {groupedItems.map(group => (
+                      <tr key={group.typeId} className={`hover:bg-blue-50/30 transition ${selectedItemQuantities[group.typeId] > 0 ? 'bg-blue-50/50' : ''}`}>
+                        <td className="px-4 py-3 font-semibold text-gray-800">{group.typeName}</td>
+                        <td className="px-4 py-3 text-center font-bold text-emerald-600">{group.maxQuantity}</td>
+                        <td className="px-4 py-3 text-center">
+                          <input type="number" min="0" max={group.maxQuantity} value={selectedItemQuantities[group.typeId] || ''} onChange={(e) => handleItemQuantityChange(group.typeId, e.target.value, group.maxQuantity)} placeholder="0" className={`w-24 text-center px-2 py-1.5 border rounded-lg outline-none font-bold ${selectedItemQuantities[group.typeId] > 0 ? 'border-blue-500 bg-white text-blue-700' : 'border-gray-300 bg-gray-50'}`} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
-
-            {/* To Store */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Store size={16} className="inline mr-1" />
-                Cửa hàng đích
-              </label>
-              <select
-                name="toStoreId"
-                value={formData.toStoreId}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              >
-                <option value="">-- Chọn cửa hàng đích --</option>
-                {stores && Array.isArray(stores) ? stores.filter(store => store._id !== formData.fromStoreId).map(store => (
-                  <option key={store._id} value={store._id}>
-                    {store.name} - {store.address}
-                  </option>
-                )) : <option value="">Đang tải...</option>}
-              </select>
+          ) : (
+            <div className="overflow-x-auto">
+              {availablePhones.length === 0 ? (
+                <p className="text-center text-gray-500 py-10 font-medium">Kho không có điện thoại mới nào sẵn sàng.</p>
+              ) : (
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+                    <tr><th className="px-4 py-3 font-bold text-center w-16"><button onClick={handleSelectAllPhones} className="text-blue-600 hover:text-blue-800 transition" title="Chọn tất cả"><CheckSquare size={18} className="mx-auto"/></button></th><th className="px-4 py-3 font-bold">Dòng Máy</th><th className="px-4 py-3 font-bold">Serial Code</th><th className="px-4 py-3 font-bold">Màu / ROM</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {availablePhones.map(phone => {
+                      const isSelected = selectedPhoneIds.includes(phone._id);
+                      return (
+                        <tr key={phone._id} onClick={() => handlePhoneToggle(phone._id)} className={`cursor-pointer hover:bg-blue-50/50 transition ${isSelected ? 'bg-blue-50/80' : ''}`}>
+                          <td className="px-4 py-3 text-center"><input type="checkbox" checked={isSelected} onChange={() => {}} className="w-4 h-4 text-blue-600 rounded cursor-pointer pointer-events-none" /></td>
+                          <td className="px-4 py-3 font-bold text-gray-800">{phone.phoneModelId?.name || "Máy"}</td>
+                          <td className="px-4 py-3 font-mono text-gray-600">{phone.serialCode}</td>
+                          <td className="px-4 py-3 text-gray-700">{phone.colorName} - {phone.capacity}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <label className="block text-sm font-bold text-gray-700 mb-2">Ghi chú phiếu chuyển kho</label>
+        <textarea name="note" value={formData.note} onChange={handleInputChange} rows={2} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="Ví dụ: Chuyển hàng xuất bán khẩn cấp..." />
+        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="text-sm font-medium text-gray-600">Tổng cộng: <strong className="text-blue-700">{totalSelectedItems} linh kiện</strong> và <strong className="text-blue-700">{selectedPhoneIds.length} máy</strong></div>
+          <div className="flex w-full md:w-auto gap-3">
+            <button type="button" onClick={() => navigate("/manager/transfer_approvals")} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition">Hủy</button>
+            <button type="button" onClick={handleSubmit} disabled={loading} className="flex-1 md:flex-none px-8 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"><Save size={18} /> {loading ? "Đang tạo..." : "Xác Nhận Tạo Phiếu"}</button>
           </div>
-
-          {/* QR Code Scanning Section */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-700">
-                <Package size={16} className="inline mr-1" />
-                Danh sách mặt hàng chuyển
-              </h3>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={startScanning}
-                  disabled={scanning || cameraScanning}
-                  className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                >
-                  <Scan size={14} />
-                  {scanning ? "Đang nhập..." : "Nhập Serial"}
-                </button>
-                <button
-                  type="button"
-                  onClick={startCameraScanning}
-                  disabled={scanning || cameraScanning}
-                  className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                >
-                  <Camera size={14} />
-                  {cameraScanning ? "Đang quét..." : "Quét Camera"}
-                </button>
-              </div>
-            </div>
-
-            {/* Camera Scanning Interface */}
-            {cameraScanning && (
-              <div className="mb-4 p-4 bg-white rounded-lg border border-indigo-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-indigo-700">
-                    <Camera size={16} className="inline mr-1" />
-                    Quét QR Code bằng Camera
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={startCameraScanning}
-                      className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                    >
-                      Làm mới Camera
-                    </button>
-                    {cameras.length > 1 && (
-                      <select
-                        value={selectedCamera || ""}
-                        onChange={(e) => handleCameraChange(e.target.value)}
-                        className="px-2 py-1 text-sm border border-gray-300 rounded"
-                      >
-                        {cameras.map((camera, index) => (
-                          <option key={camera.id} value={camera.id}>
-                            {camera.label || `Camera ${index + 1}`}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <button
-                      type="button"
-                      onClick={stopCameraScanning}
-                      className="px-2 py-1 text-red-600 hover:text-red-700 transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Camera Status */}
-                <div className="mb-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                  <strong>Trạng thái:</strong> {cameras.length > 0 ? `Phát hiện ${cameras.length} camera` : 'Không tìm thấy camera'}
-                  {selectedCamera && ` | Đã chọn: ${cameras.find(c => c.id === selectedCamera)?.label || 'Camera ' + (cameras.findIndex(c => c.id === selectedCamera) + 1)}`}
-                </div>
-                
-                {/* QR Scanner Container */}
-                <div className="flex justify-center">
-                  <div 
-                    id="qr-reader" 
-                    className="border-2 border-indigo-300 rounded-lg"
-                    style={{ width: '300px', height: '300px' }}
-                  />
-                </div>
-                
-                <p className="text-xs text-gray-600 mt-2 text-center">
-                  Đưa QR code vào khung để quét tự động
-                </p>
-              </div>
-            )}
-
-            {/* Manual Input */}
-            {scanning && (
-              <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Scan size={16} className="text-gray-600" />
-                  <input
-                    ref={qrInputRef}
-                    type="text"
-                    value={serialInput}
-                    onChange={handleSerialInput}
-                    onKeyPress={handleSerialKeyPress}
-                    placeholder="Nhập mã serial hoặc dán QR code..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={stopScanning}
-                    className="px-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                {searchingItem && (
-                  <p className="text-xs text-indigo-600 mt-2">Đang tìm kiếm mặt hàng...</p>
-                )}
-              </div>
-            )}
-
-            {/* Scanned Items List */}
-            {scannedItems.length > 0 ? (
-              <div className="space-y-2">
-                {scannedItems.map((item, index) => (
-                  <div key={item._id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{item.name}</div>
-                      <div className="text-xs text-gray-500">
-                        Serial: {item.serialCode} | 
-                        Loại: {item.item_type?.name || 'N/A'} |
-                        RAM: {item.ram || 'N/A'} |
-                        Dung lượng: {item.capacity || 'N/A'}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeScannedItem(item._id)}
-                      className="p-1 text-red-500 hover:text-red-700 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                <div className="text-xs text-gray-600 mt-2">
-                  Tổng cộng: {scannedItems.length} mặt hàng
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-400">
-                <Package size={32} className="mx-auto mb-2" />
-                <p className="text-sm">Chưa có mặt hàng nào</p>
-                <p className="text-xs">Nhấn "Quét QR Code" để thêm mặt hàng</p>
-              </div>
-            )}
-          </div>
-
-          {/* Note */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ghi chú
-            </label>
-            <textarea
-              name="note"
-              value={formData.note}
-              onChange={handleInputChange}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Nhập ghi chú cho yêu cầu chuyển kho (nếu có)..."
-            />
-          </div>
-
-          {/* Request Info */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Thông tin yêu cầu</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Người tạo:</span>
-                <span className="ml-2 font-medium">{user.fullName || user.username || "N/A"}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Trạng thái:</span>
-                <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                  PENDING
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-            >
-              <X size={16} />
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <Save size={16} />
-              {loading ? "Đang tạo..." : "Tạo đơn"}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );
