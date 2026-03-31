@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Cpu, Wrench, Smartphone, List } from "lucide-react";
+import { LayoutDashboard, Cpu, Wrench, Smartphone, List, Shield } from "lucide-react";
 import { fetchAssembleDataApi } from "../api/technician/assemble"; 
 
 export const useTechSidebarItems = () => {
@@ -50,6 +50,7 @@ export const useTechSidebarItems = () => {
         { text: "Dashboard", link: "/tech/dashboard", icon: <LayoutDashboard size={20} /> },
         { text: "Kho", link: "/tech/storage", icon: <Wrench size={20} /> },
         { text: "Hàng chờ", link: "/tech/repair-orders", icon: <List size={20} /> },
+        { text: "Bảo hành", link: "/tech/warranty", icon: <Shield size={20} /> },
         { text: "Yêu cầu linh kiện", link: "/tech/components", icon: <Cpu size={20} /> },
         { 
             text: "Ghép điện thoại", 

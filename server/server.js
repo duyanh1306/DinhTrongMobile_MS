@@ -31,6 +31,7 @@ const orderRoute = require("./routes/orderRoute");
 const phoneBrand = require("./routes/phone_brandRoute");
 const review = require("./routes/reviewRoute");
 const paymentRoute = require('./routes/paymentRoute');
+const warrantyRoutes = require("./routes/warrantyRoutes");
 connectDB();
 
 app.use(
@@ -50,6 +51,7 @@ app.use("/api/recipes", recipeRoute);
 app.use("/api/repair_services", repair_serviceRoute);
 app.use("/api/purchase-orders", purchase_orderRoutes);
 app.use("/api/repair-orders", authInternal, repair_orderRoutes);
+app.use("/api/warranty", authInternal, warrantyRoutes);
 app.use("/api/inventory-transactions", inventoryTransactionRoutes);
 app.use("/api/transfer-requests", transferRequestRoutes);
 app.use("/api/dashboard", dashboardRoutes);

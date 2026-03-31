@@ -58,6 +58,7 @@ import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import TechStorage from "./pages/technician/TechStorage";
 import TechRequest from "./pages/technician/TechRequest";
+import Warranty from "./pages/technician/Warranty";
 
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ImportInventory from "./pages/manager/ImportInventory";
@@ -443,6 +444,16 @@ function App() {
                         <PrivateRoute allowedRoles={["TECHNICIAN"]}>
                             <TechLayout>
                                 <TechRequest/>
+                            </TechLayout>
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/tech/warranty"
+                    element={
+                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
+                            <TechLayout>
+                                <Warranty/>
                             </TechLayout>
                         </PrivateRoute>
                     }
