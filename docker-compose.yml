@@ -4,6 +4,8 @@ services:
     container_name: mobile_server
     ports:
       - "9999:9999"
+    env_file:
+      - ./server/.env
     environment:
       - NODE_ENV=development
       - PORT=9999
@@ -19,8 +21,12 @@ services:
     container_name: mobile_client
     ports:
       - "3000:3000"
+    build:
+      context: ./client
+      args:
+        - REACT_APP_API_URL=http://server:9999/api
     environment:
-      - REACT_APP_API_URL=http://server:9999
+      - REACT_APP_API_URL=http://server:9999/api
     depends_on:
       - server
     networks:
