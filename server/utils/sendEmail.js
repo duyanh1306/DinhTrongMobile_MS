@@ -18,9 +18,8 @@ const sendEmail = async (email, subject, text) => {
       subject: subject,
       text: text,
     });
-    console.log("✅ Email sent successfully to " + email);
   } catch (error) {
-    console.error("❌ Email not sent:", error);
+    console.error(" Email not sent:", error);
   }
 };
 
@@ -35,7 +34,6 @@ const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
             },
         });
 
-        // 🌟 BƯỚC 1: CẬP NHẬT Ở ĐÂY - Gọi thêm populate('storeId') để lấy thông tin chi nhánh
         const fullOrder = await Order.findById(orderData._id || orderData.id)
             .populate('items.selectedParts', 'name warrantyPeriod price')
             .populate('storeId', 'name address location phone');
@@ -186,10 +184,9 @@ const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(`✅ Đã gửi Email hóa đơn thành công tới: ${orderEmail}`);
         return true;
     } catch (error) {
-        console.error("❌ Lỗi gửi Email:", error.message);
+      
         return false;
     }
 };
@@ -199,7 +196,7 @@ const sendConfirmRequestEmail = async (customerEmail, orderData, customerName) =
           service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
       });
 
-      const historyLink = `http://localhost:3000/order-history`; // Sửa thành link frontend của bạn
+      const historyLink = `http://localhost:3000/order-history`;
 
       await transporter.sendMail({
           from: '"Dinh Trong Mobile" <tominhthanh75@gmail.com>',
@@ -225,7 +222,6 @@ const sendConfirmRequestEmail = async (customerEmail, orderData, customerName) =
 // 2. Email báo động cho TẤT CẢ Sale của Cửa hàng khi khách bấm "Chưa nhận được hàng"
 const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, customerPhone) => {
   try {
-      // Nếu cửa hàng không có nhân viên nào có email, gửi về email admin dự phòng
       const toEmails = staffEmailsArray.length > 0 ? staffEmailsArray.join(',') : "tominhthanh75@gmail.com";
 
       const transporter = nodemailer.createTransport({
@@ -235,7 +231,7 @@ const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, c
       await transporter.sendMail({
           from: '"Hệ thống DTM Cảnh Báo" <tominhthanh75@gmail.com>',
           to: toEmails,
-          subject: `🚨 [KHẨN CẤP] Khách báo CHƯA NHẬN ĐƯỢC ĐƠN #${orderData.orderCode || orderData._id.toString().substring(18)}`,
+          subject: ` [KHẨN CẤP] Khách báo CHƯA NHẬN ĐƯỢC ĐƠN #${orderData.orderCode || orderData._id.toString().substring(18)}`,
           html: `
           <div style="font-family: Arial; padding: 20px; border: 2px solid red; border-radius: 8px;">
               <h2 style="color: red;">CẢNH BÁO: KHÁCH CHƯA NHẬN ĐƯỢC HÀNG</h2>
@@ -249,7 +245,7 @@ const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, c
           `
       });
       return true;
-  } catch (error) { console.error("Lỗi gửi mail cảnh báo:", error); return false; }
+  } catch (error) {  return false; }
 };
 // 3. Email báo cho Manager B khi có người xin hàng
 const sendTransferRequestCreatedEmail = async (managerEmailsArray, requestData, fromStoreName, toStoreName) => {
@@ -276,9 +272,9 @@ const sendTransferRequestCreatedEmail = async (managerEmailsArray, requestData, 
             </div>
             `
         });
-        console.log(` Đã gửi mail yêu cầu luân chuyển tới Manager: ${toEmails}`);
+    
         return true;
-    } catch (error) { console.error("Lỗi gửi mail request:", error); return false; }
+    } catch (error) {  return false; }
 };
 
 // 4. Email báo cho Sale B khi Manager B duyệt, yêu cầu Sale xuất kho
@@ -311,9 +307,8 @@ const sendTransferRequestApprovedEmail = async (saleEmailsArray, requestData, fr
             </div>
             `
         });
-        console.log(`✅ Đã gửi lệnh xuất kho tới Sale: ${toEmails}`);
         return true;
-    } catch (error) { console.error("Lỗi gửi lệnh xuất kho:", error); return false; }
+    } catch (error) { return false; }
 };
 module.exports = { sendInvoiceEmail, sendEmail, sendConfirmRequestEmail, sendIssueReportEmail, sendTransferRequestCreatedEmail, sendTransferRequestApprovedEmail };
 
