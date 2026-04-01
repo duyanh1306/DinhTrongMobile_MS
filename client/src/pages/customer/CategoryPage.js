@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Smartphone, HardDrive, Filter, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
-import axiosClient from "../../api/axiosClient";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
+import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { fetchCategoryDataApi } from "../../api/customer/category";
 
 export default function CategoryPage() {
     const { type } = useParams();
@@ -13,99 +16,47 @@ export default function CategoryPage() {
     const [brands, setBrands] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Filters
     const [filterBrand, setFilterBrand] = useState("");
     const [filterInStock, setFilterInStock] = useState(false);
     const [sortBy, setSortBy] = useState("default");
 
+    // Price Filter
     const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
     const [minPriceInput, setMinPriceInput] = useState("");
     const [maxPriceInput, setMaxPriceInput] = useState("");
     const [appliedMinPrice, setAppliedMinPrice] = useState(null);
     const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
 
+    // Store Info
     const [stores, setStores] = useState([]);
     const [selectedStore, setSelectedStore] = useState(localStorage.getItem('selectedStoreId') || "");
 
+    // ==============================================================
+    // GỌI API QUA HÀM ĐÃ TÁCH
+    // ==============================================================
     useEffect(() => {
-        const fetchAllData = async () => {
-            try {
-                setLoading(true);
-                const [modelsRes, phonesRes, brandsRes, storesRes] = await Promise.all([
-                    axiosClient.get('/phone_models/all'),
-                    axiosClient.get('/phones/all'),
-                    axiosClient.get('/phone_brands/all'),
-                    axiosClient.get('/stores/all')
-                ]);
-
-                const storeData = storesRes.data.data || storesRes.data || [];
-                setStores(storeData);
-
-                let activeStore = selectedStore;
-                if (!activeStore && storeData.length > 0) {
-                    activeStore = storeData[0]._id;
-                    setSelectedStore(activeStore);
-                    localStorage.setItem('selectedStoreId', activeStore);
-                }
-
-                const phoneModels = modelsRes.data.data || [];
-                const phones = phonesRes.data.data || [];
-                setBrands(brandsRes.data.data || []);
-
-                let combinedData = [];
-
-                phoneModels.forEach(model => {
-                    const allModelPhones = phones.filter(p => {
-                        const pStoreId = p.storeId?._id || p.storeId;
-                        const pModelId = p.phoneModelId?._id || p.phoneModelId;
-                        return (String(pModelId) === String(model._id)) && (String(pStoreId) === String(activeStore));
-                    });
-          
-                    if (allModelPhones.length === 0) return;
-          
-                    const newPhonesPhysical = allModelPhones.filter(p => p.grade === 'Mới');
-                    const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới');
-          
-                    const getStartingPrice = (physicalList) => {
-                        const validPrices = physicalList.map(p => p.sellingPrice || (p.importPrice * 1.15)).filter(price => !isNaN(price) && price > 0);
-                        return validPrices.length > 0 ? Math.min(...validPrices) : (model.price || 0);
-                    };
-          
-                    const getDisplayImage = (physicalList) => {
-                        const phoneWithImg = physicalList.find(p => p.specificImages && p.specificImages.length > 0);
-                        return phoneWithImg ? phoneWithImg.specificImages[0] : model.image;
-                    };
-          
-                    if ((type === 'new' || !type) && newPhonesPhysical.length > 0) {
-                        combinedData.push({
-                            ...model,
-                            image: getDisplayImage(newPhonesPhysical),
-                            price: getStartingPrice(newPhonesPhysical),
-                            stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                            isUsedCard: false,
-                            brandId: model.brand?._id || model.brand 
-                        });
-                    }
-          
-                    if ((type === 'used' || !type) && usedPhonesPhysical.length > 0) {
-                        combinedData.push({
-                            ...model,
-                            image: getDisplayImage(usedPhonesPhysical),
-                            price: getStartingPrice(usedPhonesPhysical),
-                            stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                            isUsedCard: true,
-                            brandId: model.brand?._id || model.brand 
-                        });
-                    }
-                });
-
-                setAllProducts(combinedData);
-            } catch (error) { toast.error("Không thể tải dữ liệu."); } 
-            finally { setLoading(false); }
-        };
-
-        fetchAllData();
+        loadCategoryData();
     }, [type, selectedStore]);
 
+    const loadCategoryData = async () => {
+        setLoading(true);
+        const data = await fetchCategoryDataApi(type, selectedStore);
+        if (data) {
+            setStores(data.stores);
+            if (data.activeStore !== selectedStore) {
+                setSelectedStore(data.activeStore);
+                localStorage.setItem('selectedStoreId', data.activeStore);
+            }
+            setBrands(data.brands);
+            setAllProducts(data.allProducts);
+        }
+        setLoading(false);
+    };
+
+    // ==============================================================
+    // LOGIC XỬ LÝ UI & BỘ LỌC
+    // ==============================================================
     const handleStoreChange = (e) => {
         const storeId = e.target.value;
         setSelectedStore(storeId);
@@ -182,6 +133,7 @@ export default function CategoryPage() {
 
     return (
         <CustomerLayout>
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="max-w-7xl mx-auto px-4 py-8">
                 <div className="flex justify-between items-center mb-6">
                     <div className="text-sm text-gray-500 flex items-center gap-2">

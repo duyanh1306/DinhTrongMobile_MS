@@ -1,8 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, Check, X, Package, Calendar, Store, User, Filter, ArrowLeft } from "lucide-react";
+import { Search, Eye, Check, X, Package, Calendar, Store, User, ArrowLeft } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Swal from 'sweetalert2';
+
+import { 
+  fetchStoresApi, 
+  fetchTransferRequestsApi, 
+  approveTransferRequestApi, 
+  rejectTransferRequestApi, 
+  confirmReceiptApi 
+} from "../../api/manager/transferRequest";
 
 export default function ManagerTransferRequestList() {
   const navigate = useNavigate();
@@ -24,160 +33,125 @@ export default function ManagerTransferRequestList() {
   const [userStoreId, setUserStoreId] = useState("");
 
   useEffect(() => {
-    // Get user info from localStorage
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
     setUser(userData);
     
-    // Fetch stores and user store
     fetchStoresAndSetUserStore(userData._id || userData.id);
-    
-    // Fetch transfer requests
-    fetchTransferRequests();
+    loadTransferRequests();
   }, [selectedDate]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, storeFilter, selectedDate]);
 
+
   const fetchStoresAndSetUserStore = async (userId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:9999/api/stores", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const storesArray = result.data || result;
-        
-        if (Array.isArray(storesArray)) {
-          setStores(storesArray);
-          
-          // Find user's store
-          const userStore = storesArray.find(store => 
-            store.staff && store.staff.includes(userId)
-          );
-          
-          if (userStore) {
-            setUserStoreId(userStore._id);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching stores:", error);
-      toast.error("Lỗi khi tải danh sách cửa hàng");
+    const storesArray = await fetchStoresApi();
+    setStores(storesArray);
+    
+    const userStore = storesArray.find(store => store.staff && store.staff.includes(userId));
+    if (userStore) {
+      setUserStoreId(userStore._id);
     }
   };
 
-  const fetchTransferRequests = async () => {
+  
+  const loadTransferRequests = async () => {
     setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:9999/api/transfer-requests", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setRequests(data || []);
-      } else {
-        toast.error("Không thể tải danh sách yêu cầu chuyển kho");
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách yêu cầu chuyển kho: " + error.message);
-    } finally {
-      setLoading(false);
-    }
+    const data = await fetchTransferRequestsApi();
+    setRequests(data);
+    setLoading(false);
   };
 
+ 
   const handleApprove = async (requestId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:9999/api/transfer-requests/${requestId}/approve`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+    const result = await Swal.fire({
+        title: 'Duyệt yêu cầu này?',
+        text: "Bạn xác nhận đồng ý xuất kho cấp hàng cho yêu cầu này?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Đồng ý duyệt',
+        cancelButtonText: 'Hủy bỏ',
+        customClass: {
+            confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+            cancelButton: 'bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+            popup: 'rounded-2xl'
         },
-        body: JSON.stringify({
-          approvedBy: user._id || user.id
-        })
-      });
+        buttonsStyling: false
+    });
 
-      if (response.ok) {
-        toast.success("Đã duyệt yêu cầu chuyển kho");
-        fetchTransferRequests();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Không thể duyệt yêu cầu");
-      }
+    if (!result.isConfirmed) return;
+
+    try {
+      await approveTransferRequestApi(requestId, user._id || user.id);
+      toast.success("Đã duyệt yêu cầu chuyển kho");
+      loadTransferRequests();
     } catch (error) {
-      toast.error("Lỗi khi duyệt yêu cầu: " + error.message);
+      toast.error(error.response?.data?.message || "Không thể duyệt yêu cầu");
     }
   };
 
+  
   const handleReject = async (requestId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:9999/api/transfer-requests/${requestId}/reject`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+    const result = await Swal.fire({
+        title: 'Từ chối yêu cầu?',
+        text: "Bạn có chắc chắn muốn từ chối yêu cầu luân chuyển này?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Xác nhận Từ chối',
+        cancelButtonText: 'Hủy bỏ',
+        customClass: {
+            confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+            cancelButton: 'bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+            popup: 'rounded-2xl'
         },
-        body: JSON.stringify({
-          approvedBy: user._id || user.id
-        })
-      });
+        buttonsStyling: false
+    });
 
-      if (response.ok) {
-        toast.success("Đã từ chối yêu cầu chuyển kho");
-        fetchTransferRequests();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Không thể từ chối yêu cầu");
-      }
+    if (!result.isConfirmed) return;
+
+    try {
+      await rejectTransferRequestApi(requestId, user._id || user.id);
+      toast.success("Đã từ chối yêu cầu chuyển kho");
+      loadTransferRequests();
     } catch (error) {
-      toast.error("Lỗi khi từ chối yêu cầu: " + error.message);
+      toast.error(error.response?.data?.message || "Không thể từ chối yêu cầu");
     }
   };
+
 
   const handleConfirm = async (requestId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:9999/api/transfer-requests/${requestId}/confirm-receipt`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
+    const result = await Swal.fire({
+        title: 'Xác nhận nhận hàng?',
+        text: "Sản phẩm sẽ tự động được cập nhật vào kho của bạn. Hành động này không thể hoàn tác!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Vâng, tôi đã nhận đủ!',
+        cancelButtonText: 'Hủy bỏ',
+        customClass: {
+            confirmButton: 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+            cancelButton: 'bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+            popup: 'rounded-2xl'
+        },
+        buttonsStyling: false
+    });
 
-      if (response.ok) {
-        toast.success("Đã xác nhận nhận hàng");
-        fetchTransferRequests();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Không thể xác nhận nhận hàng");
-      }
+    if (!result.isConfirmed) return;
+
+    try {
+      await confirmReceiptApi(requestId);
+      toast.success("Đã xác nhận nhận hàng và nhập kho thành công!");
+      loadTransferRequests();
     } catch (error) {
-      toast.error("Lỗi khi xác nhận nhận hàng: " + error.message);
+      toast.error(error.response?.data?.message || "Không thể xác nhận nhận hàng");
     }
   };
 
   // Filter requests that involve user's store
   const filteredRequests = requests.filter((req) => {
-    // Only show requests involving user's store
     const involvesUserStore = req.fromStoreId?._id === userStoreId || req.toStoreId?._id === userStoreId;
     if (!involvesUserStore) return false;
 
-    // Search filter (item_type or staff name)
     const searchLower = searchQuery.toLowerCase();
     const matchSearch = 
       req.requestedBy?.fullName?.toLowerCase().includes(searchLower) ||
@@ -185,12 +159,10 @@ export default function ManagerTransferRequestList() {
       req.toStoreId?.name?.toLowerCase().includes(searchLower) ||
       req.note?.toLowerCase().includes(searchLower);
 
-    // Store filter
     const matchStore = storeFilter === "ALL" || 
       (storeFilter === "SENT" && req.fromStoreId?._id === userStoreId) ||
       (storeFilter === "RECEIVED" && req.toStoreId?._id === userStoreId);
 
-    // Date filter - check if request was created on selected date
     const matchDate = !selectedDate || 
       new Date(req.createdAt).toDateString() === new Date(selectedDate).toDateString();
 
@@ -215,6 +187,7 @@ export default function ManagerTransferRequestList() {
     switch (status) {
       case "COMPLETED": return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Đã hoàn thành</span>;
       case "APPROVED": return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">Đã duyệt</span>;
+      case "DELIVERING": return <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">Đang vận chuyển</span>;
       case "PENDING": return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">Chờ duyệt</span>;
       case "REJECTED": return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Từ chối</span>;
       default: return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">{status}</span>;
@@ -228,58 +201,21 @@ export default function ManagerTransferRequestList() {
     if (isFromUserStore && request.status === "PENDING") {
       return (
         <div className="flex gap-1">
-          <button
-            onClick={() => handleApprove(request._id)}
-            className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-full hover:bg-green-100"
-            title="Duyệt"
-          >
-            <Check size={16} />
-          </button>
-          <button
-            onClick={() => handleReject(request._id)}
-            className="text-red-600 hover:text-red-800 transition bg-red-50 p-1.5 rounded-full hover:bg-red-100"
-            title="Từ chối"
-          >
-            <X size={16} />
-          </button>
-          <button
-            onClick={() => navigate(`/manager/transfer_requests/${request._id}`)}
-            className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100"
-            title="Chi tiết"
-          >
-            <Eye size={16} />
-          </button>
+          <button onClick={() => handleApprove(request._id)} className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-full hover:bg-green-100" title="Duyệt"><Check size={16} /></button>
+          <button onClick={() => handleReject(request._id)} className="text-red-600 hover:text-red-800 transition bg-red-50 p-1.5 rounded-full hover:bg-red-100" title="Từ chối"><X size={16} /></button>
+          <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100" title="Chi tiết"><Eye size={16} /></button>
         </div>
       );
-    } else if (isToUserStore && request.status === "APPROVED") {
-      // Store receiving items - can confirm receipt
+    } else if (isToUserStore && request.status === "DELIVERING") {
       return (
         <div className="flex gap-1">
-          <button
-            onClick={() => handleConfirm(request._id)}
-            className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-full hover:bg-green-100"
-            title="Xác nhận nhận hàng"
-          >
-            <Check size={16} />
-          </button>
-          <button
-            onClick={() => navigate(`/manager/transfer_requests/${request._id}`)}
-            className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100"
-            title="Chi tiết"
-          >
-            <Eye size={16} />
-          </button>
+          <button onClick={() => handleConfirm(request._id)} className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-full hover:bg-green-100" title="Xác nhận nhận hàng"><Check size={16} /></button>
+          <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100" title="Chi tiết"><Eye size={16} /></button>
         </div>
       );
     } else {
       return (
-        <button
-          onClick={() => navigate(`/manager/transfer_requests/${request._id}`)}
-          className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100"
-          title="Chi tiết"
-        >
-          <Eye size={16} />
-        </button>
+        <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100" title="Chi tiết"><Eye size={16} /></button>
       );
     }
   };
@@ -290,23 +226,11 @@ export default function ManagerTransferRequestList() {
       <div className="p-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/manager/dashboard")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <Package className="text-indigo-600" />
-              Yêu cầu chuyển kho
-            </h1>
+            <button onClick={() => navigate("/manager/dashboard")} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><ArrowLeft size={20} /></button>
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Package className="text-indigo-600" />Yêu cầu chuyển kho</h1>
           </div>
-          <button
-            onClick={() => navigate("/manager/transfer_requests/new")}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
-          >
-            <Package size={16} />
-            Tạo yêu cầu mới
+          <button onClick={() => navigate("/manager/transfer_requests/new")} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+            <Package size={16} /> Tạo yêu cầu mới
           </button>
         </div>
 
@@ -314,57 +238,31 @@ export default function ManagerTransferRequestList() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Tìm theo tên nhân viên, cửa hàng..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+              <input type="text" placeholder="Tìm theo tên nhân viên, cửa hàng..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
-
             <div className="relative">
               <Store className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <select
-                value={storeFilter}
-                onChange={(e) => setStoreFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-              >
+              <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none">
                 <option value="ALL">Tất cả giao dịch</option>
                 <option value="SENT">Cửa hàng gửi</option>
                 <option value="RECEIVED">Cửa hàng nhận</option>
               </select>
             </div>
-
             <div className="relative">
               <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="Chọn ngày"
-              />
+              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Chọn ngày" />
             </div>
           </div>
           
           {(searchQuery || storeFilter !== "ALL" || selectedDate) && (
             <div className="mt-3 flex justify-end">
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setStoreFilter("ALL");
-                  setSelectedDate("");
-                }}
-                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-              >
+              <button onClick={() => { setSearchQuery(""); setStoreFilter("ALL"); setSelectedDate(""); }} className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
                 Xóa bộ lọc
               </button>
             </div>
           )}
         </div>
 
-        {/* Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -383,58 +281,26 @@ export default function ManagerTransferRequestList() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan="9" className="p-6 text-center text-gray-500">
-                      Đang tải dữ liệu...
-                    </td>
-                  </tr>
+                  <tr><td colSpan="9" className="p-6 text-center text-gray-500">Đang tải dữ liệu...</td></tr>
                 ) : currentRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="p-6 text-center text-gray-500">
-                      Không tìm thấy yêu cầu chuyển kho nào.
-                    </td>
-                  </tr>
+                  <tr><td colSpan="9" className="p-6 text-center text-gray-500">Không tìm thấy yêu cầu chuyển kho nào.</td></tr>
                 ) : (
                   currentRequests.map((req, index) => {
                     const itemTypes = req.itemType || [];
                     const totalQuantity = itemTypes.reduce((sum, item) => sum + (item.quantity || 0), 0);
-                    
-                    const itemTypeNames = itemTypes.map(item =>
-                      item.itemTypes?.name || item.itemTypes || "Unknown"
-                    ).join(", ");
+                    const itemTypeNames = itemTypes.map(item => item.itemTypes?.name || item.itemTypes || "Unknown").join(", ");
 
                     return (
                       <tr key={req._id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-3 text-sm text-gray-600 text-center font-medium">
-                          {indexOfFirstItem + index + 1}
-                        </td>
-                        <td className="p-3 text-sm text-gray-800">
-                          <div className="max-w-xs truncate" title={itemTypeNames}>
-                            {itemTypeNames || "Không có sản phẩm"}
-                          </div>
-                        </td>
+                        <td className="p-3 text-sm text-gray-600 text-center font-medium">{indexOfFirstItem + index + 1}</td>
+                        <td className="p-3 text-sm text-gray-800"><div className="max-w-xs truncate" title={itemTypeNames}>{itemTypeNames || "Không có sản phẩm"}</div></td>
                         <td className="p-3 text-sm text-gray-600 text-center">{totalQuantity}</td>
-                        <td className="p-3 text-sm font-medium text-gray-800">
-                          {req.fromStoreId?.name || "N/A"}
-                        </td>
-                        <td className="p-3 text-sm font-medium text-indigo-700">
-                          {req.toStoreId?.name || "N/A"}
-                        </td>
-                        <td className="p-3 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <User size={14} />
-                            {req.requestedBy?.fullName || "N/A"}
-                          </div>
-                        </td>
-                        <td className="p-3 text-sm text-gray-500">
-                          {formatDate(req.createdAt)}
-                        </td>
-                        <td className="p-3">
-                          {getStatusBadge(req.status)}
-                        </td>
-                        <td className="p-3 flex justify-center">
-                          {getActionButtons(req)}
-                        </td>
+                        <td className="p-3 text-sm font-medium text-gray-800">{req.fromStoreId?.name || "N/A"}</td>
+                        <td className="p-3 text-sm font-medium text-indigo-700">{req.toStoreId?.name || "N/A"}</td>
+                        <td className="p-3 text-sm text-gray-600"><div className="flex items-center gap-1"><User size={14} />{req.requestedBy?.fullName || "N/A"}</div></td>
+                        <td className="p-3 text-sm text-gray-500">{formatDate(req.createdAt)}</td>
+                        <td className="p-3">{getStatusBadge(req.status)}</td>
+                        <td className="p-3 flex justify-center">{getActionButtons(req)}</td>
                       </tr>
                     );
                   })
@@ -443,7 +309,6 @@ export default function ManagerTransferRequestList() {
             </table>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t border-gray-200">
               <span className="text-sm text-gray-600">
@@ -455,9 +320,7 @@ export default function ManagerTransferRequestList() {
                     key={index}
                     onClick={() => setCurrentPage(index + 1)}
                     className={`w-8 h-8 rounded-md text-sm font-medium transition ${
-                      currentPage === index + 1
-                        ? "bg-indigo-600 text-white"
-                        : "text-gray-700 hover:bg-gray-100 border border-transparent"
+                      currentPage === index + 1 ? "bg-indigo-600 text-white" : "text-gray-700 hover:bg-gray-100 border border-transparent"
                     }`}
                   >
                     {index + 1}
