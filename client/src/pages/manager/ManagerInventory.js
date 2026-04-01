@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
-import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, ChevronRight, Tag, QrCode, Smartphone } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, X, Settings, ChevronDown, ChevronRight, Tag, QrCode, Smartphone } from "lucide-react";
+
+// IMPORT TỪ FILE API MỚI
+import { 
+    fetchItemTypesApi, fetchModelsApi, fetchItemsApi, fetchPhonesApi, 
+    deleteItemApi, deletePhoneApi, submitItemApi, submitPhoneApi, getQrBlobApi 
+} from "../../api/manager/inventory";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -16,21 +21,10 @@ const initialItemFormState = {
 };
 
 const initialPhoneFormState = {
-    serialCode: '',
-    phoneModelId: '',
-    storeId: '',
-    colorName: '',
-    capacity: '',
-    grade: 'Mới',
-    status: 'in_stock',
-    importPrice: 0,
-    sellingPrice: 0,
-    warrantyPeriod: 12,
-    source: 'supplier',
-    notes: '',
-    imageFiles: [],
-    previewImages: [],
-    retainedImages: []
+    serialCode: '', phoneModelId: '', storeId: '', colorName: '', capacity: '',
+    grade: 'Mới', status: 'in_stock', importPrice: 0, sellingPrice: 0,
+    warrantyPeriod: 12, source: 'supplier', notes: '',
+    imageFiles: [], previewImages: [], retainedImages: []
 };
 
 export default function ManagerInventory() {
@@ -42,9 +36,7 @@ export default function ManagerInventory() {
     const [items, setItems] = useState([]);
     const [itemTypes, setItemTypes] = useState([]);
     const [itemLoading, setItemLoading] = useState(true);
-    const [itemPagination, setItemPagination] = useState({ 
-        currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 
-    });
+    const [itemPagination, setItemPagination] = useState({ currentPage: 1, totalPages: 1, totalCount: 0, limit: 10 });
     const [itemFilters, setItemFilters] = useState({ search: '', status: '', item_type: '' });
     const [showItemModal, setShowItemModal] = useState(false);
     const [isEditingItem, setIsEditingItem] = useState(false);
@@ -69,285 +61,195 @@ export default function ManagerInventory() {
         const userData = JSON.parse(localStorage.getItem("user") || "{}");
         setUser(userData);
         if (userData.storeId) {
-            setUserStore(userData.storeId);
-            setItemFormData(prev => ({ ...prev, storeId: userData.storeId._id || userData.storeId }));
-            setPhoneFormData(prev => ({ ...prev, storeId: userData.storeId._id || userData.storeId }));
+            const storeIdValue = userData.storeId._id || userData.storeId;
+            setUserStore(storeIdValue);
+            setItemFormData(prev => ({ ...prev, storeId: storeIdValue }));
+            setPhoneFormData(prev => ({ ...prev, storeId: storeIdValue }));
         }
     }, []);
 
     useEffect(() => {
         if (userStore) {
-            fetchItemTypes();
-            fetchModels();
-            fetchItems();
-            fetchPhones();
+            loadInitData();
+            loadItems();
+            loadPhones();
         }
     }, [userStore, itemPagination.currentPage, itemFilters.status, itemFilters.item_type]);
 
     useEffect(() => {
         const timeout = setTimeout(() => { 
             setItemPagination(prev => ({...prev, currentPage: 1}));
-            if (userStore) fetchItems(); 
+            if (userStore) loadItems(); 
         }, 500);
         return () => clearTimeout(timeout);
     }, [itemFilters.search, userStore]);
 
-    // Items functions
-    const fetchItemTypes = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/item_types/all`, { headers: { Authorization: `Bearer ${token}` } });
-            setItemTypes(data.data || []);
-        } catch (error) {}
+    // ==============================================================
+    // DATA FETCHING VIA API FILE
+    // ==============================================================
+    const loadInitData = async () => {
+        const types = await fetchItemTypesApi();
+        const modelsData = await fetchModelsApi();
+        setItemTypes(types);
+        setModels(modelsData);
     };
 
-    const fetchModels = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const { data } = await axios.get(`http://localhost:9999/api/phone_models/all`, { headers: { Authorization: `Bearer ${token}` } });
-            setModels(data.data || []);
-        } catch (error) {}
-    };
-
-    const fetchItems = async () => {
-        if (!userStore) return;
+    const loadItems = async () => {
         setItemLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            const storeId = userStore._id || userStore;
-            const params = new URLSearchParams({
-                page: itemPagination.currentPage, limit: itemPagination.limit,
-                search: itemFilters.search, status: itemFilters.status, 
-                item_type: itemFilters.item_type, storeId 
-            });
-            const { data } = await axios.get(`http://localhost:9999/api/items?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await fetchItemsApi({
+            page: itemPagination.currentPage, limit: itemPagination.limit,
+            search: itemFilters.search, status: itemFilters.status, 
+            item_type: itemFilters.item_type, storeId: userStore 
+        });
+        if (data) {
             setItems(data.data || []);
             if (data.pagination) setItemPagination(data.pagination);
-        } catch (error) { toast.error("Lỗi tải danh sách linh kiện"); } 
-        finally { setItemLoading(false); }
+        }
+        setItemLoading(false);
     };
 
-    const fetchPhones = async () => {
-        if (!userStore) return;
-        try {
-            setPhoneLoading(true);
-            const token = localStorage.getItem("token");
-            const storeId = userStore._id || userStore;
-            const { data } = await axios.get(`http://localhost:9999/api/phones?storeId=${storeId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setPhones(data.data || []);
-        } catch (error) { toast.error("Lỗi tải danh sách máy"); } 
-        finally { setPhoneLoading(false); }
+    const loadPhones = async () => {
+        setPhoneLoading(true);
+        const data = await fetchPhonesApi(userStore);
+        setPhones(data);
+        setPhoneLoading(false);
     };
 
+    // ==============================================================
+    // DELETE ACTIONS
+    // ==============================================================
     const handleDeleteItem = async (id) => {
         if (window.confirm("Bạn có chắc chắn muốn xóa linh kiện này?")) {
-            try {
-                const token = localStorage.getItem("token");
-                await axios.delete(`http://localhost:9999/api/items/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Xóa thành công");
-                fetchItems();
-            } catch (error) { toast.error("Xóa thất bại"); }
+            const success = await deleteItemApi(id);
+            if (success) loadItems();
         }
     };
 
     const handleDeletePhone = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa máy này?")) return;
-        try {
-            const token = localStorage.getItem("token");
-            await axios.delete(`http://localhost:9999/api/phones/delete/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-            toast.success("Xóa máy thành công!");
-            fetchPhones();
-        } catch (error) { toast.error("Lỗi khi xóa máy"); }
-    };
-
-    const handleGenerateItemQR = async (itemId) => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`http://localhost:9999/api/items/${itemId}/qr`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: "blob",
-            });
-
-            const blob = new Blob([response.data], { type: "image/png" });
-            const qrUrl = window.URL.createObjectURL(blob);
-
-            const iframe = document.createElement("iframe");
-            iframe.style.position = "fixed";
-            iframe.style.right = "0";
-            iframe.style.bottom = "0";
-            iframe.style.width = "0";
-            iframe.style.height = "0";
-            iframe.style.border = "0";
-            iframe.setAttribute("aria-hidden", "true");
-            document.body.appendChild(iframe);
-
-            const iframeDoc = iframe.contentWindow?.document;
-            if (!iframeDoc || !iframe.contentWindow) {
-                document.body.removeChild(iframe);
-                window.URL.revokeObjectURL(qrUrl);
-                toast.error("Không thể khởi tạo chế độ in.");
-                return;
-            }
-
-            iframeDoc.open();
-            iframeDoc.write(`
-              <!doctype html>
-              <html>
-                <head>
-                  <meta charset="utf-8" />
-                  <title>Print QR</title>
-                  <style>
-                    @page { margin: 0; }
-                    html, body {
-                      margin: 0;
-                      padding: 0;
-                      width: 100%;
-                      height: 100%;
-                      background: #fff;
-                    }
-                    body {
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                    }
-                    img {
-                      width: 180px;
-                      height: 180px;
-                      object-fit: contain;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
-                </body>
-              </html>
-            `);
-            iframeDoc.close();
-
-            const img = iframeDoc.getElementById("qr-print-image");
-            if (img) {
-                img.onload = () => {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                    setTimeout(() => {
-                        window.URL.revokeObjectURL(qrUrl);
-                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    }, 500);
-                };
-                img.onerror = () => {
-                    window.URL.revokeObjectURL(qrUrl);
-                    if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    toast.error("Không thể tải ảnh QR để in.");
-                };
-            } else {
-                window.URL.revokeObjectURL(qrUrl);
-                if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                toast.error("Không thể chuẩn bị nội dung in.");
-            }
-        } catch (error) {
-            toast.error("Lỗi khi tạo mã QR");
-            console.error("Item QR generation error:", error);
+        if (window.confirm("Bạn có chắc chắn muốn xóa máy này?")) {
+            const success = await deletePhoneApi(id);
+            if (success) loadPhones();
         }
     };
 
-    const handleGeneratePhoneQR = async (phoneId, serialCode) => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`http://localhost:9999/api/phones/qrcode/${phoneId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob'
-            });
+    // ==============================================================
+    // GỘP HÀM PRINT QR CHO CẢ ITEM VÀ PHONE
+    // ==============================================================
+    const handlePrintQR = async (type, id) => {
+        const blob = await getQrBlobApi(type, id);
+        if (!blob) return;
 
-            const blob = new Blob([response.data], { type: "image/png" });
-            const qrUrl = window.URL.createObjectURL(blob);
+        const qrUrl = window.URL.createObjectURL(blob);
+        const iframe = document.createElement("iframe");
+        iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+        iframe.setAttribute("aria-hidden", "true");
+        document.body.appendChild(iframe);
 
-            const iframe = document.createElement("iframe");
-            iframe.style.position = "fixed";
-            iframe.style.right = "0";
-            iframe.style.bottom = "0";
-            iframe.style.width = "0";
-            iframe.style.height = "0";
-            iframe.style.border = "0";
-            iframe.setAttribute("aria-hidden", "true");
-            document.body.appendChild(iframe);
+        const iframeDoc = iframe.contentWindow?.document;
+        if (!iframeDoc) {
+            document.body.removeChild(iframe);
+            window.URL.revokeObjectURL(qrUrl);
+            toast.error("Không thể khởi tạo chế độ in.");
+            return;
+        }
 
-            const iframeDoc = iframe.contentWindow?.document;
-            if (!iframeDoc || !iframe.contentWindow) {
-                document.body.removeChild(iframe);
-                window.URL.revokeObjectURL(qrUrl);
-                toast.error("Không thể khởi tạo chế độ in.");
-                return;
-            }
+        iframeDoc.open();
+        iframeDoc.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>Print QR</title>
+              <style>
+                @page { margin: 0; }
+                html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+                body { display: flex; align-items: center; justify-content: center; }
+                img { width: 180px; height: 180px; object-fit: contain; }
+              </style>
+            </head>
+            <body>
+              <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+            </body>
+          </html>
+        `);
+        iframeDoc.close();
 
-            iframeDoc.open();
-            iframeDoc.write(`
-              <!doctype html>
-              <html>
-                <head>
-                  <meta charset="utf-8" />
-                  <title>Print QR</title>
-                  <style>
-                    @page { margin: 0; }
-                    html, body {
-                      margin: 0;
-                      padding: 0;
-                      width: 100%;
-                      height: 100%;
-                      background: #fff;
-                    }
-                    body {
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                    }
-                    img {
-                      width: 180px;
-                      height: 180px;
-                      object-fit: contain;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
-                </body>
-              </html>
-            `);
-            iframeDoc.close();
-
-            const img = iframeDoc.getElementById("qr-print-image");
-            if (img) {
-                img.onload = () => {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                    setTimeout(() => {
-                        window.URL.revokeObjectURL(qrUrl);
-                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    }, 500);
-                };
-                img.onerror = () => {
+        const img = iframeDoc.getElementById("qr-print-image");
+        if (img) {
+            img.onload = () => {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                setTimeout(() => {
                     window.URL.revokeObjectURL(qrUrl);
                     if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    toast.error("Không thể tải ảnh QR để in.");
-                };
-            } else {
+                }, 500);
+            };
+            img.onerror = () => {
                 window.URL.revokeObjectURL(qrUrl);
                 if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                toast.error("Không thể chuẩn bị nội dung in.");
-            }
-        } catch (error) {
-            toast.error("Lỗi khi tạo mã QR");
-            console.error("QR Code generation error:", error);
+                toast.error("Không thể tải ảnh QR để in.");
+            };
         }
     };
 
+    // ==============================================================
+    // SUBMIT FORMS
+    // ==============================================================
+    const handleItemSubmit = async (e) => {
+        e.preventDefault();
+        const success = await submitItemApi(isEditingItem, editingItemId, itemFormData);
+        if (success) {
+            setShowItemModal(false);
+            loadItems();
+        }
+    };
+
+    const handlePhoneSubmit = async (e) => {
+        e.preventDefault();
+        const submitData = new FormData();
+        
+        submitData.append("serialCode", phoneFormData.serialCode);
+        submitData.append("phoneModelId", phoneFormData.phoneModelId);
+        submitData.append("storeId", phoneFormData.storeId);
+        submitData.append("colorName", phoneFormData.colorName);
+        
+        let finalCapacity = phoneFormData.capacity.trim().toUpperCase();
+        if (finalCapacity && !finalCapacity.includes('GB') && !finalCapacity.includes('TB')) {
+            finalCapacity += 'GB';
+        }
+        submitData.append("capacity", finalCapacity);
+        submitData.append("grade", phoneFormData.grade);
+        submitData.append("status", phoneFormData.status);
+        submitData.append("importPrice", phoneFormData.importPrice);
+        submitData.append("sellingPrice", phoneFormData.sellingPrice);
+        submitData.append("warrantyPeriod", phoneFormData.warrantyPeriod);
+        submitData.append("source", phoneFormData.source);
+        submitData.append("notes", phoneFormData.notes);
+
+        if (isEditingPhone && phoneFormData.retainedImages && phoneFormData.retainedImages.length > 0) {
+            submitData.append("retainedImages", JSON.stringify(phoneFormData.retainedImages));
+        }
+        
+        if (phoneFormData.imageFiles && phoneFormData.imageFiles.length > 0) {
+            phoneFormData.imageFiles.forEach(file => submitData.append("images", file));
+        }
+
+        const success = await submitPhoneApi(isEditingPhone, editingPhoneId, submitData);
+        if (success) {
+            setShowPhoneModal(false);
+            loadPhones();
+        }
+    };
+
+    // ==============================================================
+    // MODAL HANDLERS
+    // ==============================================================
     const handleOpenItemModal = (item = null) => {
         if (item) {
             setIsEditingItem(true); setEditingItemId(item._id);
             setItemFormData({
                 name: item.name || '', serialCode: item.serialCode || '', item_type: item.item_type?._id || '',
-                status: item.status || 'in_stock', storeId: userStore._id || userStore, 
+                status: item.status || 'in_stock', storeId: userStore, 
                 origin: item.origin || 'new', sourceDevice: item.sourceDevice || '', quality: item.quality || '', 
                 warrantyPeriod: item.warrantyPeriod || (item.origin === 'new' ? 12 : 3),
                 baseCost: item.baseCost || '', price: item.price || '',
@@ -355,7 +257,7 @@ export default function ManagerInventory() {
             });
         } else {
             setIsEditingItem(false); setEditingItemId(null);
-            setItemFormData({ ...initialItemFormState, storeId: userStore._id || userStore });
+            setItemFormData({ ...initialItemFormState, storeId: userStore });
         }
         setShowItemModal(true);
     };
@@ -367,7 +269,7 @@ export default function ManagerInventory() {
             setPhoneFormData({
                 serialCode: phone.serialCode || '',
                 phoneModelId: phone.phoneModelId?._id || phone.phoneModelId,
-                storeId: userStore._id || userStore,
+                storeId: userStore,
                 colorName: phone.colorName || '',
                 capacity: phone.capacity || '',
                 grade: phone.grade || 'Mới',
@@ -384,80 +286,16 @@ export default function ManagerInventory() {
         } else {
             setIsEditingPhone(false);
             setEditingPhoneId(null);
-            setPhoneFormData({ ...initialPhoneFormState, storeId: userStore._id || userStore });
+            setPhoneFormData({ ...initialPhoneFormState, storeId: userStore });
         }
         setShowPhoneModal(true);
     };
 
-    const handleItemSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            if (isEditingItem) {
-                await axios.put(`http://localhost:9999/api/items/update/${editingItemId}`, itemFormData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Cập nhật linh kiện thành công");
-            } else {
-                await axios.post("http://localhost:9999/api/items/create", itemFormData, { headers: { Authorization: `Bearer ${token}` } });
-                toast.success("Thêm linh kiện thành công");
-            }
-            setShowItemModal(false);
-            fetchItems();
-        } catch (error) { toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện"); }
-    };
-
-    const handlePhoneSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            const submitData = new FormData();
-            
-            submitData.append("serialCode", phoneFormData.serialCode);
-            submitData.append("phoneModelId", phoneFormData.phoneModelId);
-            submitData.append("storeId", phoneFormData.storeId);
-            submitData.append("colorName", phoneFormData.colorName);
-            
-            let finalCapacity = phoneFormData.capacity.trim().toUpperCase();
-            if (finalCapacity && !finalCapacity.includes('GB') && !finalCapacity.includes('TB')) {
-                finalCapacity += 'GB';
-            }
-            submitData.append("capacity", finalCapacity);
-            
-            submitData.append("grade", phoneFormData.grade);
-            submitData.append("status", phoneFormData.status);
-            submitData.append("importPrice", phoneFormData.importPrice);
-            submitData.append("sellingPrice", phoneFormData.sellingPrice);
-            submitData.append("warrantyPeriod", phoneFormData.warrantyPeriod);
-            submitData.append("source", phoneFormData.source);
-            submitData.append("notes", phoneFormData.notes);
-
-            if (isEditingPhone && phoneFormData.retainedImages && phoneFormData.retainedImages.length > 0) {
-                submitData.append("retainedImages", JSON.stringify(phoneFormData.retainedImages));
-            }
-            
-            if (phoneFormData.imageFiles && phoneFormData.imageFiles.length > 0) {
-                phoneFormData.imageFiles.forEach(file => submitData.append("images", file));
-            }
-
-            if (isEditingPhone) {
-                await axios.put(`http://localhost:9999/api/phones/update/${editingPhoneId}`, submitData, { 
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } 
-                });
-                toast.success("Cập nhật thành công!");
-            } else {
-                await axios.post("http://localhost:9999/api/phones/create", submitData, { 
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } 
-                });
-                toast.success("Thêm máy thành công!");
-            }
-            setShowPhoneModal(false);
-            fetchPhones();
-        } catch (error) { toast.error(error.response?.data?.message || "Lưu thất bại!"); }
-    };
-
-    // Grouped data for items
+    // ==============================================================
+    // COMPUTED & GROUPED DATA
+    // ==============================================================
     const sortedGroupedData = useMemo(() => {
         const result = {};
-        
         items.forEach(item => {
             const typeName = item.item_type?.name || 'Loại không xác định';
             const typeCode = item.item_type?.code || 'OTH';
@@ -481,7 +319,6 @@ export default function ManagerInventory() {
         });
     }, [items]);
 
-    // Grouped data for phones
     const groupedPhoneData = useMemo(() => {
         const result = {};
         const safeKeyword = searchKeyword.toLowerCase();
@@ -498,7 +335,6 @@ export default function ManagerInventory() {
 
             if (!result[brandName]) result[brandName] = {};
             if (!result[brandName][modelName]) result[brandName][modelName] = [];
-            
             result[brandName][modelName].push(phone);
         });
         return result;
@@ -522,7 +358,6 @@ export default function ManagerInventory() {
                     <Settings className="text-blue-600" size={28} />
                     <h1 className="text-2xl font-bold text-gray-800">Quản lý Kho</h1>
                 </div>
-
             </div>
 
             {/* TABS */}
@@ -633,7 +468,7 @@ export default function ManagerInventory() {
                                                                                 </td>
                                                                                 <td className="p-3 text-center">
                                                                                     <button
-                                                                                        onClick={() => handleGenerateItemQR(item._id)}
+                                                                                        onClick={() => handlePrintQR('item', item._id)}
                                                                                         className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"
                                                                                         title="In mã QR"
                                                                                     >
@@ -768,7 +603,7 @@ export default function ManagerInventory() {
                                                                                 <td className="p-3 font-mono font-bold text-gray-700">{phone.serialCode}</td>
                                                                                 <td className="p-3">
                                                                                     <button 
-                                                                                        onClick={() => handleGeneratePhoneQR(phone._id, phone.serialCode)}
+                                                                                        onClick={() => handlePrintQR('phone', phone._id)}
                                                                                         className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"
                                                                                         title="In mã QR"
                                                                                     >

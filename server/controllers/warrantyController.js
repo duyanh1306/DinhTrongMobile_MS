@@ -107,8 +107,11 @@ const createWarrantyRequest = async (req, res) => {
     const purchaseDateTime = new Date(purchaseDate);
     const now = new Date();
     const daysSincePurchase = Math.floor((now - purchaseDateTime) / (1000 * 60 * 60 * 24));
-    const isNewDevice = daysSincePurchase <= 30;
-
+    
+    // ==========================================
+    // LOGIC MỚI: PHÂN LOẠI BẢO HÀNH DỰA VÀO SOURCE
+    // ==========================================
+    const isNewDevice = phone.source === 'supplier';
     const warrantyType = isNewDevice ? "REPLACEMENT" : "REPAIR";
 
     const newWarranty = new Warranty({
@@ -125,8 +128,8 @@ const createWarrantyRequest = async (req, res) => {
       status: "Pending",
       createdBy,
       notes: isNewDevice 
-        ? `Thiết bị mới mua (${daysSincePurchase} ngày). Hỗ trợ thay máy nếu hỏng.` 
-        : `Thiết bị cũ (${daysSincePurchase} ngày). Bảo hành sửa chữa.`
+        ? `Máy mới chính hãng (Nguồn: Nhập từ NCC). Đã mua ${daysSincePurchase} ngày. Hỗ trợ đổi/thay máy.` 
+        : `Máy cũ/Lắp ráp (Nguồn: ${phone.source === 'assembled' ? 'Tự ráp' : 'Thu cũ'}). Đã mua ${daysSincePurchase} ngày. Chỉ bảo hành sửa chữa.`
     });
 
     await newWarranty.save();
