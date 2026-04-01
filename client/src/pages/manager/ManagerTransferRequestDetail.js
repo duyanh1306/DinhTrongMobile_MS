@@ -1,23 +1,19 @@
 import React, {useEffect, useState, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
-import {
-    AlertCircle,
-    ArrowLeft,
-    Camera,
-    CheckCircle,
-    Clock,
-    Package,
-    Plus,
-    Save,
-    Scan,
-    Store,
-    Truck,
-    User,
-    X
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, Camera, CheckCircle, Clock, Package, Plus, Save, Scan, Store, Truck, User, X } from "lucide-react";
 import {toast, ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {Html5Qrcode} from "html5-qrcode";
+
+// 🌟 IMPORT API
+import { 
+    fetchStoresApi, 
+    getTransferRequestByIdApi, 
+    getTransferRequestDetailsApi, 
+    searchItemsApi, 
+    confirmShipmentApi, 
+    confirmReceiptDetailApi 
+} from "../../api/manager/transferRequest";
 
 const getItemTypeId = (itemTypeEntry) => {
     if (!itemTypeEntry) return "";
@@ -111,21 +107,7 @@ export default function ManagerTransferRequestDetail() {
 
     const fetchUserStore = async (userId) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${process.env.IP_ADDRESS}/api/stores`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            if (!response.ok) return;
-
-            const result = await response.json();
-            const storesArray = result.data || result;
-
-            if (!Array.isArray(storesArray)) return;
-
+            const storesArray = await fetchStoresApi();
             const userStore = storesArray.find((store) => store.staff && store.staff.includes(userId));
             if (userStore) {
                 setUserStoreId(userStore._id);
@@ -138,29 +120,10 @@ export default function ManagerTransferRequestDetail() {
     const fetchTransferRequestDetails = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
-
-            const requestResponse = await fetch(`http://localhost:9999/api/transfer-requests/${id}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            const detailsResponse = await fetch(`http://localhost:9999/api/transfer-requests/${id}/details`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            if (!requestResponse.ok || !detailsResponse.ok) {
-                toast.error("Không thể tải thông tin yêu cầu chuyển kho");
-                return;
-            }
-
-            const requestData = await requestResponse.json();
-            const detailsData = await detailsResponse.json();
+            const [requestData, detailsData] = await Promise.all([
+                getTransferRequestByIdApi(id),
+                getTransferRequestDetailsApi(id)
+            ]);
 
             setTransferRequest(requestData);
             setRequestDetails(detailsData);
@@ -211,20 +174,8 @@ export default function ManagerTransferRequestDetail() {
         }
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`http://localhost:9999/api/items?search=${encodeURIComponent(qrCode.trim())}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                toast.error("Không tìm thấy sản phẩm");
-                return;
-            }
-
-            const data = await response.json();
-            const foundItem = data?.data?.[0];
+            const data = await searchItemsApi(qrCode.trim());
+            const foundItem = data?.data?.[0] || data?.[0];
 
             if (!foundItem) {
                 toast.error("Không tìm thấy sản phẩm với mã này");
@@ -266,7 +217,7 @@ export default function ManagerTransferRequestDetail() {
             setQrCode("");
             toast.success("Đã thêm sản phẩm");
         } catch (error) {
-            toast.error("Lỗi khi thêm sản phẩm: " + error.message);
+            toast.error("Lỗi khi thêm sản phẩm: " + (error.response?.data?.message || error.message));
         }
     };
 
@@ -300,21 +251,8 @@ export default function ManagerTransferRequestDetail() {
         if (!serialCode.trim()) return;
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`http://localhost:9999/api/items?search=${encodeURIComponent(serialCode)}&limit=1`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            if (!response.ok) {
-                toast.error("Không tìm thấy mặt hàng với mã serial này");
-                return;
-            }
-
-            const result = await response.json();
-            const items = result.data || [];
+            const result = await searchItemsApi(serialCode, 1);
+            const items = result.data || result || [];
 
             if (items.length === 0) {
                 toast.error("Không tìm thấy mặt hàng với mã serial này");
@@ -542,60 +480,45 @@ export default function ManagerTransferRequestDetail() {
         setSubmitting(true);
 
         try {
-            const token = localStorage.getItem("token");
             const status = transferRequest?.status?.toUpperCase();
-            let endpoint;
             let successMessage;
 
             if (isFromUserStore && status === "APPROVED") {
-                endpoint = `http://localhost:9999/api/transfer-requests/${id}/confirm-shipment`;
+                const requestBody = {
+                    note: formData.note,
+                    items: transferredItems.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        itemTypeId: item.itemTypeId
+                    }))
+                };
+                await confirmShipmentApi(id, requestBody);
                 successMessage = "Đã xác nhận gửi hàng thành công";
+
             } else if (isToUserStore && status === "IN PROGRESS") {
-                endpoint = `http://localhost:9999/api/transfer-requests/${id}/confirm-receipt`;
+                const requestBody = {
+                    note: receiptNote,
+                    scannedItems: scannedReceiptItems.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        serialCode: item.serialCode,
+                        itemTypeId: item.itemTypeId,
+                        issue: item.issue || ""
+                    }))
+                };
+                await confirmReceiptDetailApi(id, requestBody);
                 successMessage = "Đã xác nhận nhận hàng thành công";
+
             } else {
                 toast.error("Không thể xác nhận yêu cầu ở trạng thái này");
                 setSubmitting(false);
                 return;
             }
 
-            const requestBody = {};
-            if (isFromUserStore && status === "APPROVED") {
-                requestBody.note = formData.note;
-                requestBody.items = transferredItems.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    itemTypeId: item.itemTypeId
-                }));
-            } else if (isToUserStore && status === "IN PROGRESS") {
-                requestBody.note = receiptNote;
-                requestBody.scannedItems = scannedReceiptItems.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    serialCode: item.serialCode,
-                    itemTypeId: item.itemTypeId,
-                    issue: item.issue || ""
-                }));
-            }
-
-            const response = await fetch(endpoint, {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                toast.error(errorData.message || "Không thể xác nhận yêu cầu");
-                return;
-            }
-
             toast.success(successMessage);
             navigate("/manager/transfer_approvals");
         } catch (error) {
-            toast.error("Lỗi khi xác nhận yêu cầu: " + error.message);
+            toast.error("Lỗi khi xác nhận yêu cầu: " + (error.response?.data?.message || error.message));
         } finally {
             setSubmitting(false);
         }
@@ -828,8 +751,7 @@ export default function ManagerTransferRequestDetail() {
 
                         <div className="space-y-3">
                             {requestedItems.map((item, index) => (
-                                <div
-                                    className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg">
+                                <div key={item.itemTypeId} className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg">
                                     <div className="flex-1">
                                         <div className="flex items-center justify-between mb-2">
                                             <p className="text-xs uppercase tracking-wide text-gray-500">Loại sản phẩm
@@ -847,12 +769,8 @@ export default function ManagerTransferRequestDetail() {
                                         <h3 className="font-medium text-gray-800">{item.name}</h3>
 
                                         <div className="flex items-center gap-4 mt-1">
-                      <span className="text-sm text-gray-600">
-                        Yêu cầu: <span className="font-medium">{item.requiredQuantity}</span>
-                      </span>
-                                            <span className="text-sm text-gray-600">
-                        Đã thêm: <span className={`font-medium ${item.isValid ? "text-green-600" : "text-red-600"}`}>{item.scannedQuantity}</span>
-                      </span>
+                                            <span className="text-sm text-gray-600">Yêu cầu: <span className="font-medium">{item.requiredQuantity}</span></span>
+                                            <span className="text-sm text-gray-600">Đã thêm: <span className={`font-medium ${item.isValid ? "text-green-600" : "text-red-600"}`}>{item.scannedQuantity}</span></span>
                                         </div>
 
                                         {validationErrors[`item_${index}`] && (
@@ -892,21 +810,16 @@ export default function ManagerTransferRequestDetail() {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-sm text-gray-500">Chưa có sản phẩm nào được thêm cho
-                                                    loại này.</p>
+                                                <p className="text-sm text-gray-500">Chưa có sản phẩm nào được thêm cho loại này.</p>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="pt-6">
                                         {item.isValid ? (
-                                            <div className="text-green-600">
-                                                <CheckCircle size={20}/>
-                                            </div>
+                                            <div className="text-green-600"><CheckCircle size={20}/></div>
                                         ) : (
-                                            <div className="text-red-600">
-                                                <X size={20}/>
-                                            </div>
+                                            <div className="text-red-600"><X size={20}/></div>
                                         )}
                                     </div>
                                 </div>
@@ -931,8 +844,7 @@ export default function ManagerTransferRequestDetail() {
                             >
                                 {submitting ? (
                                     <>
-                                        <div
-                                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                         Đang xử lý...
                                     </>
                                 ) : (
@@ -944,7 +856,6 @@ export default function ManagerTransferRequestDetail() {
                             </button>
                         )}
 
-                        {/* Receipt Confirmation Button for TO Store */}
                         {transferRequest?.toStoreId?._id === userStoreId && transferRequest?.status?.toUpperCase() === "IN PROGRESS" && (
                             <button
                                 type="button"
@@ -958,7 +869,6 @@ export default function ManagerTransferRequestDetail() {
                     </div>
                 </form>
 
-                {/* Receipt Scanning Modal */}
                 {showReceiptScanner && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -981,7 +891,6 @@ export default function ManagerTransferRequestDetail() {
                             </div>
 
                             <div className="p-6">
-                                {/* QR Code Scanning Section */}
                                 <div className="mb-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-lg font-medium text-gray-800">
@@ -994,8 +903,7 @@ export default function ManagerTransferRequestDetail() {
                                                 disabled={cameraScanning}
                                                 className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-1"
                                             >
-                                                <Scan size={14}/>
-                                                Nhập Serial
+                                                <Scan size={14}/> Nhập Serial
                                             </button>
                                             <button
                                                 type="button"
@@ -1003,19 +911,16 @@ export default function ManagerTransferRequestDetail() {
                                                 disabled={receiptScanning}
                                                 className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1"
                                             >
-                                                <Camera size={14}/>
-                                                Quét Camera
+                                                <Camera size={14}/> Quét Camera
                                             </button>
                                         </div>
                                     </div>
 
-                                    {/* Camera Scanning Interface */}
                                     {cameraScanning && (
                                         <div className="mb-4 p-4 bg-white rounded-lg border border-indigo-200">
                                             <div className="flex items-center justify-between mb-3">
                                                 <h4 className="text-sm font-medium text-indigo-700">
-                                                    <Camera size={16} className="inline mr-1"/>
-                                                    Quét QR Code bằng Camera
+                                                    <Camera size={16} className="inline mr-1"/> Quét QR Code bằng Camera
                                                 </h4>
                                                 <div className="flex items-center gap-2">
                                                     {cameras.length > 1 && (
@@ -1031,31 +936,16 @@ export default function ManagerTransferRequestDetail() {
                                                             ))}
                                                         </select>
                                                     )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={stopCameraScanning}
-                                                        className="px-2 py-1 text-red-600 hover:text-red-700 transition-colors"
-                                                    >
-                                                        <X size={16}/>
-                                                    </button>
+                                                    <button onClick={stopCameraScanning} className="px-2 py-1 text-red-600 hover:text-red-700 transition-colors"><X size={16}/></button>
                                                 </div>
                                             </div>
-                                            
                                             <div className="flex justify-center">
-                                                <div 
-                                                    id="receipt-qr-reader" 
-                                                    className="border-2 border-indigo-300 rounded-lg"
-                                                    style={{ width: '300px', height: '300px' }}
-                                                />
+                                                <div id="receipt-qr-reader" className="border-2 border-indigo-300 rounded-lg" style={{ width: '300px', height: '300px' }}/>
                                             </div>
-                                            
-                                            <p className="text-xs text-gray-600 mt-2 text-center">
-                                                Đưa QR code vào khung để quét tự động
-                                            </p>
+                                            <p className="text-xs text-gray-600 mt-2 text-center">Đưa QR code vào khung để quét tự động</p>
                                         </div>
                                     )}
 
-                                    {/* Manual Input */}
                                     {receiptScanning && (
                                         <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                                             <div className="flex items-center gap-2">
@@ -1067,29 +957,18 @@ export default function ManagerTransferRequestDetail() {
                                                     onKeyPress={handleReceiptQRCodeKeyPress}
                                                     autoFocus
                                                 />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setReceiptScanning(false)}
-                                                    className="px-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"
-                                                >
-                                                    <X size={16}/>
-                                                </button>
+                                                <button onClick={() => setReceiptScanning(false)} className="px-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"><X size={16}/></button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Scanned Items List */}
                                 <div className="mb-6">
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-lg font-medium text-gray-800">
                                             Danh sách sản phẩm đã quét ({scannedReceiptItems.length}/{transferredItems.length})
                                         </h3>
-                                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                            scannedReceiptItems.length === transferredItems.length
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-yellow-100 text-yellow-800'
-                                        }`}>
+                                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${scannedReceiptItems.length === transferredItems.length ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                             {scannedReceiptItems.length === transferredItems.length ? 'Hoàn thành' : 'Cần quét thêm'}
                                         </div>
                                     </div>
@@ -1100,9 +979,7 @@ export default function ManagerTransferRequestDetail() {
                                                 <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                                     <div className="flex-1">
                                                         <div className="font-medium text-sm">{item.name}</div>
-                                                        <div className="text-xs text-gray-500">
-                                                            Serial: {item.serialCode} | Loại: {item.itemTypeName}
-                                                        </div>
+                                                        <div className="text-xs text-gray-500">Serial: {item.serialCode} | Loại: {item.itemTypeName}</div>
                                                         <input
                                                             type="text"
                                                             placeholder="Ghi chú vấn đề (nếu có)..."
@@ -1111,13 +988,7 @@ export default function ManagerTransferRequestDetail() {
                                                             className="mt-2 w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500"
                                                         />
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeScannedReceiptItem(item.id)}
-                                                        className="ml-2 p-1 text-red-500 hover:text-red-700 transition-colors"
-                                                    >
-                                                        <X size={14}/>
-                                                    </button>
+                                                    <button onClick={() => removeScannedReceiptItem(item.id)} className="ml-2 p-1 text-red-500 hover:text-red-700 transition-colors"><X size={14}/></button>
                                                 </div>
                                             ))}
                                         </div>
@@ -1130,11 +1001,8 @@ export default function ManagerTransferRequestDetail() {
                                     )}
                                 </div>
 
-                                {/* Note Section */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Ghi chú chung về việc nhận hàng
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú chung về việc nhận hàng</label>
                                     <textarea
                                         value={receiptNote}
                                         onChange={(e) => setReceiptNote(e.target.value)}
@@ -1144,15 +1012,8 @@ export default function ManagerTransferRequestDetail() {
                                     />
                                 </div>
 
-                                {/* Action Buttons */}
                                 <div className="flex justify-end gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={closeReceiptScanner}
-                                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                    >
-                                        Hủy
-                                    </button>
+                                    <button onClick={closeReceiptScanner} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Hủy</button>
                                     <button
                                         type="button"
                                         onClick={handleSubmit}
@@ -1160,15 +1021,9 @@ export default function ManagerTransferRequestDetail() {
                                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                         {submitting ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                Đang xử lý...
-                                            </>
+                                            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Đang xử lý...</>
                                         ) : (
-                                            <>
-                                                <CheckCircle size={16}/>
-                                                Xác nhận nhận hàng
-                                            </>
+                                            <><CheckCircle size={16}/> Xác nhận nhận hàng</>
                                         )}
                                     </button>
                                 </div>

@@ -24,7 +24,7 @@ const transferRequestSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ['PENDING', 'APPROVED', 'REJECTED', 'IN PROGRESS', 'COMPLETED'],
+            enum: ['PENDING', 'APPROVED', 'REJECTED', 'DELIVERING', 'COMPLETED'],
             default: 'PENDING',
         },
         note: {
