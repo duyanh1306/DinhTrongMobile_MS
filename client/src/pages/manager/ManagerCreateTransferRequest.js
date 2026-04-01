@@ -1,7 +1,14 @@
-import React, {useState, useEffect} from 'react';
-import axios from 'axios';
-import {toast} from 'react-toastify';
-import {Plus, Trash2, Save} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { Plus, Trash2, Save } from 'lucide-react';
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { 
+    fetchStoresApi, 
+    fetchItemTypesApi, 
+    fetchUserStoreApi, 
+    createTransferRequestApi 
+} from "../../api/manager/createTransferRequest";
 
 const ManagerCreateTransferRequest = () => {
     const [stores, setStores] = useState([]);
@@ -11,107 +18,60 @@ const ManagerCreateTransferRequest = () => {
     const [note, setNote] = useState('');
     const [loading, setLoading] = useState(false);
     const [tableRows, setTableRows] = useState([
-        {itemTypeId: '', quantity: 1}
+        { itemTypeId: '', quantity: 1 }
     ]);
 
     const user = JSON.parse(localStorage.getItem('user'));
 
+    // ==============================================================
+    // GỌI API KHỞI TẠO DATA
+    // ==============================================================
     useEffect(() => {
-        clearUserStoreCache();
-        fetchStores();
-        fetchItemTypes();
-        fetchUserStore();
+        const loadInitialData = async () => {
+            clearUserStoreCache();
+            
+            // Chạy song song 3 API cho nhanh
+            const [fetchedStores, fetchedItemTypes] = await Promise.all([
+                fetchStoresApi(),
+                fetchItemTypesApi(),
+            ]);
+            
+            setStores(fetchedStores);
+            setItemTypes(fetchedItemTypes);
+            
+            // Tìm userStore
+            await loadUserStore();
+        };
+
+        loadInitialData();
     }, []);
-
-    const fetchStores = async () => {
-        try {
-            const token = localStorage.getItem('token');
-
-            const response = await axios.get(`${process.env.REACT_APP_IP_ADDRESS || 'http://localhost:9999'}/api/stores`, {
-                headers: {Authorization: `Bearer ${token}`}
-            });
-
-            let storesArray = [];
-            if (Array.isArray(response.data)) {
-                storesArray = response.data;
-            } else if (response.data && Array.isArray(response.data.data)) {
-                storesArray = response.data.data;
-            }
-
-            setStores(storesArray);
-        } catch (error) {
-            setStores([]);
-            toast.error('Failed to fetch stores');
-        }
-    };
-
-    const fetchItemTypes = async () => {
-        try {
-            const token = localStorage.getItem('token');
-
-            const response = await axios.get(`${process.env.REACT_APP_IP_ADDRESS || 'http://localhost:9999'}/api/item_types?limit=100`, {
-                headers: {Authorization: `Bearer ${token}`}
-            });
-
-            let itemTypesArray = [];
-            if (Array.isArray(response.data)) {
-                itemTypesArray = response.data;
-            } else if (response.data && Array.isArray(response.data.data)) {
-                itemTypesArray = response.data.data;
-            }
-
-            setItemTypes(itemTypesArray);
-        } catch (error) {
-            setItemTypes([]);
-            toast.error('Failed to fetch item types');
-        }
-    };
 
     const clearUserStoreCache = () => {
         localStorage.removeItem('userStore');
         setUserStore(null);
     };
 
-    const fetchUserStore = async () => {
-        try {
-            const cachedUserStore = localStorage.getItem('userStore');
-            if (cachedUserStore) {
-                const parsedStore = JSON.parse(cachedUserStore);
-                setUserStore(parsedStore);
-                return;
-            }
+    const loadUserStore = async () => {
+        const cachedUserStore = localStorage.getItem('userStore');
+        if (cachedUserStore) {
+            setUserStore(JSON.parse(cachedUserStore));
+            return;
+        }
 
-            const token = localStorage.getItem('token');
-            const freshUser = JSON.parse(localStorage.getItem('user') || '{}');
-
-            const response = await axios.get(`${process.env.REACT_APP_IP_ADDRESS || 'http://localhost:9999'}/api/stores`, {
-                headers: {Authorization: `Bearer ${token}`}
-            });
-
-            let storesData = [];
-            if (Array.isArray(response.data)) {
-                storesData = response.data;
-            } else if (response.data && Array.isArray(response.data.data)) {
-                storesData = response.data.data;
-            }
-
-            const userStoreData = storesData.find((store) =>
-                store.staff && store.staff.includes(freshUser._id || freshUser.id)
-            );
-
-            if (userStoreData) {
-                setUserStore(userStoreData);
-                localStorage.setItem('userStore', JSON.stringify(userStoreData));
-            } else {
-                toast.error('You are not assigned to any store');
-            }
-        } catch (error) {
-            toast.error('Failed to fetch user store information');
+        const freshUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const fetchedUserStore = await fetchUserStoreApi(freshUser._id || freshUser.id);
+        
+        if (fetchedUserStore) {
+            setUserStore(fetchedUserStore);
+            localStorage.setItem('userStore', JSON.stringify(fetchedUserStore));
         }
     };
 
+    // ==============================================================
+    // XỬ LÝ TABLE UI
+    // ==============================================================
     const addRow = () => {
-        setTableRows([...tableRows, {itemTypeId: '', quantity: 1}]);
+        setTableRows([...tableRows, { itemTypeId: '', quantity: 1 }]);
     };
 
     const removeRow = (index) => {
@@ -140,6 +100,9 @@ const ManagerCreateTransferRequest = () => {
         setTableRows(newRows);
     };
 
+    // ==============================================================
+    // XỬ LÝ SUBMIT YÊU CẦU CHUYỂN KHO
+    // ==============================================================
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -170,67 +133,40 @@ const ManagerCreateTransferRequest = () => {
             return;
         }
 
-        const itemTypes = validRows.map(row => row.itemTypeId);
-        const uniqueItemTypes = [...new Set(itemTypes)];
-        if (itemTypes.length !== uniqueItemTypes.length) {
+        const selectedTypesArr = validRows.map(row => row.itemTypeId);
+        const uniqueItemTypes = [...new Set(selectedTypesArr)];
+        if (selectedTypesArr.length !== uniqueItemTypes.length) {
             toast.error('Duplicate item types are not allowed');
             return;
         }
 
         setLoading(true);
 
-        try {
-            const token = localStorage.getItem('token');
+        const items = validRows.map(row => ({
+            itemTypeId: row.itemTypeId,
+            quantity: parseInt(row.quantity)
+        }));
 
-            const items = validRows.map(row => ({
-                itemTypeId: row.itemTypeId,
+        const transferRequestData = {
+            fromStoreId,
+            toStoreId: userStore._id,
+            requestedBy: user._id || user.id,
+            items,
+            note,
+            itemType: validRows.map(row => ({
+                itemTypes: row.itemTypeId,
                 quantity: parseInt(row.quantity)
-            }));
+            }))
+        };
 
-            const transferRequestData = {
-                fromStoreId,
-                toStoreId: userStore._id,
-                requestedBy: user._id,
-                items,
-                note,
-                itemType: validRows.map(row => (
-                    {
-                        itemTypes: row.itemTypeId,
-                        quantity: parseInt(row.quantity)
-                    }
-                    ))
-            };
-
-            const response = await axios.post(
-                `${process.env.IP_ADDRESS}/api/transfer-requests`,
-                transferRequestData,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    }
-                }
-            );
-
-            toast.success('Transfer request created successfully!', {
-                position: "top-right",
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                progress: undefined,
-            });
-
+        const success = await createTransferRequestApi(transferRequestData);
+        if (success) {
             setFromStoreId('');
             setNote('');
-            setTableRows([{itemTypeId: '', quantity: 1}]);
-
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to create transfer request');
-        } finally {
-            setLoading(false);
+            setTableRows([{ itemTypeId: '', quantity: 1 }]);
         }
+        
+        setLoading(false);
     };
 
     const availableStores = Array.isArray(stores) ? stores.filter(store => store._id !== userStore?._id) : [];
@@ -274,6 +210,7 @@ const ManagerCreateTransferRequest = () => {
                         </div>
                     </div>
 
+                    {/* BẢNG CHỌN LINH KIỆN */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Linh kiện cần chuyển *
@@ -348,7 +285,7 @@ const ManagerCreateTransferRequest = () => {
                         </button>
                     </div>
 
-                    {/* Note */}
+                    {/* Ghi chú */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Ghi chú
@@ -362,7 +299,7 @@ const ManagerCreateTransferRequest = () => {
                         />
                     </div>
 
-                    {/* Submit Button */}
+                    {/* Nút Submit */}
                     <div className="flex justify-end">
                         <button
                             type="submit"
