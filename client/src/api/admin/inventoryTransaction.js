@@ -20,3 +20,13 @@ export const fetchTransactionsApi = async () => {
         return [];
     }
 };
+// Thêm hàm này vào file api/admin/inventoryTransaction.js
+export const fetchTransactionDetailsApi = async (transactionId) => {
+    try {
+        const res = await axiosClient.get(`/inventory-transactions/${transactionId}/details`);
+        return res.data || [];
+    } catch (error) {
+        console.error("Lỗi lấy chi tiết giao dịch kho", error);
+        return [];
+    }
+};
