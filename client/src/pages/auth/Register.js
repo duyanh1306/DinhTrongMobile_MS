@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { toast } from 'react-toastify';
 import { Eye, EyeOff } from 'lucide-react';
-import axios from 'axios'; // Dùng axios mặc định để gọi API tỉnh thành
 
 const Register = () => {
   const [formData, setFormData] = useState({ fullName: '', userName: '', email: '', number: '', password: '' });
@@ -11,7 +10,6 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // --- STATE CHO ĐỊA CHỈ ---
   const [locations, setLocations] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
@@ -85,22 +83,24 @@ const Register = () => {
       return toast.error("Mật khẩu phải tối thiểu 8 ký tự, bao gồm chữ viết hoa và ký tự đặc biệt");
     }
 
-
     if (!addressData.province || !addressData.district || !addressData.ward) {
       return toast.error("Vui lòng chọn đầy đủ Tỉnh/Thành, Quận/Huyện và Phường/Xã");
     }
 
     setLoading(true);
     try {
-      const fullAddress = `${addressData.street ? addressData.street + ', ' : ''}${addressData.ward}, ${addressData.district}, ${addressData.province}`;
+      const fullAddress = [
+        addressData.street,
+        addressData.ward,
+        addressData.district,
+        addressData.province
+      ].filter(Boolean).join(", ");
       
-  
-      const finalFormData = { 
+      const res = await axiosClient.post('/users/register', { 
         ...formData, 
         address: fullAddress 
-      };
+      });
 
-      const res = await axiosClient.post('/users/register', finalFormData);
       toast.success(res.data.message);
       navigate(`/verify-otp?email=${formData.email}`);
     } catch (error) {
