@@ -68,8 +68,7 @@ app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
 const PORT = process.env.PORT || 9999;
-const HOSTNAME = process.env.IP_ADDRESS ? new URL(process.env.IP_ADDRESS).hostname : "0.0.0.0";
 
-server.listen(PORT, HOSTNAME, () => {
-    console.log(`Server is running on http://${HOSTNAME}:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server is running on port ${PORT}`);
 });
