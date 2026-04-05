@@ -1,33 +1,42 @@
 const InventoryTransaction = require("../models/Inventory_transaction");
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail");
 
 const getAllTransactions = async (req, res) => {
   try {
+    // Chỉ lấy Phiếu Tổng
     const transactions = await InventoryTransaction.find()
-      // 1. Populate đúng trường storeId có trong Schema Inventory_transaction
       .populate("storeId", "name code address")
-      
-      // 2. Populate phoneId và nối tiếp sang phoneModelId để lấy Tên máy
-      .populate({
-        path: "phoneId",
-        select: "imei status", 
-        populate: { path: "phoneModelId", select: "name" }
-      })
-      
-      // 3. Populate itemId và nối tiếp sang item_type để lấy Tên linh kiện
-      .populate({
-        path: "itemId",
-        select: "name serialCode item_type baseCost price",
-        populate: { path: "item_type", select: "name" }
-      })
       .sort({ createdAt: -1 });
 
     res.status(200).json(transactions);
   } catch (error) {
-    console.error("LỖI GET TRANSACTIONS:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// HÀM MỚI: Lấy chi tiết của 1 phiếu
+const getTransactionDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const details = await InventoryTransactionDetail.find({ transactionId: id })
+      .populate({
+        path: "phoneId",
+        select: "imei serialCode status", 
+        populate: { path: "phoneModelId", select: "name" }
+      })
+      .populate({
+        path: "itemId",
+        select: "name serialCode item_type baseCost price",
+        populate: { path: "item_type", select: "name" }
+      });
+
+    res.status(200).json(details);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
 module.exports = {
   getAllTransactions,
+  getTransactionDetails // Nhớ export và gắn route GET /:id/details cho thằng này
 };
