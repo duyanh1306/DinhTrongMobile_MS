@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, Package, MapPin, CreditCard, Calendar, Truck, ShieldCheck } from "lucide-react";
-import axiosClient from "../../api/axiosClient";
+import { ChevronLeft, MapPin, CreditCard, Calendar } from "lucide-react";
 import CustomerLayout from "../../layouts/CustomerLayout";
+
+// IMPORT API VỪA TẠO
+import { fetchOrderDetailApi } from "../../api/customer/orderDetail";
 
 export default function OrderDetail() {
     const { id } = useParams();
@@ -11,18 +13,18 @@ export default function OrderDetail() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchOrderDetail = async () => {
-            try {
-                const res = await axiosClient.get(`/orders/${id}`);
-                setOrder(res.data.data);
-            } catch (error) {
-                console.error("Lỗi lấy chi tiết đơn hàng:", error);
+        const loadOrderDetail = async () => {
+            setLoading(true);
+            const data = await fetchOrderDetailApi(id);
+            if (data) {
+                setOrder(data);
+            } else {
                 navigate('/order-history');
-            } finally {
-                setLoading(false);
             }
+            setLoading(false);
         };
-        fetchOrderDetail();
+        
+        loadOrderDetail();
     }, [id, navigate]);
 
     const getStatusBadge = (status) => {
@@ -33,18 +35,13 @@ export default function OrderDetail() {
                 return <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-blue-200">Đang xử lý</span>;
             case 'Delivering': 
                 return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-orange-200">Đang giao hàng</span>;
-            
-            
             case 'Waiting_Confirm': 
                 return <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-purple-200">Chờ khách xác nhận</span>;
             case 'Issue_Reported': 
                 return <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-red-200">Khách báo lỗi</span>;
-            
-           
             case 'Completed': 
             case 'Delivered': 
                 return <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-green-200">Hoàn thành</span>;
-            
             case 'Cancelled': 
                 return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-bold text-xs uppercase border border-gray-200">Đã hủy</span>;
             default: 

@@ -209,6 +209,9 @@ const ManagerCreateTransferRequest = () => {
         });
     };
 
+    // ==============================================================
+    // XỬ LÝ SUBMIT YÊU CẦU CHUYỂN KHO
+    // ==============================================================
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -294,6 +297,8 @@ const ManagerCreateTransferRequest = () => {
         } finally {
             setLoading(false);
         }
+        
+        setLoading(false);
     };
 
     const availableStores = stores.filter(store => store._id !== userStore?._id);

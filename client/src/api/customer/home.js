@@ -1,0 +1,83 @@
+import axiosClient from "../axiosClient";
+import { toast } from "react-toastify";
+
+export const fetchHomeDataApi = async (selectedStore) => {
+    try {
+        const [modelsRes, phonesRes, storesRes] = await Promise.all([
+            axiosClient.get('/phone_models/all'),
+            axiosClient.get('/phones/all'),
+            axiosClient.get('/stores/all')
+        ]);
+
+        const storeData = storesRes.data?.data || storesRes.data || [];
+        
+        let activeStore = selectedStore;
+        if (!activeStore && storeData.length > 0) {
+            activeStore = storeData[0]._id;
+        }
+
+        const phoneModels = modelsRes.data?.data || [];
+        const phones = phonesRes.data?.data || [];
+
+        const newList = [];
+        const usedList = [];
+
+        phoneModels.forEach(model => {
+            // Lấy tất cả máy vật lý của model này trong kho đang chọn
+            const allModelPhones = phones.filter(p => {
+                const pStoreId = p.storeId?._id || p.storeId;
+                const pModelId = p.phoneModelId?._id || p.phoneModelId;
+                return (String(pModelId) === String(model._id)) && (String(pStoreId) === String(activeStore));
+            });
+
+            if (allModelPhones.length === 0) return;
+
+            // Bóc tách Mới / Cũ
+            const newPhonesPhysical = allModelPhones.filter(p => p.grade === 'Mới');
+            const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới');
+
+            const getStartingPrice = (physicalList) => {
+                const validPrices = physicalList.map(p => p.sellingPrice || (p.importPrice * 1.15)).filter(price => !isNaN(price) && price > 0);
+                return validPrices.length > 0 ? Math.min(...validPrices) : (model.price || 0);
+            };
+
+            const getDisplayImage = (physicalList) => {
+                const phoneWithImg = physicalList.find(p => p.specificImages && p.specificImages.length > 0);
+                return phoneWithImg ? phoneWithImg.specificImages[0] : model.image;
+            };
+
+            // Nếu có hàng Mới -> Tạo 1 Card cho mục Hàng Mới
+            if (newPhonesPhysical.length > 0) {
+                newList.push({
+                    ...model,
+                    image: getDisplayImage(newPhonesPhysical),
+                    price: getStartingPrice(newPhonesPhysical),
+                    stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                    isUsedCard: false
+                });
+            }
+
+            // Nếu có hàng Cũ -> Tạo 1 Card cho mục Hàng Cũ
+            if (usedPhonesPhysical.length > 0) {
+                usedList.push({
+                    ...model,
+                    image: getDisplayImage(usedPhonesPhysical),
+                    price: getStartingPrice(usedPhonesPhysical),
+                    stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                    isUsedCard: true
+                });
+            }
+        });
+
+        return {
+            stores: storeData,
+            activeStore,
+            newPhones: newList,
+            usedPhones: usedList
+        };
+    } catch (error) {
+        console.error("Lỗi lấy dữ liệu Home:", error);
+        toast.error("Không thể tải dữ liệu.");
+        return null;
+    }
+};
