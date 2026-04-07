@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, Package, Search, X, Settings, ChevronDown, Tag, QrCode, Smartphone, Eye, ArrowUpDown, Image as ImageIcon } from "lucide-react";
 
-// IMPORT TỪ FILE API MỚI
+
 import { 
     fetchItemTypesApi, fetchModelsApi, fetchItemsApi, fetchPhonesApi, 
     deleteItemApi, deletePhoneApi, submitItemApi, submitPhoneApi, getQrBlobApi 
@@ -36,54 +36,75 @@ const initialPhoneFormState = {
     imageFiles: [], previewImages: [], retainedImages: []
 };
 
-// ==============================================================
-// 🌟 COMPONENT PHÂN TRANG THÔNG MINH DẠNG SỐ (1, 2, 3, ..., 100)
-// ==============================================================
+
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     if (totalPages <= 1) return null;
-    
-    const pages = [];
-    if (totalPages <= 5) {
-        for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-        if (currentPage <= 3) {
-            pages.push(1, 2, 3, 4, '...', totalPages);
-        } else if (currentPage >= totalPages - 2) {
-            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-        } else {
-            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5; 
+
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = startPage + maxVisible - 1;
+
+        if (endPage > totalPages) {
+            endPage = totalPages;
+            startPage = Math.max(1, endPage - maxVisible + 1);
         }
-    }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
+            );
+            if (startPage > 2) {
+                pages.push(<span key="dots-start" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    onClick={() => onPageChange(i)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        i === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(<span key="dots-end" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+            }
+            pages.push(
+                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
+            );
+        }
+
+        return pages;
+    };
 
     return (
         <div className="flex gap-1.5 items-center">
-            <button 
-                disabled={currentPage <= 1} 
-                onClick={() => onPageChange(currentPage - 1)} 
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            <button
+                disabled={currentPage <= 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
             >
                 Trước
             </button>
-            {pages.map((p, i) => (
-                <button
-                    key={i}
-                    disabled={p === '...'}
-                    onClick={() => p !== '...' && onPageChange(p)}
-                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
-                        p === currentPage 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : p === '...' 
-                                ? 'bg-transparent text-gray-500 border-transparent shadow-none cursor-default px-1' 
-                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                >
-                    {p}
-                </button>
-            ))}
-            <button 
-                disabled={currentPage >= totalPages} 
-                onClick={() => onPageChange(currentPage + 1)} 
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            
+            {renderPageNumbers()}
+            
+            <button
+                disabled={currentPage >= totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
             >
                 Sau
             </button>
@@ -96,10 +117,6 @@ export default function ManagerInventory() {
     const [user, setUser] = useState({});
     const [userStore, setUserStore] = useState(null);
     const groupsPerPage = 10; 
-
-    // ==============================================================
-    // ITEMS STATE
-    // ==============================================================
     const [items, setItems] = useState([]);
     const [itemTypes, setItemTypes] = useState([]);
     const [itemLoading, setItemLoading] = useState(true);
@@ -117,10 +134,6 @@ export default function ManagerInventory() {
     const [detailItemSearch, setDetailItemSearch] = useState('');
     const [detailItemSortPrice, setDetailItemSortPrice] = useState(''); 
     const [detailItemCurrentPage, setDetailItemCurrentPage] = useState(1);
-
-    // ==============================================================
-    // PHONES STATE
-    // ==============================================================
     const [phones, setPhones] = useState([]);
     const [models, setModels] = useState([]);
     const [phoneLoading, setPhoneLoading] = useState(true);
@@ -172,9 +185,7 @@ export default function ManagerInventory() {
     useEffect(() => { setDetailItemCurrentPage(1); }, [detailItemSearch, detailItemSortPrice]);
     useEffect(() => { setDetailPhoneCurrentPage(1); }, [detailPhoneSearch, detailPhoneSortPrice]);
 
-    // ==============================================================
-    // DATA FETCHING
-    // ==============================================================
+ 
     const loadInitData = async () => {
         const types = await fetchItemTypesApi();
         const modelsData = await fetchModelsApi();
@@ -292,9 +303,7 @@ export default function ManagerInventory() {
         }
     };
 
-    // ==============================================================
-    // MODAL THÊM / SỬA HANDLERS
-    // ==============================================================
+
     const handleOpenItemModal = (item = null) => {
         if (item) {
             setIsEditingItem(true); setEditingItemId(item._id);
@@ -363,9 +372,6 @@ export default function ManagerInventory() {
         setPhoneFormData({ ...phoneFormData, serialCode: `${prefix}-${ddmmyyyy}-${randomStr}` });
     };
 
-    // ==============================================================
-    // COMPUTED DATA CHO BẢNG ITEM
-    // ==============================================================
     const filteredItemTypesForModal = useMemo(() => {
         if (!selectedBaseCategory) return []; 
         return itemTypes.filter(t => getBaseCodeFromItemTypeCode(t.code) === selectedBaseCategory);
@@ -416,9 +422,6 @@ export default function ManagerInventory() {
         setShowItemDetailModal(true);
     };
 
-    // ==============================================================
-    // COMPUTED DATA CHO BẢNG PHONE
-    // ==============================================================
     const uniqueBrands = useMemo(() => {
         const brands = new Set();
         models.forEach(m => {
@@ -504,7 +507,6 @@ export default function ManagerInventory() {
                 </div>
             </div>
 
-            {/* TABS */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="flex border-b border-gray-200">
                     <button onClick={() => setActiveTab('items')} className={`flex items-center space-x-2 px-6 py-3 font-medium transition ${activeTab === 'items' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -515,9 +517,6 @@ export default function ManagerInventory() {
                     </button>
                 </div>
 
-                {/* ============================================================== */}
-                {/* ITEMS TAB */}
-                {/* ============================================================== */}
                 {activeTab === 'items' && (
                     <div className="p-6 flex flex-col h-[calc(100vh-200px)]">
                         <div className="flex justify-between items-center mb-6 shrink-0">
@@ -549,7 +548,6 @@ export default function ManagerInventory() {
                             </select>
                         </div>
 
-                        {/* 🌟 Items List: BẢNG TỔNG HỢP */}
                         <div className="flex-1 overflow-y-auto pb-4">
                             {itemLoading ? (
                                 <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
@@ -593,8 +591,6 @@ export default function ManagerInventory() {
                                 </div>
                             )}
                         </div>
-
-                        {/* 🌟 PHÂN TRANG THÔNG MINH CHO ITEM (MAIN) */}
                         {!itemLoading && paginatedItemGroups.totalItemsCount > 0 && (
                             <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
                                 <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -612,9 +608,6 @@ export default function ManagerInventory() {
                     </div>
                 )}
 
-                {/* ============================================================== */}
-                {/* PHONES TAB */}
-                {/* ============================================================== */}
                 {activeTab === 'phones' && (
                     <div className="p-6 flex flex-col h-[calc(100vh-200px)]">
                         <div className="flex justify-between items-center mb-6 shrink-0">
@@ -624,7 +617,6 @@ export default function ManagerInventory() {
                             </button>
                         </div>
 
-                        {/* Search */}
                         <div className="bg-gray-50 rounded-xl p-4 mb-6 shrink-0 border border-gray-100">
                             <div className="relative w-full md:w-1/2">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -632,7 +624,6 @@ export default function ManagerInventory() {
                             </div>
                         </div>
 
-                        {/* 🌟 Phones List: BẢNG TỔNG HỢP */}
                         <div className="flex-1 overflow-y-auto pb-4">
                             {phoneLoading ? (
                                 <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
@@ -676,8 +667,6 @@ export default function ManagerInventory() {
                                 </div>
                             )}
                         </div>
-
-                        {/* 🌟 PHÂN TRANG THÔNG MINH CHO PHONE (MAIN) */}
                         {!phoneLoading && paginatedPhoneGroups.totalItemsCount > 0 && (
                             <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
                                 <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -696,11 +685,6 @@ export default function ManagerInventory() {
                 )}
             </div>
 
-            {/* ============================================================== */}
-            {/* 🌟 MODAL CHI TIẾT TỪNG BẢNG */}
-            {/* ============================================================== */}
-
-            {/* MODAL CHI TIẾT LINH KIỆN */}
             {showItemDetailModal && selectedItemTypeGroup && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
@@ -767,7 +751,6 @@ export default function ManagerInventory() {
                             </table>
                         </div>
 
-                        {/* 🌟 PHÂN TRANG THÔNG MINH CHO CHI TIẾT ITEM */}
                         {detailItemsProcessed.totalCount > 0 && (
                             <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
                                 <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailItemCurrentPage}</strong> / {detailItemsProcessed.totalPages} (Tổng: {detailItemsProcessed.totalCount})</span>
@@ -782,7 +765,6 @@ export default function ManagerInventory() {
                 </div>
             )}
 
-            {/* MODAL CHI TIẾT ĐIỆN THOẠI */}
             {showPhoneDetailModal && selectedPhoneModelGroup && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
@@ -858,7 +840,6 @@ export default function ManagerInventory() {
                             </table>
                         </div>
 
-                        {/* 🌟 PHÂN TRANG THÔNG MINH CHO CHI TIẾT PHONE */}
                         {detailPhonesProcessed.totalCount > 0 && (
                             <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
                                 <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailPhoneCurrentPage}</strong> / {detailPhonesProcessed.totalPages} (Tổng: {detailPhonesProcessed.totalCount})</span>
@@ -873,11 +854,6 @@ export default function ManagerInventory() {
                 </div>
             )}
 
-            {/* ============================================================== */}
-            {/* MODALS NHẬP FORM ĐÃ ĐƯỢC CHUẨN HÓA GIAO DIỆN */}
-            {/* ============================================================== */}
-
-            {/* ITEM FORM MODAL */}
             {showItemModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -970,7 +946,7 @@ export default function ManagerInventory() {
                                         <label className="block text-sm font-semibold mb-1">Cửa hàng / Kho chứa</label>
                                         <select value={itemFormData.storeId} onChange={e => setItemFormData({...itemFormData, storeId: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
                                             <option value="">-- Chưa phân bổ kho --</option>
-                                            {/* Chặn Manager chọn cửa hàng khác */}
+                        
                                             <option value={userStore}>Cửa hàng của bạn</option>
                                         </select>
                                     </div>
@@ -1035,7 +1011,6 @@ export default function ManagerInventory() {
                 </div>
             )}
 
-            {/* PHONE FORM MODAL */}
             {showPhoneModal && (
                 <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[60] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1046,7 +1021,7 @@ export default function ManagerInventory() {
                         
                         <form onSubmit={handlePhoneSubmit} className="overflow-y-auto flex-1 p-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                {/* HÀNG 1: HÃNG & DÒNG MÁY (FULL CHIỀU NGANG) */}
+                        
                                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 bg-blue-50/30 p-4 rounded-xl border border-blue-100">
                                     <div>
                                         <label className="block text-sm font-bold text-blue-800 mb-1.5">Bước 1: Chọn Hãng sản xuất <span className="text-red-500">*</span></label>
@@ -1077,7 +1052,7 @@ export default function ManagerInventory() {
                                     </div>
                                 </div>
 
-                                {/* HÀNG 2: CỬA HÀNG (ẨN) & SERIAL CODE */}
+                
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Serial Code <span className="text-red-500">*</span></label>
                                     <div className="flex gap-2">
@@ -1086,7 +1061,7 @@ export default function ManagerInventory() {
                                     </div>
                                 </div>
 
-                                {/* HÀNG 3: DUNG LƯỢNG & MÀU SẮC/HÌNH THỨC */}
+                 
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Dung lượng (ROM) <span className="text-red-500">*</span></label>
                                     <input type="text" value={phoneFormData.capacity} onChange={e => setPhoneFormData({...phoneFormData, capacity: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" placeholder="Chỉ cần nhập số, VD: 128 hoặc 256"/>
@@ -1104,7 +1079,6 @@ export default function ManagerInventory() {
                                     </div>
                                 </div>
 
-                                {/* HÀNG 4: HÌNH ẢNH THỰC TẾ */}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình ảnh thực tế của máy (Chụp tình trạng xước xát nếu có)</label>
                                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer relative min-h-[100px]">
@@ -1132,7 +1106,7 @@ export default function ManagerInventory() {
                                     </div>
                                 </div>
                                 
-                                {/* HÀNG 5: NGUỒN GỐC & TRẠNG THÁI */}
+                        
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Nguồn gốc</label>
                                     <select value={phoneFormData.source} onChange={e => setPhoneFormData({...phoneFormData, source: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
@@ -1151,7 +1125,7 @@ export default function ManagerInventory() {
                                     </select>
                                 </div>
 
-                                {/* HÀNG 6: GIÁ VỐN & GIÁ BÁN/BẢO HÀNH */}
+                      
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá vốn (VNĐ) <span className="text-red-500">*</span></label>
                                     <input type="number" value={phoneFormData.importPrice} onChange={e => setPhoneFormData({...phoneFormData, importPrice: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />

@@ -20,7 +20,7 @@ export default function ManagerTransferRequest() {
   const [activeTab, setActiveTab] = useState('ITEMS');
 
   const [availableItems, setAvailableItems] = useState([]);
-  const [availablePhones, setAvailablePhones] = useState([]);
+  const [availablePhones, setAvailablePhones] = useState([]);re
 
   const [selectedItemQuantities, setSelectedItemQuantities] = useState({});
   const [selectedPhoneIds, setSelectedPhoneIds] = useState([]);

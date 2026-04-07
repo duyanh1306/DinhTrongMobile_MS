@@ -14,56 +14,78 @@ const initialFormState = {
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     if (totalPages <= 1) return null;
-    
-    const pages = [];
-    if (totalPages <= 5) {
-        for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-        if (currentPage <= 3) {
-            pages.push(1, 2, 3, 4, '...', totalPages);
-        } else if (currentPage >= totalPages - 2) {
-            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-        } else {
-            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5; 
+
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = startPage + maxVisible - 1;
+
+        if (endPage > totalPages) {
+            endPage = totalPages;
+            startPage = Math.max(1, endPage - maxVisible + 1);
         }
-    }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
+            );
+            if (startPage > 2) {
+                pages.push(<span key="dots-start" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    onClick={() => onPageChange(i)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        i === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(<span key="dots-end" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+            }
+            pages.push(
+                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
+            );
+        }
+
+        return pages;
+    };
 
     return (
         <div className="flex gap-1.5 items-center">
-            <button 
-                disabled={currentPage <= 1} 
-                onClick={() => onPageChange(currentPage - 1)} 
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            <button
+                disabled={currentPage <= 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
             >
                 Trước
             </button>
-            {pages.map((p, i) => (
-                <button
-                    key={i}
-                    disabled={p === '...'}
-                    onClick={() => p !== '...' && onPageChange(p)}
-                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
-                        p === currentPage 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : p === '...' 
-                                ? 'bg-transparent text-gray-500 border-transparent shadow-none cursor-default px-1' 
-                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                >
-                    {p}
-                </button>
-            ))}
-            <button 
-                disabled={currentPage >= totalPages} 
-                onClick={() => onPageChange(currentPage + 1)} 
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            
+            {renderPageNumbers()}
+            
+            <button
+                disabled={currentPage >= totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
             >
                 Sau
             </button>
         </div>
     );
 };
-
 export default function AdminPhone() {
     const [phones, setPhones] = useState([]);
     const [models, setModels] = useState([]);

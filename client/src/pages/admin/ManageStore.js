@@ -16,7 +16,6 @@ export default function ManageStore() {
   const [formData, setFormData] = useState({ code: "", name: "", location: "" });
   const [errors, setErrors] = useState({});
 
-  // --- STATE CHO ĐỊA CHỈ ---
   const [locations, setLocations] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);

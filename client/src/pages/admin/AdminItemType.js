@@ -12,49 +12,72 @@ const BASE_CODES = {
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     if (totalPages <= 1) return null;
-    
-    const pages = [];
-    if (totalPages <= 5) {
-        for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-        if (currentPage <= 3) {
-            pages.push(1, 2, 3, 4, '...', totalPages);
-        } else if (currentPage >= totalPages - 2) {
-            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-        } else {
-            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5; 
+
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = startPage + maxVisible - 1;
+
+        if (endPage > totalPages) {
+            endPage = totalPages;
+            startPage = Math.max(1, endPage - maxVisible + 1);
         }
-    }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
+            );
+            if (startPage > 2) {
+                pages.push(<span key="dots-start" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    onClick={() => onPageChange(i)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        i === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(<span key="dots-end" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+            }
+            pages.push(
+                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
+            );
+        }
+
+        return pages;
+    };
 
     return (
         <div className="flex gap-1.5 items-center">
-            <button 
-                disabled={currentPage <= 1} 
-                onClick={() => onPageChange(currentPage - 1)} 
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            <button
+                disabled={currentPage <= 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
             >
                 Trước
             </button>
-            {pages.map((p, i) => (
-                <button
-                    key={i}
-                    disabled={p === '...'}
-                    onClick={() => p !== '...' && onPageChange(p)}
-                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
-                        p === currentPage 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : p === '...' 
-                                ? 'bg-transparent text-gray-500 border-transparent shadow-none cursor-default px-1' 
-                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                >
-                    {p}
-                </button>
-            ))}
-            <button 
-                disabled={currentPage >= totalPages} 
-                onClick={() => onPageChange(currentPage + 1)} 
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            
+            {renderPageNumbers()}
+            
+            <button
+                disabled={currentPage >= totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
             >
                 Sau
             </button>
@@ -184,7 +207,7 @@ export default function AdminItemType() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // 🌟 BẮT BUỘC PHẢI CÓ ÍT NHẤT 1 LINH KIỆN MÁY TƯƠNG THÍCH
+   
         if (formData.linkedRecipes.length === 0 && !tempLink.recipeId) {
             return toast.error("Bắt buộc phải thêm ít nhất 1 Cấu hình máy ráp tương thích!");
         }
@@ -222,7 +245,6 @@ export default function AdminItemType() {
         }
     };
 
-    // 🌟 LỌC DỮ LIỆU DẠNG MẢNG PHẲNG (FLAT ARRAY)
     const filteredItemTypes = useMemo(() => {
         const safeKeyword = searchKeyword.toLowerCase();
 
@@ -240,13 +262,11 @@ export default function AdminItemType() {
             const baseLabel = BASE_CODES[base] || "Khác";
             const basePass = selectedBaseFilter ? baseLabel === selectedBaseFilter : true;
 
-            type._baseLabel = baseLabel; // Lưu nhãn để hiển thị ra bảng
-
+            type._baseLabel = baseLabel; 
             return searchPass && basePass;
         });
     }, [itemTypes, searchKeyword, selectedBaseFilter]);
 
-    // 🌟 PHÂN TRANG BẢNG
     const paginatedData = useMemo(() => {
         const totalPages = Math.ceil(filteredItemTypes.length / itemsPerPage);
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -297,7 +317,6 @@ export default function AdminItemType() {
                 </div>
             </div>
 
-            {/* 🌟 HIỂN THỊ DẠNG BẢNG PHẲNG */}
             <div className="flex-1 overflow-y-auto pb-6">
                 {loading ? (
                     <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div></div>
@@ -348,7 +367,6 @@ export default function AdminItemType() {
                 )}
             </div>
 
-            {/* 🌟 THANH PHÂN TRANG THÔNG MINH */}
             {!loading && paginatedData.totalCount > 0 && (
                 <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
                     <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -363,8 +381,6 @@ export default function AdminItemType() {
                     />
                 </div>
             )}
-
-            {/* MODAL THÊM SỬA */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
