@@ -12,7 +12,6 @@ function getClientIp(req) {
 	return req.connection.remoteAddress || req.socket.remoteAddress || req.ip || '127.0.0.1';
 }
 
-// 🌟 HÀM MỚI: Tạm giữ hàng (Khóa kho) thay vì xuất kho
 const reserveInventoryForOrder = async (order) => {
     try {
         let isUpdated = false;
@@ -43,9 +42,6 @@ const reserveInventoryForOrder = async (order) => {
                         { status: 'reserved' }, 
                         { new: true }
                     );
-                    if (part) {
-                        console.log(`🔒 Đã khóa linh kiện Serial: ${part.serialCode} cho máy ráp`);
-                    }
                 }
             }
         }
@@ -54,7 +50,7 @@ const reserveInventoryForOrder = async (order) => {
             await order.save();
         }
     } catch (error) {
-        console.error('❌ Lỗi khóa kho:', error);
+        console.error(' Lỗi khóa kho:', error);
     }
 };
 
@@ -81,7 +77,7 @@ exports.createVnpayPayment = async (req, res) => {
 
 		return res.status(200).json({ success: true, paymentUrl: url });
 	} catch (e) {
-		console.error('❌ VNPay create error:', e);
+		console.error(' VNPay create error:', e);
 		return res.status(500).json({ success: false, message: 'Lỗi tạo link thanh toán VNPay' });
 	}
 };
@@ -109,8 +105,6 @@ exports.vnpayReturn = async (req, res) => {
                 const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
                 
                 sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
-
-                // 🌟 GỌI HÀM KHÓA KHO BẢO VỆ HÀNG (Thay vì xuất thẳng)
                 reserveInventoryForOrder(updatedOrder).catch(err => console.error(err));
             }
         }
@@ -124,7 +118,7 @@ exports.vnpayReturn = async (req, res) => {
 
 		return res.status(200).json({ success: code === '00', code, data: req.query });
 	} catch (e) {
-		console.error('❌ VNPay return error:', e);
+		console.error(' VNPay return error:', e);
 		return res.status(500).json({ success: false, message: 'Lỗi Return VNPay' });
 	}
 };
@@ -137,7 +131,7 @@ exports.vnpayIpn = async (req, res) => {
 		}
 		return res.json({ RspCode: '00', Message: 'Confirm Success' });
 	} catch (e) {
-		console.error('❌ VNPay IPN error:', e);
+		console.error(' VNPay IPN error:', e);
 		return res.json({ RspCode: '99', Message: 'Unknown error' });
 	}
 };

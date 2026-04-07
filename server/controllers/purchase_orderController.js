@@ -4,7 +4,7 @@ const Purchase_order_detail = require("../models/Purchase_order_detail");
 const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const InventoryTransaction = require("../models/Inventory_transaction");
-const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); // <--- THÊM DÒNG NÀY
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); 
 const Store = require("../models/Store");
 
 const getAllPurchaseOrders = async (req, res) => {
@@ -127,7 +127,7 @@ const createPurchaseOrder = async (req, res) => {
 
     res.status(201).json({ success: true, data: savedOrder });
   } catch (error) {
-    console.error("🔥 LỖI TẠO ĐƠN HÀNG:", error);
+    console.error(" LỖI TẠO ĐƠN HÀNG:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -146,7 +146,7 @@ const getOrdersByCustomer = async (req, res) => {
   }
 };
 
-// 🌟 ĐÃ SỬA LOGIC XUẤT NHẬP KHO (HEADER - DETAIL)
+
 const confirmPayment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -165,7 +165,7 @@ const confirmPayment = async (req, res) => {
 
     const isSale = updatedOrder.orderType === "SALE";
 
-    // 1. Tạo Phiếu Tổng (Header)
+  
     const newTransaction = new InventoryTransaction({
         storeId: updatedOrder.storeId,
         transactionType: isSale ? "OUTBOUND" : "INBOUND", 
@@ -178,7 +178,6 @@ const confirmPayment = async (req, res) => {
 
     const transactionDetails = [];
 
-    // 2. Chạy qua từng Detail để cập nhật trạng thái kho & tạo mảng TransactionDetail
     for (const detail of details) {
       const newStatus = isSale ? "sold" : "waiting_for_tech_decision";
 
@@ -198,7 +197,7 @@ const confirmPayment = async (req, res) => {
       });
     }
 
-    // 3. Insert một lượt toàn bộ chi tiết vào DB
+  
     if (transactionDetails.length > 0) {
       await InventoryTransactionDetail.insertMany(transactionDetails);
     }
@@ -284,7 +283,7 @@ const updatePurchaseOrder = async (req, res) => {
 
     res.status(200).json({ message: "Cập nhật thành công", data: order });
   } catch (error) {
-    console.log("🔥 Lỗi UPDATE Purchase Order:", error);
+    console.log(" Lỗi UPDATE Purchase Order:", error);
     res.status(500).json({ message: error.message });
   }
 };

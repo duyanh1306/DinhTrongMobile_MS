@@ -20,21 +20,16 @@ router.post("/reset-password", authController.resetPassword);
 router.post("/verify-otp-reset", authController.verifyOtpReset);
 router.put("/profile", upload.single("avatar"), authController.updateProfile);
 router.put("/change-password", authController.changePassword);
-// ... Các route CRUD user khác của bạn (nhớ thêm middleware authMiddleware vào nếu cần bảo mật)
-// 1. Route: Gửi người dùng sang trang Login của Google
-// URL: http://localhost:9999/api/users/auth/google
+
 router.get(
   "/auth/google",
   passport.authenticate("google", { scope: ["profile", "email"], session: false })
 );
 
-// 2. Route: Google gọi về khi login xong (Callback)
-// URL: http://localhost:9999/api/users/google/callback
+
 router.get(
   "/google/callback",
-  // Middleware 1: Passport xử lý code từ Google, lấy profile, lưu vào DB
   passport.authenticate("google", { session: false, failureRedirect: "/login-failed" }),
-  // Middleware 2: Gọi Controller để tạo JWT và trả về Client
   authController.googleAuthCallback
 );
 

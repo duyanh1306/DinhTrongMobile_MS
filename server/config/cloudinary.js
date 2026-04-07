@@ -14,7 +14,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: 'DinhTrongMobile', // Tên thư mục chứa ảnh trên Cloudinary
+    folder: 'DinhTrongMobile', 
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
   }
 });

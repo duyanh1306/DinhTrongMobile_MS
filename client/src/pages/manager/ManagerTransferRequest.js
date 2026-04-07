@@ -3,7 +3,6 @@ import { ArrowLeft, Save, X, Package, Store, Smartphone, CheckSquare } from "luc
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
-// 🌟 IMPORT API
 import { 
     fetchStoresApi, 
     fetchItemsByStoreApi, 
@@ -179,7 +178,6 @@ export default function ManagerTransferRequest() {
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
-      {/* Các thành phần giao diện giữ nguyên hoàn toàn */}
       <div className="flex items-center gap-4">
         <button onClick={() => navigate("/manager/transfer_approvals")} className="p-2 hover:bg-gray-200 rounded-lg transition-colors bg-white shadow-sm"><ArrowLeft size={20} /></button>
         <div>

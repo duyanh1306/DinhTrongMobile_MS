@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, Check, X, Package, Calendar, Store, User, ArrowLeft } from "lucide-react";
+import { Search, Eye, Check, X, Package, Calendar, Store, User, ArrowLeft, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from 'sweetalert2';
@@ -19,18 +19,18 @@ export default function ManagerTransferRequestList() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState({});
   
-  // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [storeFilter, setStoreFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL"); 
   const [selectedDate, setSelectedDate] = useState("");
-
-  // Pagination
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Store options for filter
   const [stores, setStores] = useState([]);
   const [userStoreId, setUserStoreId] = useState("");
+
+  const [expandedRows, setExpandedRows] = useState({});
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
@@ -40,10 +40,10 @@ export default function ManagerTransferRequestList() {
     loadTransferRequests();
   }, [selectedDate]);
 
+ 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, storeFilter, selectedDate]);
-
+  }, [searchQuery, storeFilter, statusFilter, selectedDate]);
 
   const fetchStoresAndSetUserStore = async (userId) => {
     const storesArray = await fetchStoresApi();
@@ -55,7 +55,6 @@ export default function ManagerTransferRequestList() {
     }
   };
 
-  
   const loadTransferRequests = async () => {
     setLoading(true);
     const data = await fetchTransferRequestsApi();
@@ -63,7 +62,6 @@ export default function ManagerTransferRequestList() {
     setLoading(false);
   };
 
- 
   const handleApprove = async (requestId) => {
     const result = await Swal.fire({
         title: 'Duyệt yêu cầu này?',
@@ -91,7 +89,6 @@ export default function ManagerTransferRequestList() {
     }
   };
 
-  
   const handleReject = async (requestId) => {
     const result = await Swal.fire({
         title: 'Từ chối yêu cầu?',
@@ -118,7 +115,6 @@ export default function ManagerTransferRequestList() {
       toast.error(error.response?.data?.message || "Không thể từ chối yêu cầu");
     }
   };
-
 
   const handleConfirm = async (requestId) => {
     const result = await Swal.fire({
@@ -147,7 +143,10 @@ export default function ManagerTransferRequestList() {
     }
   };
 
-  // Filter requests that involve user's store
+  const toggleRow = (id) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const filteredRequests = requests.filter((req) => {
     const involvesUserStore = req.fromStoreId?._id === userStoreId || req.toStoreId?._id === userStoreId;
     if (!involvesUserStore) return false;
@@ -163,13 +162,15 @@ export default function ManagerTransferRequestList() {
       (storeFilter === "SENT" && req.fromStoreId?._id === userStoreId) ||
       (storeFilter === "RECEIVED" && req.toStoreId?._id === userStoreId);
 
+   
+    const matchStatus = statusFilter === "ALL" || req.status === statusFilter;
+
     const matchDate = !selectedDate || 
       new Date(req.createdAt).toDateString() === new Date(selectedDate).toDateString();
 
-    return matchSearch && matchStore && matchDate;
+    return matchSearch && matchStore && matchStatus && matchDate;
   });
 
-  // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentRequests = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
@@ -185,12 +186,12 @@ export default function ManagerTransferRequestList() {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case "COMPLETED": return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Đã hoàn thành</span>;
-      case "APPROVED": return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">Đã duyệt</span>;
-      case "DELIVERING": return <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">Đang vận chuyển</span>;
-      case "PENDING": return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">Chờ duyệt</span>;
-      case "REJECTED": return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Từ chối</span>;
-      default: return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">{status}</span>;
+      case "COMPLETED": return <span className="px-2.5 py-1 bg-green-100 text-green-800 text-xs rounded-md font-bold border border-green-200 whitespace-nowrap">Đã hoàn thành</span>;
+      case "APPROVED": return <span className="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs rounded-md font-bold border border-blue-200 whitespace-nowrap">Đã duyệt</span>;
+      case "DELIVERING": return <span className="px-2.5 py-1 bg-purple-100 text-purple-800 text-xs rounded-md font-bold border border-purple-200 whitespace-nowrap">Đang vận chuyển</span>;
+      case "PENDING": return <span className="px-2.5 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-md font-bold border border-yellow-200 whitespace-nowrap">Chờ duyệt</span>;
+      case "REJECTED": return <span className="px-2.5 py-1 bg-red-100 text-red-800 text-xs rounded-md font-bold border border-red-200 whitespace-nowrap">Từ chối</span>;
+      default: return <span className="px-2.5 py-1 bg-gray-100 text-gray-800 text-xs rounded-md font-bold border border-gray-200 whitespace-nowrap">{status}</span>;
     }
   };
 
@@ -200,22 +201,22 @@ export default function ManagerTransferRequestList() {
 
     if (isFromUserStore && request.status === "PENDING") {
       return (
-        <div className="flex gap-1">
-          <button onClick={() => handleApprove(request._id)} className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-full hover:bg-green-100" title="Duyệt"><Check size={16} /></button>
-          <button onClick={() => handleReject(request._id)} className="text-red-600 hover:text-red-800 transition bg-red-50 p-1.5 rounded-full hover:bg-red-100" title="Từ chối"><X size={16} /></button>
-          <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100" title="Chi tiết"><Eye size={16} /></button>
+        <div className="flex justify-center gap-1">
+          <button onClick={() => handleApprove(request._id)} className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-md hover:bg-green-100 border border-green-200 shadow-sm" title="Duyệt"><Check size={16} /></button>
+          <button onClick={() => handleReject(request._id)} className="text-red-600 hover:text-red-800 transition bg-red-50 p-1.5 rounded-md hover:bg-red-100 border border-red-200 shadow-sm" title="Từ chối"><X size={16} /></button>
+          <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-md hover:bg-blue-100 border border-blue-200 shadow-sm" title="Chi tiết"><Eye size={16} /></button>
         </div>
       );
     } else if (isToUserStore && request.status === "DELIVERING") {
       return (
-        <div className="flex gap-1">
-          <button onClick={() => handleConfirm(request._id)} className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-full hover:bg-green-100" title="Xác nhận nhận hàng"><Check size={16} /></button>
-          <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100" title="Chi tiết"><Eye size={16} /></button>
+        <div className="flex justify-center gap-1">
+          <button onClick={() => handleConfirm(request._id)} className="text-green-600 hover:text-green-800 transition bg-green-50 p-1.5 rounded-md hover:bg-green-100 border border-green-200 shadow-sm" title="Xác nhận nhận hàng"><Check size={16} /></button>
+          <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-md hover:bg-blue-100 border border-blue-200 shadow-sm" title="Chi tiết"><Eye size={16} /></button>
         </div>
       );
     } else {
       return (
-        <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-1.5 rounded-full hover:bg-blue-100" title="Chi tiết"><Eye size={16} /></button>
+        <button onClick={() => navigate(`/manager/transfer_requests/${request._id}`)} className="text-blue-600 hover:text-blue-800 transition bg-blue-50 p-2 rounded-md hover:bg-blue-100 border border-blue-200 shadow-sm mx-auto flex" title="Chi tiết"><Eye size={16} /></button>
       );
     }
   };
@@ -226,81 +227,157 @@ export default function ManagerTransferRequestList() {
       <div className="p-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate("/manager/dashboard")} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><ArrowLeft size={20} /></button>
+            <button onClick={() => navigate("/manager/dashboard")} className="p-2 hover:bg-gray-100 rounded-lg transition-colors bg-white shadow-sm border border-gray-200"><ArrowLeft size={20} /></button>
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Package className="text-indigo-600" />Yêu cầu chuyển kho</h1>
           </div>
-          <button onClick={() => navigate("/manager/transfer_requests/new")} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
-            <Package size={16} /> Tạo yêu cầu mới
+          <button onClick={() => navigate("/manager/transfer_requests/new")} className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-md">
+            <Package size={18} /> Tạo yêu cầu luân chuyển mới
           </button>
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+       
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input type="text" placeholder="Tìm theo tên nhân viên, cửa hàng..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <input type="text" placeholder="Tìm theo tên người yêu cầu, ghi chú..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
             </div>
             <div className="relative">
               <Store className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none">
-                <option value="ALL">Tất cả giao dịch</option>
-                <option value="SENT">Cửa hàng gửi</option>
-                <option value="RECEIVED">Cửa hàng nhận</option>
+              <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer text-sm font-semibold text-gray-700">
+                <option value="ALL">Tất cả giao dịch (Gửi & Nhận)</option>
+                <option value="SENT">Gửi đi (Xin xuất kho)</option>
+                <option value="RECEIVED">Nhận về (Xin nhập kho)</option>
               </select>
+              <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
             </div>
+            
+           
+            <div className="relative">
+              <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer text-sm font-semibold text-gray-700">
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="PENDING">Chờ duyệt</option>
+                <option value="APPROVED">Đã duyệt (Chờ xuất)</option>
+                <option value="DELIVERING">Đang vận chuyển</option>
+                <option value="COMPLETED">Đã hoàn thành</option>
+                <option value="REJECTED">Đã từ chối</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
+            </div>
+
             <div className="relative">
               <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Chọn ngày" />
+              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-700" />
             </div>
           </div>
           
-          {(searchQuery || storeFilter !== "ALL" || selectedDate) && (
+          {(searchQuery || storeFilter !== "ALL" || statusFilter !== "ALL" || selectedDate) && (
             <div className="mt-3 flex justify-end">
-              <button onClick={() => { setSearchQuery(""); setStoreFilter("ALL"); setSelectedDate(""); }} className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+              <button onClick={() => { setSearchQuery(""); setStoreFilter("ALL"); setStatusFilter("ALL"); setSelectedDate(""); }} className="px-4 py-1.5 text-sm font-bold bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors">
                 Xóa bộ lọc
               </button>
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+        
+            <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
-                <tr className="bg-gray-100 border-y border-gray-200">
-                  <th className="p-3 font-semibold text-gray-700 text-center w-12">STT</th>
-                  <th className="p-3 font-semibold text-gray-700">Loại SP</th>
-                  <th className="p-3 font-semibold text-gray-700">SL</th>
-                  <th className="p-3 font-semibold text-gray-700">Cửa hàng gửi</th>
-                  <th className="p-3 font-semibold text-gray-700">Cửa hàng nhận</th>
-                  <th className="p-3 font-semibold text-gray-700">Người yêu cầu</th>
-                  <th className="p-3 font-semibold text-gray-700">Ngày tạo</th>
-                  <th className="p-3 font-semibold text-gray-700">Trạng thái</th>
-                  <th className="p-3 font-semibold text-gray-700 text-center">Hành động</th>
+                <tr className="bg-gray-50 border-y border-gray-200 uppercase text-xs text-gray-500">
+                  <th className="p-4 font-bold text-center w-12 align-middle">STT</th>
+               
+                  <th className="p-4 font-bold text-center w-24 align-middle">Loại phiếu</th>
+                  <th className="p-4 font-bold w-[30%] align-middle">Danh sách sản phẩm</th>
+                  <th className="p-4 font-bold text-center w-20 align-middle">Tổng SL</th>
+                  <th className="p-4 font-bold align-middle">Người yêu cầu</th>
+                  <th className="p-4 font-bold align-middle">Ngày tạo</th>
+                  <th className="p-4 font-bold text-center align-middle">Trạng thái</th>
+                  <th className="p-4 font-bold text-center align-middle">Hành động</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="9" className="p-6 text-center text-gray-500">Đang tải dữ liệu...</td></tr>
+                  <tr><td colSpan="8" className="p-10 text-center text-gray-500 align-middle"><div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div></td></tr>
                 ) : currentRequests.length === 0 ? (
-                  <tr><td colSpan="9" className="p-6 text-center text-gray-500">Không tìm thấy yêu cầu chuyển kho nào.</td></tr>
+                  <tr><td colSpan="8" className="p-10 text-center text-gray-500 font-medium align-middle">Không tìm thấy yêu cầu chuyển kho nào.</td></tr>
                 ) : (
                   currentRequests.map((req, index) => {
                     const itemTypes = req.itemType || [];
-                    const totalQuantity = itemTypes.reduce((sum, item) => sum + (item.quantity || 0), 0);
-                    const itemTypeNames = itemTypes.map(item => item.itemTypes?.name || item.itemTypes || "Unknown").join(", ");
+                    const phoneModels = req.phoneModel || [];
+                    
+                    const totalItemQty = itemTypes.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                    const totalPhoneQty = phoneModels.reduce((sum, phone) => sum + (phone.quantity || 0), 0);
+                    const totalQuantity = totalItemQty + totalPhoneQty;
+
+                    const isExpanded = expandedRows[req._id];
+
+                  
+                    const allItems = [
+                      ...phoneModels.map(p => p.phoneModels?.name || "Máy điện thoại"),
+                      ...itemTypes.map(it => it.itemTypes?.name || "Linh kiện")
+                    ];
+
+                    const displayNames = allItems.slice(0, 2).join(', ');
+                    const hasMore = allItems.length > 2;
+
+                
+                    const isExport = req.fromStoreId?._id === userStoreId;
 
                     return (
-                      <tr key={req._id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-3 text-sm text-gray-600 text-center font-medium">{indexOfFirstItem + index + 1}</td>
-                        <td className="p-3 text-sm text-gray-800"><div className="max-w-xs truncate" title={itemTypeNames}>{itemTypeNames || "Không có sản phẩm"}</div></td>
-                        <td className="p-3 text-sm text-gray-600 text-center">{totalQuantity}</td>
-                        <td className="p-3 text-sm font-medium text-gray-800">{req.fromStoreId?.name || "N/A"}</td>
-                        <td className="p-3 text-sm font-medium text-indigo-700">{req.toStoreId?.name || "N/A"}</td>
-                        <td className="p-3 text-sm text-gray-600"><div className="flex items-center gap-1"><User size={14} />{req.requestedBy?.fullName || "N/A"}</div></td>
-                        <td className="p-3 text-sm text-gray-500">{formatDate(req.createdAt)}</td>
-                        <td className="p-3">{getStatusBadge(req.status)}</td>
-                        <td className="p-3 flex justify-center">{getActionButtons(req)}</td>
+                      <tr key={req._id} className="border-b border-gray-100 hover:bg-blue-50/20 transition">
+                        <td className="p-4 text-sm text-gray-600 text-center font-bold align-middle">{indexOfFirstItem + index + 1}</td>
+                        
+                      
+                        <td className="p-4 text-center align-middle">
+                            {isExport ? (
+                                <span className="px-2.5 py-1 bg-orange-100 text-orange-800 text-xs rounded-md font-bold border border-orange-200 whitespace-nowrap">Xuất đi</span>
+                            ) : (
+                                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-md font-bold border border-emerald-200 whitespace-nowrap">Nhận về</span>
+                            )}
+                        </td>
+
+                        <td className="p-4 text-sm text-gray-800 align-middle max-w-[280px]">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-gray-700 font-medium leading-relaxed">
+                              {!isExpanded ? (
+                                <>
+                                  {displayNames}
+                                  {hasMore && <span className="text-gray-400 italic"> ... (+{allItems.length - 2})</span>}
+                                </>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  {allItems.map((name, idx) => (
+                                    <span key={idx}>{name}{idx < allItems.length - 1 ? ',' : ''}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {hasMore && (
+                              <button
+                                onClick={() => toggleRow(req._id)}
+                                className="mt-0.5 text-gray-500 hover:text-indigo-600 transition bg-gray-50 hover:bg-indigo-50 p-1 rounded-md flex-shrink-0"
+                              >
+                                {isExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-4 text-sm text-center font-semibold text-gray-800 align-middle">
+                            {totalQuantity}
+                        </td>
+                        <td className="p-4 text-sm text-gray-600 align-middle whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 font-bold"><User size={16} className="text-gray-400"/>{req.requestedBy?.fullName || "N/A"}</div>
+                        </td>
+                        <td className="p-4 text-sm text-gray-500 font-medium align-middle">{formatDate(req.createdAt)}</td>
+                        <td className="p-4 text-center align-middle">{getStatusBadge(req.status)}</td>
+                        <td className="p-4 align-middle">
+                            {getActionButtons(req)}
+                        </td>
                       </tr>
                     );
                   })
@@ -310,18 +387,18 @@ export default function ManagerTransferRequestList() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-between items-center p-4 border-t border-gray-200">
+            <div className="flex justify-between items-center p-4 border-t border-gray-200 bg-gray-50">
               <span className="text-sm text-gray-600">
-                Hiển thị <span className="font-semibold text-gray-900">{indexOfFirstItem + 1}</span> - <span className="font-semibold text-gray-900">{Math.min(indexOfLastItem, filteredRequests.length)}</span> trên tổng số <span className="font-semibold text-gray-900">{filteredRequests.length}</span> yêu cầu
+                Hiển thị <span className="font-bold text-indigo-600">{indexOfFirstItem + 1}</span> - <span className="font-bold text-indigo-600">{Math.min(indexOfLastItem, filteredRequests.length)}</span> trên tổng số <span className="font-bold text-gray-800">{filteredRequests.length}</span> yêu cầu
               </span>
               <div className="flex items-center gap-1">
                 {[...Array(totalPages)].map((_, index) => (
                   <button
                     key={index}
                     onClick={() => setCurrentPage(index + 1)}
-                    className={`w-8 h-8 rounded-md text-sm font-medium transition ${
-                      currentPage === index + 1 ? "bg-indigo-600 text-white" : "text-gray-700 hover:bg-gray-100 border border-transparent"
-                    }`}
+                    className={`w-8 h-8 rounded-md text-sm font-bold transition shadow-sm ${
+                      currentPage === index + 1 ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    } border`}
                   >
                     {index + 1}
                   </button>

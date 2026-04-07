@@ -4,8 +4,6 @@ const Cart = require("../models/Cart");
 const getCartByUser = async (req, res) => {
     try {
         const { userId } = req.params;
-        
-        // SỬA Ở ĐÂY: Thêm .populate() để lấy tên và giá linh kiện
         let cart = await Cart.findOne({ userId })
             .populate('items.selectedParts', 'name price'); 
         
@@ -28,7 +26,6 @@ const updateItemQuantity = async (req, res) => {
         const itemIndex = cart.items.findIndex(item => item._id.toString() === itemId);
         if (itemIndex > -1) {
             cart.items[itemIndex].quantity = quantity;
-            // Tính lại tổng tiền
             cart.totalPrice = cart.items.reduce((total, i) => total + (i.price * i.quantity), 0);
             await cart.save();
             res.status(200).json({ success: true, data: cart });
@@ -60,13 +57,10 @@ const addToCart = async (req, res) => {
     try {
         const { userId, item } = req.body;
         let cart = await Cart.findOne({ userId });
-        
-        // Nếu chưa có giỏ, tạo giỏ mới
+
         if (!cart) {
             cart = new Cart({ userId, items: [], totalPrice: 0 });
         }
-
-        // Kiểm tra xem máy này (cùng màu, cùng dung lượng) đã có trong giỏ chưa
         const existingItemIndex = cart.items.findIndex(i => 
             i.productType === 'PHONE' && 
             i.phoneModelId?.toString() === item.phoneModelId && 
@@ -75,12 +69,11 @@ const addToCart = async (req, res) => {
         );
 
         if (existingItemIndex > -1) {
-            cart.items[existingItemIndex].quantity += 1; // Có rồi thì +1 số lượng
+            cart.items[existingItemIndex].quantity += 1; 
         } else {
-            cart.items.push(item); // Chưa có thì thêm mới
+            cart.items.push(item); 
         }
 
-        // Tính lại tổng tiền
         cart.totalPrice = cart.items.reduce((total, i) => total + (i.price * i.quantity), 0);
         await cart.save();
         
@@ -95,8 +88,8 @@ const clearCart = async (req, res) => {
         let cart = await Cart.findOne({ userId });
         
         if (cart) {
-            cart.items = []; // Xóa sạch mảng sản phẩm
-            cart.totalPrice = 0; // Đưa tổng tiền về 0
+            cart.items = []; 
+            cart.totalPrice = 0; 
             await cart.save();
         }
         res.status(200).json({ success: true, message: "Đã dọn dẹp giỏ hàng" });

@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
-import { Plus, Edit, Smartphone, Search, ChevronDown, X, Image as ImageIcon, Package, Tag } from "lucide-react";
-
-// 🌟 IMPORT API TỪ FILE phoneModel.js CỦA BẠN
+import { Plus, Edit, Smartphone, Search, ChevronDown, X, Image as ImageIcon, Tag } from "lucide-react";
 import { fetchPhoneBrandsApi, fetchPhoneModelsApi, createPhoneModelApi, updatePhoneModelApi } from "../../api/admin/phoneModel";
 
 const initialFormState = {
@@ -22,6 +20,58 @@ const checkIsUsedModel = (name) => {
     return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
 };
 
+const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+    
+    const pages = [];
+    if (totalPages <= 5) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+        if (currentPage <= 3) {
+            pages.push(1, 2, 3, 4, '...', totalPages);
+        } else if (currentPage >= totalPages - 2) {
+            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        } else {
+            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        }
+    }
+
+    return (
+        <div className="flex gap-1.5 items-center">
+            <button 
+                disabled={currentPage <= 1} 
+                onClick={() => onPageChange(currentPage - 1)} 
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            >
+                Trước
+            </button>
+            {pages.map((p, i) => (
+                <button
+                    key={i}
+                    disabled={p === '...'}
+                    onClick={() => p !== '...' && onPageChange(p)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        p === currentPage 
+                            ? 'bg-blue-600 text-white border-blue-600' 
+                            : p === '...' 
+                                ? 'bg-transparent text-gray-500 border-transparent shadow-none cursor-default px-1' 
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {p}
+                </button>
+            ))}
+            <button 
+                disabled={currentPage >= totalPages} 
+                onClick={() => onPageChange(currentPage + 1)} 
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            >
+                Sau
+            </button>
+        </div>
+    );
+};
+
 export default function AdminPhoneModel() {
     const [phoneModels, setPhoneModels] = useState([]);
     const [phoneBrands, setPhoneBrands] = useState([]);
@@ -29,11 +79,10 @@ export default function AdminPhoneModel() {
     
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedBrandFilter, setSelectedBrandFilter] = useState('');
-    const [selectedTypeFilter, setSelectedTypeFilter] = useState(''); // 'new' hoặc 'used'
+    const [selectedTypeFilter, setSelectedTypeFilter] = useState(''); 
 
-    // STATE PHÂN TRANG THEO NHÓM
     const [currentPage, setCurrentPage] = useState(1);
-    const groupsPerPage = 3;
+    const itemsPerPage = 10; 
 
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -45,18 +94,16 @@ export default function AdminPhoneModel() {
         fetchPhoneModels();
     }, []);
 
-    // Reset phân trang khi đổi bộ lọc
+
     useEffect(() => {
         setCurrentPage(1);
     }, [searchKeyword, selectedBrandFilter, selectedTypeFilter]);
 
-    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG
     const fetchPhoneBrands = async () => {
         const data = await fetchPhoneBrandsApi();
         setPhoneBrands(data);
     };
 
-    // 🌟 SỬ DỤNG API TỪ FILE RIÊNG
     const fetchPhoneModels = async () => {
         setLoading(true);
         const data = await fetchPhoneModelsApi();
@@ -95,7 +142,6 @@ export default function AdminPhoneModel() {
         if (file) setFormData(prev => ({ ...prev, imageFile: file, previewImage: URL.createObjectURL(file) }));
     };
 
-    // 🌟 SỬ DỤNG API TẠO/CẬP NHẬT TỪ FILE RIÊNG
     const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -121,12 +167,11 @@ export default function AdminPhoneModel() {
         }
     };
 
-    // 1. LỌC VÀ GOM NHÓM DỮ LIỆU
-    const allGroupedData = useMemo(() => {
-        const result = {};
+
+    const filteredModels = useMemo(() => {
         const safeKeyword = searchKeyword.toLowerCase();
 
-        const filtered = phoneModels.filter(m => {
+        return phoneModels.filter(m => {
             const nameMatch = m.name.toLowerCase().includes(safeKeyword);
             const brandId = m.brand?._id || m.brand;
             const brandPass = selectedBrandFilter ? brandId === selectedBrandFilter : true;
@@ -135,44 +180,20 @@ export default function AdminPhoneModel() {
 
             return nameMatch && brandPass && typePass;
         });
-
-        filtered.forEach(model => {
-            const isUsed = checkIsUsedModel(model.name);
-            const typeLabel = isUsed ? 'ĐIỆN THOẠI CŨ' : 'ĐIỆN THOẠI MỚI';
-            const brandName = model.brand?.name || 'Khác';
-            
-            const groupKey = `${typeLabel} | ${brandName}`;
-            
-            if (!result[groupKey]) result[groupKey] = [];
-            result[groupKey].push(model);
-        });
-
-        return result;
     }, [phoneModels, searchKeyword, selectedBrandFilter, selectedTypeFilter]);
 
-    // 2. ÁP DỤNG PHÂN TRANG THEO NHÓM (GROUPS)
-    const paginatedData = useMemo(() => {
-        const entries = Object.entries(allGroupedData);
-        // Sắp xếp để ĐIỆN THOẠI MỚI hiện lên trước
-        entries.sort((a, b) => b[0].localeCompare(a[0])); 
-
-        const totalGroups = entries.length;
-        const totalPages = Math.ceil(totalGroups / groupsPerPage);
-        
-        const startIndex = (currentPage - 1) * groupsPerPage;
-        const endIndex = startIndex + groupsPerPage;
-        const currentGroups = entries.slice(startIndex, endIndex);
-
-        let totalItemsCount = 0;
-        entries.forEach(([_, list]) => { totalItemsCount += list.length });
+  
+    const paginatedModels = useMemo(() => {
+        const totalPages = Math.ceil(filteredModels.length / itemsPerPage);
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const currentItems = filteredModels.slice(startIndex, startIndex + itemsPerPage);
 
         return {
-            groups: currentGroups,
+            items: currentItems,
             totalPages: totalPages || 1,
-            totalItemsCount: totalItemsCount
+            totalCount: filteredModels.length
         };
-    }, [allGroupedData, currentPage]);
-
+    }, [filteredModels, currentPage, itemsPerPage]);
 
     return (
         <div className="flex flex-col h-full space-y-6">
@@ -186,7 +207,6 @@ export default function AdminPhoneModel() {
                 </button>
             </div>
 
-            {/* BỘ LỌC ĐƯỢC CHUYỂN LÊN TRÊN */}
             <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-4 items-center border border-gray-100">
                 <div className="relative min-w-[200px]">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -223,105 +243,87 @@ export default function AdminPhoneModel() {
                 </div>
             </div>
 
-            {/* HIỂN THỊ DANH SÁCH BẢNG */}
+         
             <div className="flex-1 overflow-y-auto pb-4">
                 {loading ? (
                     <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
-                ) : paginatedData.groups.length === 0 ? (
+                ) : paginatedModels.items.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy Dòng máy nào phù hợp.</div>
                 ) : (
-                    paginatedData.groups.map(([groupKey, modelsList]) => {
-                        const [typeLabel, brandName] = groupKey.split(' | ');
-                        const isNew = typeLabel === 'ĐIỆN THOẠI MỚI';
-
-                        return (
-                            <div key={groupKey} className="mb-6 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                                <div className={`${isNew ? 'bg-blue-50/60' : 'bg-yellow-50/60'} p-3 px-4 flex justify-between items-center border-b border-gray-200`}>
-                                    <h3 className={`font-bold flex items-center gap-2 text-lg ${isNew ? 'text-blue-900' : 'text-yellow-800'}`}>
-                                        <Smartphone size={20} className={isNew ? 'text-blue-600' : 'text-yellow-600'}/> 
-                                        {typeLabel} - Hãng {brandName}
-                                        <span className={`${isNew ? 'bg-blue-600' : 'bg-yellow-600'} text-white text-xs px-2.5 py-1 rounded-full ml-2 shadow-sm`}>
-                                            {modelsList.length} Dòng
-                                        </span>
-                                    </h3>
-                                </div>
-
-                                <div className="bg-white overflow-x-auto">
-                                <table className="w-full table-fixed text-left text-sm whitespace-nowrap">
-                                    <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 uppercase text-xs">
-                                        <tr>
-                                            <th className="px-6 py-3 font-semibold w-[45%]">Hình Ảnh & Tên Dòng Máy</th>
-                                            <th className="px-4 py-3 font-semibold text-center w-[15%]">Tồn kho Hệ thống</th>
-                                            <th className="px-4 py-3 font-semibold w-[30%]">Thông số cơ bản</th>
-                                            <th className="px-6 py-3 font-semibold text-right w-[10%]">Thao tác</th>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table className="w-full text-left text-sm whitespace-nowrap">
+                            <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 uppercase text-xs">
+                                <tr>
+                                    <th className="px-6 py-4 font-semibold w-[40%]">Hình Ảnh & Tên Dòng Máy</th>
+                                    <th className="px-6 py-4 font-semibold w-[20%]">Phân loại</th>
+                                    <th className="px-6 py-4 font-semibold w-[30%]">Thông số cơ bản</th>
+                                    <th className="px-6 py-4 font-semibold text-right w-[10%]">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {paginatedModels.items.map(model => {
+                                    const isUsed = checkIsUsedModel(model.name);
+                                    const brandName = model.brand?.name || 'Khác';
+                                    
+                                    return (
+                                        <tr key={model._id} className="hover:bg-blue-50/30 transition">
+                                            <td className="px-6 py-3">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                                                        {model.image ? <img src={model.image} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300"/>}
+                                                    </div>
+                                                    <span className="font-bold text-gray-800 text-base truncate max-w-[250px]" title={model.name}>{model.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <span className="font-bold text-gray-700">{brandName}</span>
+                                                    {isUsed ? (
+                                                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Hàng Cũ</span>
+                                                    ) : (
+                                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Hàng Mới</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3 text-xs text-gray-500 whitespace-normal">
+                                                <div className="line-clamp-2 leading-relaxed" title={`Màn: ${model.specifications?.screenSize || 'N/A'} - Chip: ${model.specifications?.chipset || 'N/A'}`}>
+                                                    {model.specifications?.screenSize && <span className="mr-3">Màn: <strong>{model.specifications.screenSize}</strong></span>}
+                                                    {model.specifications?.chipset && <span>Chip: <strong>{model.specifications.chipset}</strong></span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3 text-right">
+                                                <div className="flex justify-end">
+                                                    <button onClick={() => handleEditPhoneModel(model)} className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-sm border border-blue-100">
+                                                        <Edit size={16} /> 
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {modelsList.map(model => (
-                                            <tr key={model._id} className="hover:bg-gray-50/50 transition">
-                                                <td className="px-6 py-3 truncate">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                                            {model.image ? <img src={model.image} className="max-w-full max-h-full object-contain p-1" alt="img" /> : <ImageIcon className="text-gray-300"/>}
-                                                        </div>
-                                                        <span className="font-bold text-gray-800 text-base truncate" title={model.name}>{model.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-sm min-w-[100px] ${model.stockCount > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-600 bg-red-50 border-red-200"}`}>
-                                                        <Package size={16}/> {model.stockCount || 0} chiếc
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-xs text-gray-500 truncate">
-                                                    {model.specifications?.screenSize && <div className="truncate" title={`Màn: ${model.specifications.screenSize}`}>Màn: {model.specifications.screenSize}</div>}
-                                                    {model.specifications?.chipset && <div className="truncate" title={`Chip: ${model.specifications.chipset}`}>Chip: {model.specifications.chipset}</div>}
-                                                </td>
-                                                <td className="px-6 py-3 text-right">
-                                                    <div className="flex justify-end">
-                                                        <button onClick={() => handleEditPhoneModel(model)} className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-sm border border-blue-100">
-                                                            <Edit size={16} /> 
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                </div>
-                            </div>
-                        )
-                    })
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
 
-            {/* THANH PHÂN TRANG THEO NHÓM */}
-            {!loading && paginatedData.totalItemsCount > 0 && (
+        
+            {!loading && paginatedModels.totalCount > 0 && (
                 <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
                     <div className="text-sm text-gray-600 flex items-center gap-2">
-                        <span>Đang xem trang <strong className="text-blue-600">{currentPage}</strong> / {paginatedData.totalPages}</span>
+                        <span>Đang xem trang <strong className="text-blue-600">{currentPage}</strong> / {paginatedModels.totalPages}</span>
                         <span className="text-gray-300">|</span>
-                        <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedData.totalItemsCount}</strong> Dòng máy</span>
+                        <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedModels.totalCount}</strong> Dòng máy</span>
                     </div>
-                    <div className="flex gap-2">
-                        <button 
-                            disabled={currentPage <= 1} 
-                            onClick={() => setCurrentPage(prev => prev - 1)} 
-                            className="px-5 py-2 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
-                        >
-                            Trang trước
-                        </button>
-                        <button 
-                            disabled={currentPage >= paginatedData.totalPages} 
-                            onClick={() => setCurrentPage(prev => prev + 1)} 
-                            className="px-5 py-2 border border-gray-300 bg-white font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
-                        >
-                            Trang sau
-                        </button>
-                    </div>
+                    <CustomPagination 
+                        currentPage={currentPage} 
+                        totalPages={paginatedModels.totalPages} 
+                        onPageChange={setCurrentPage} 
+                    />
                 </div>
             )}
 
-            {/* MODAL THÊM / SỬA */}
+         
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">

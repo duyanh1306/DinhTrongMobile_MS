@@ -45,7 +45,7 @@ const getItemsPaginatedAndSearch = async (req, res) => {
         if (item_type) query.item_type = item_type;
         if (storeId) query.storeId = storeId;
 
-        // Trả về toàn bộ để vẽ Cây thư mục (Accordion Tree)
+     
         const items = await Item.find(query)
             .populate('item_type', 'name code')
             .populate('storeId', 'name address')

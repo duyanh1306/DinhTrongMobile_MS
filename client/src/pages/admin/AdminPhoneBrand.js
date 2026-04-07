@@ -3,13 +3,64 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Plus, Edit, Trash2, Search, X, Smartphone } from "lucide-react";
 
-// IMPORT TỪ FILE API MỚI
 import { 
     fetchPhoneBrandsApi, 
     createPhoneBrandApi, 
     updatePhoneBrandApi, 
     deletePhoneBrandApi 
 } from "../../api/admin/phoneBrand";
+
+const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+    
+    const pages = [];
+    if (totalPages <= 5) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+        if (currentPage <= 3) {
+            pages.push(1, 2, 3, 4, '...', totalPages);
+        } else if (currentPage >= totalPages - 2) {
+            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        } else {
+            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        }
+    }
+
+    return (
+        <div className="flex gap-1.5 items-center">
+            <button 
+                disabled={currentPage <= 1} 
+                onClick={() => onPageChange(currentPage - 1)} 
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            >
+                Trước
+            </button>
+            {pages.map((p, i) => (
+                <button
+                    key={i}
+                    disabled={p === '...'}
+                    onClick={() => p !== '...' && onPageChange(p)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        p === currentPage 
+                            ? 'bg-blue-600 text-white border-blue-600' 
+                            : p === '...' 
+                                ? 'bg-transparent text-gray-500 border-transparent shadow-none cursor-default px-1' 
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {p}
+                </button>
+            ))}
+            <button 
+                disabled={currentPage >= totalPages} 
+                onClick={() => onPageChange(currentPage + 1)} 
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition text-sm rounded-lg shadow-sm"
+            >
+                Sau
+            </button>
+        </div>
+    );
+};
 
 export default function AdminPhoneBrand() {
     const [brands, setBrands] = useState([]);
@@ -29,7 +80,6 @@ export default function AdminPhoneBrand() {
         loadBrands();
     }, [pagination.currentPage]);
 
-    // Delay search 500ms
     useEffect(() => {
         const timeout = setTimeout(() => { 
             setPagination(prev => ({...prev, currentPage: 1}));
@@ -38,9 +88,6 @@ export default function AdminPhoneBrand() {
         return () => clearTimeout(timeout);
     }, [search]);
 
-    // ==============================================================
-    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
-    // ==============================================================
     const loadBrands = async () => {
         setLoading(true);
         const params = new URLSearchParams({
@@ -88,9 +135,6 @@ export default function AdminPhoneBrand() {
         }
     };
 
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ GIAO DIỆN
-    // ==============================================================
     const handlePageChange = (newPage) => { 
         setPagination(prev => ({ ...prev, currentPage: newPage })); 
     };
@@ -121,7 +165,6 @@ export default function AdminPhoneBrand() {
                 </button>
             </div>
 
-            {/* BỘ LỌC */}
             <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -133,7 +176,7 @@ export default function AdminPhoneBrand() {
                 </div>
             </div>
 
-            {/* BẢNG DỮ LIỆU */}
+            
             <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
                 {loading ? (
                     <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
@@ -171,16 +214,18 @@ export default function AdminPhoneBrand() {
                     </div>
                 )}
                 
+              
                 <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto">
-                    <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold">{pagination.totalCount}</span></span>
-                    <div className="flex gap-2">
-                        <button disabled={!pagination.hasPrevPage} onClick={() => handlePageChange(pagination.currentPage - 1)} className="px-4 py-2 border bg-white disabled:opacity-40 transition text-sm rounded hover:bg-gray-100">Trước</button>
-                        <button disabled={!pagination.hasNextPage} onClick={() => handlePageChange(pagination.currentPage + 1)} className="px-4 py-2 border bg-white disabled:opacity-40 transition text-sm rounded hover:bg-gray-100">Sau</button>
-                    </div>
+                    <span className="text-sm text-gray-600">Trang <span className="font-bold text-blue-600">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold text-gray-800">{pagination.totalCount}</span></span>
+                    <CustomPagination 
+                        currentPage={pagination.currentPage} 
+                        totalPages={pagination.totalPages} 
+                        onPageChange={handlePageChange} 
+                    />
                 </div>
             </div>
 
-            {/* MODAL */}
+          
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">

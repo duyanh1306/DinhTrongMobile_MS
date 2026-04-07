@@ -15,7 +15,6 @@ const getPhoneReviews = async (req, res) => {
             .populate('user', 'fullName image') 
             .sort({ createdAt: -1 });
 
-        // Lấy thống kê tổng quan từ tất cả đánh giá (không bị ảnh hưởng bởi filter)
         const allReviews = await Review.find({ phoneModel: phoneModelId });
         const totalReviews = allReviews.length;
         
@@ -53,14 +52,11 @@ const getPhoneReviews = async (req, res) => {
 const createOrUpdateReview = async (req, res) => {
     try {
         const { phoneModelId, rating, comment, performance, battery, camera } = req.body;
-        // Bắt ID user từ token (req.user do middleware authCustomer gán)
+     
         const userId = req.user.id || req.user._id; 
-
-        // KIỂM TRA: Xem khách đã đánh giá máy này chưa?
         const existingReview = await Review.findOne({ user: userId, phoneModel: phoneModelId });
 
         if (existingReview) {
-            // NẾU ĐÃ CÓ -> Cập nhật (Edit)
             existingReview.rating = rating;
             existingReview.comment = comment;
             existingReview.criteria = { performance, battery, camera };
@@ -68,14 +64,13 @@ const createOrUpdateReview = async (req, res) => {
             
             return res.status(200).json({ success: true, message: "Đã cập nhật lại đánh giá của bạn!" });
         } else {
-            // NẾU CHƯA CÓ -> Tạo mới
             const newReview = new Review({
                 user: userId,
                 phoneModel: phoneModelId,
                 rating,
                 comment,
                 criteria: { performance, battery, camera },
-                hasPurchased: false // Tạm thời set false, sau này đối chiếu với Order sau
+                hasPurchased: false 
             });
 
             await newReview.save();

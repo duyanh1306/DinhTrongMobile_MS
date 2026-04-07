@@ -3,8 +3,8 @@ const Recipe = require("../models/Recipe");
 const getAllRecipes = async (req, res) => {
     try {
         const recipes = await Recipe.find()
-            .populate('phoneModelId', 'name image brand') // Lấy thông tin dòng máy
-            .populate('requiredParts.acceptedItemTypes', 'name code image'); // Lấy thông tin các danh mục linh kiện được cho phép
+            .populate('phoneModelId', 'name image brand') 
+            .populate('requiredParts.acceptedItemTypes', 'name code image'); 
             
         res.status(200).json({ success: true, data: recipes });
     } catch (error) {

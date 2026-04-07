@@ -2,8 +2,8 @@ const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const QRCode = require('qrcode');
 const InventoryTransaction = require("../models/Inventory_transaction");
-const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); // <--- THÊM DÒNG NÀY
-
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); 
+const PhoneModel = require("../models/Phone_model");
 const generatePhoneQRCode = async (req, res) => {
     try {
         const { id } = req.params;
@@ -44,7 +44,7 @@ const getPhonesPaginatedAndSearch = async (req, res) => {
     }
 };
 
-// 🌟 ĐÃ SỬA LOGIC GHI LOG HEADER-DETAIL KHI TECH ĐƯA RA QUYẾT ĐỊNH
+
 const handleTechDecision = async (req, res) => {
   try {
     const { id } = req.params;
@@ -53,7 +53,7 @@ const handleTechDecision = async (req, res) => {
     const phone = await Phone.findById(id);
     if (!phone) return res.status(404).json({ message: "Không tìm thấy điện thoại" });
 
-    // 1. LUỒNG NHẬP KHO NGAY (Không sửa chữa)
+    
     if (decision === "DIRECT_IMPORT") {
       phone.status = "in_stock";
       await phone.save();
@@ -77,7 +77,7 @@ const handleTechDecision = async (req, res) => {
       return res.status(200).json({ message: "Đã nhập kho nguyên bản" });
     }
 
-    // 2. LUỒNG TÂN TRANG / SỬA BÁN
+
     if (decision === "SELL") {
       phone.status = "in_stock";
       phone.sellingPrice = Number(sellingPrice);
@@ -85,7 +85,7 @@ const handleTechDecision = async (req, res) => {
       if (colorName) phone.colorName = colorName;
       await phone.save();
 
-      // Log nhập kho máy thu cũ (sau khi tân trang)
+   
       const inHeader = await InventoryTransaction.create({
         storeId: phone.storeId,
         transactionType: "INBOUND",
@@ -102,7 +102,7 @@ const handleTechDecision = async (req, res) => {
         note: "Máy tân trang"
       });
 
-      // Trừ kho linh kiện thay thế (nếu có chọn thay)
+ 
       if (replacedItems && replacedItems.length > 0) {
         await Item.updateMany(
           { _id: { $in: replacedItems } },
@@ -130,12 +130,12 @@ const handleTechDecision = async (req, res) => {
       return res.status(200).json({ message: "Đã tân trang và chuyển máy vào kho" });
     } 
     
-    // 3. LUỒNG RÃ XÁC 
+
     if (decision === "DISMANTLE") {
       phone.status = "defective"; 
       await phone.save();
 
-      // Log xuất tiêu hao máy mẹ
+   
       const outHeader = await InventoryTransaction.create({
         storeId: phone.storeId,
         transactionType: "REPAIR_CONSUMPTION",
@@ -152,7 +152,7 @@ const handleTechDecision = async (req, res) => {
         note: "Máy mẹ đem rã"
       });
 
-      // Tạo & Nhập kho linh kiện con
+      
       if (parts && parts.length > 0) {
         const itemsToCreate = parts.map((p) => ({
           name: p.name || `Linh kiện bóc máy`,
@@ -347,6 +347,88 @@ const getPhonesGroupedByBrand = async (req, res) => {
         res.status(500).json({ success: false, message: "Lỗi Server" });
     }
 };
+const importBatchPhone = async (req, res) => {
+    try {
+        const {
+            phoneModelId, storeId, quantity, batchSuffix,
+            colorName, capacity, grade, importPrice, sellingPrice,
+            warrantyPeriod, source
+        } = req.body;
+
+        const qty = parseInt(quantity, 10);
+        if (!qty || qty < 1) return res.status(400).json({ success: false, message: "Số lượng không hợp lệ" });
+
+        let specificImages = [];
+        if (req.files && req.files.length > 0) {
+            specificImages = req.files.map(file => file.path);
+        }
+        const ModelInfo = await PhoneModel.findById(phoneModelId);
+        
+        if (!ModelInfo) return res.status(404).json({ success: false, message: "Không tìm thấy dòng máy" });
+
+        let prefix = ModelInfo.name.toUpperCase().replace(/\s+/g, '');
+        prefix = prefix.replace('IPHONE', 'IP').replace('SAMSUNGGALAXY', 'SS').replace('XIAOMI', 'MI');
+        prefix = prefix.substring(0, 8);
+
+        const dateObj = new Date();
+        const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}${String(dateObj.getMonth() + 1).padStart(2, '0')}${String(dateObj.getFullYear()).slice(2)}`;
+        const finalSuffix = batchSuffix ? batchSuffix.trim().toUpperCase() : dateStr;
+        const uniqueFactor = Math.floor(1000 + Math.random() * 9000);
+
+        const phonesToInsert = [];
+
+        for (let i = 1; i <= qty; i++) {
+            const idxStr = String(i).padStart(3, '0');
+            const autoSerialCode = `${prefix}-${finalSuffix}-${uniqueFactor}-${idxStr}`;
+
+            phonesToInsert.push({
+                serialCode: autoSerialCode,
+                phoneModelId: phoneModelId,
+                storeId: storeId,
+                colorName: colorName,
+                capacity: capacity,
+                grade: grade || 'Mới 100%',
+                status: 'in_stock',
+                importPrice: importPrice || 0,
+                sellingPrice: sellingPrice || 0,
+                warrantyPeriod: warrantyPeriod || 12,
+                source: source || 'supplier',
+                specificImages: specificImages 
+            });
+        }
+
+        const savedPhones = await Phone.insertMany(phonesToInsert);
+
+
+        const header = await InventoryTransaction.create({
+            storeId: storeId,
+            transactionType: "INBOUND",
+            referenceType: "IMPORT_BATCH",
+            referenceId: savedPhones[0]._id, 
+            totalItems: qty,
+            note: `Nhập kho lô ${qty} điện thoại mới (Model: ${ModelInfo.name})`
+        });
+        const transactionDetails = savedPhones.map(p => ({
+            transactionId: header._id,
+            phoneId: p._id,
+            quantity: 1,
+            note: "Nhập mới theo lô"
+        }));
+
+        await InventoryTransactionDetail.insertMany(transactionDetails);
+
+        res.status(201).json({
+            success: true,
+            message: `Đã nhập thành công ${qty} máy ${ModelInfo.name} vào kho.`,
+            data: savedPhones
+        });
+
+    } catch (error) {
+        console.error("Lỗi import batch phone:", error);
+        if (error.code === 11000) return res.status(400).json({ success: false, message: "Trùng lặp mã Serial Code. Vui lòng thử lại" });
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 module.exports = {
     getPhonesPaginatedAndSearch,
@@ -357,5 +439,6 @@ module.exports = {
     createAssembledPhone,
     getPhonesGroupedByBrand,
     handleTechDecision,
-    generatePhoneQRCode
+    generatePhoneQRCode,
+    importBatchPhone
 };
