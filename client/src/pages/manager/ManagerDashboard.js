@@ -7,26 +7,20 @@ import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import dayjs from "dayjs";
 import axiosClient from "../../api/axiosClient";
-
-const formatCurrency = (val) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val || 0);
-const formatCompact = (val) => {
-  if (val >= 1000000000) return (val / 1000000000).toFixed(1) + ' Tỷ';
-  if (val >= 1000000) return (val / 1000000).toFixed(1) + ' Tr';
-  if (val >= 1000) return (val / 1000).toFixed(1) + ' K';
-  return val;
-};
+import { formatCurrency, formatCompact } from "../../utils/formatCurrency";
+import { fetchManagerUsersApi, fetchManagerSalesApi, fetchManagerRepairsApi } from "../../api/manager/dashboard";
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState({});
   const [staffCount, setStaffCount] = useState(0);
-  
-  // State lưu trữ tháng được chọn (Mặc định là tháng hiện tại)
+  const [inventoryCount, setInventoryCount] = useState(0);
+  const [pendingTransfers, setPendingTransfers] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
-  
   const [performanceData, setPerformanceData] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
   const [totalMonthRevenue, setTotalMonthRevenue] = useState(0);
+  const [recentActivities, setRecentActivities] = useState([]);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -36,9 +30,7 @@ export default function ManagerDashboard() {
 
       if (storeId) {
         try {
-          // 1. LẤY NHÂN SỰ
-          const usersRes = await axiosClient.get("/users");
-          const usersArray = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data?.data || [];
+          const usersArray = await fetchManagerUsersApi();
           
           const storeStaff = usersArray.filter(u => {
             const uStoreId = u.storeId?._id || u.storeId;
@@ -55,7 +47,6 @@ export default function ManagerDashboard() {
             staffPerformance[staff._id] = { name: shortName, fullName: staff.fullName || staff.userName, value: 0 };
           });
 
-          // 2. KHỞI TẠO MẢNG NGÀY THEO THÁNG ĐƯỢC CHỌN
           const targetDate = dayjs(`${selectedMonth}-01`);
           const targetMonth = targetDate.month();
           const targetYear = targetDate.year();
@@ -69,14 +60,11 @@ export default function ManagerDashboard() {
 
           let calcTotalRev = 0;
 
-          // Hàm kiểm tra xem đơn hàng có nằm trong tháng được chọn không
           const isSameMonthYear = (dateObj) => {
              return dateObj.month() === targetMonth && dateObj.year() === targetYear;
           };
 
-          // 3. LẤY DATA BÁN HÀNG
-          const saleRes = await axiosClient.get(`/purchase-orders?orderType=SALE`);
-          const saleArray = Array.isArray(saleRes.data) ? saleRes.data : saleRes.data?.data || [];
+          const saleArray = await fetchManagerSalesApi();
           
           saleArray.forEach(order => {
             const orderStoreId = order.storeId?._id || order.storeId;
@@ -84,10 +72,8 @@ export default function ManagerDashboard() {
             const orderDate = dayjs(order.createdAt);
             
             if (orderStoreId === storeId && isSameMonthYear(orderDate)) {
-              // Tính hiệu suất (Tất cả đơn)
               if (staffPerformance[creatorId]) staffPerformance[creatorId].value += 1;
               
-              // Tính doanh thu (Chỉ đơn Completed)
               if (order.status === "Completed") {
                 const dateStr = orderDate.format('DD/MM');
                 if (dailyRevenue[dateStr]) {
@@ -98,9 +84,7 @@ export default function ManagerDashboard() {
             }
           });
 
-          // 4. LẤY DATA SỬA CHỮA
-          const repairRes = await axiosClient.get(`/repair-orders`);
-          const repairArray = Array.isArray(repairRes.data) ? repairRes.data : repairRes.data?.data || [];
+          const repairArray = await fetchManagerRepairsApi();
           
           repairArray.forEach(order => {
             const orderStoreId = order.storeId?._id || order.storeId;
@@ -108,10 +92,8 @@ export default function ManagerDashboard() {
             const orderDate = dayjs(order.createdAt || order.repairOrderDate);
 
             if (orderStoreId === storeId && isSameMonthYear(orderDate)) {
-              // Tính hiệu suất
               if (staffPerformance[creatorId]) staffPerformance[creatorId].value += 1;
 
-              // Tính doanh thu
               if (order.status === "Completed") {
                 const dateStr = orderDate.format('DD/MM');
                 if (dailyRevenue[dateStr]) {
@@ -122,15 +104,12 @@ export default function ManagerDashboard() {
             }
           });
 
-          // Set Data cho Biểu đồ Cột (Hiệu suất)
           const chartData = Object.values(staffPerformance).filter(s => s.value > 0).sort((a, b) => b.value - a.value);
           setPerformanceData(chartData);
 
-          // Set Data cho Biểu đồ Vùng (Doanh thu)
           const revenueArr = Object.values(dailyRevenue);
           let finalRevenueData = revenueArr;
 
-          // Cắt bớt mảng nếu tháng đang chọn là tháng hiện tại
           const isCurrentRealMonth = targetDate.isSame(dayjs(), 'month');
           if (isCurrentRealMonth) {
               const currentDayStr = dayjs().format('DD/MM');
@@ -143,27 +122,18 @@ export default function ManagerDashboard() {
           setRevenueData(finalRevenueData);
           setTotalMonthRevenue(calcTotalRev);
 
-        } catch (error) {
-          console.error("Lỗi tải dữ liệu dashboard", error);
-        }
+        } catch (error) {}
       }
     };
 
     loadDashboardData();
-  }, [selectedMonth]); // Chạy lại hàm mỗi khi selectedMonth thay đổi
+  }, [selectedMonth]);
 
   const stats = [
     { title: "Tổng nhân sự", value: staffCount, icon: <Users size={24} />, color: "bg-blue-500", link: "/manager/staffs" },
-    { title: "Sản phẩm trong kho", value: "1,250", icon: <Package size={24} />, color: "bg-indigo-500", link: "/manager/inventory" },
-    { title: "Doanh thu tháng chọn", value: formatCompact(totalMonthRevenue), icon: <DollarSign size={24} />, color: "bg-emerald-500", link: "/manager/purchase-history" },
-    { title: "Yêu cầu chờ duyệt", value: "5", icon: <ClipboardList size={24} />, color: "bg-amber-500", link: "/manager/transfer_approvals" },
-  ];
-
-  const recentActivities = [
-    { id: 1, action: "Yêu cầu xuất kho linh kiện", user: "Nguyễn Văn A (Kỹ thuật)", time: "10 phút trước", status: "pending" },
-    { id: 2, action: "Báo cáo doanh thu ca sáng", user: "Trần Thị B (Sale)", time: "1 giờ trước", status: "completed" },
-    { id: 3, action: "Yêu cầu nhập thêm Pin IP13", user: "Lê Văn C (Kho)", time: "2 giờ trước", status: "pending" },
-    { id: 4, action: "Đã duyệt chuyển kho #TR-001", user: "Bạn", time: "Hôm qua", status: "completed" },
+    { title: "Sản phẩm trong kho", value: inventoryCount, icon: <Package size={24} />, color: "bg-indigo-500", link: "/manager/inventory" },
+    { title: "Doanh thu tháng chọn", value: formatCompact(totalMonthRevenue), icon: <DollarSign size={24} />, color: "bg-emerald-500", link: "/manager/sales_history" },
+    { title: "Yêu cầu chờ duyệt", value: pendingTransfers, icon: <ClipboardList size={24} />, color: "bg-amber-500", link: "/manager/transfer_approvals" },
   ];
 
   return (
@@ -202,10 +172,8 @@ export default function ManagerDashboard() {
         ))}
       </div>
 
-      {/* CHARTS ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* DOANH THU (AREA CHART) */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -213,7 +181,6 @@ export default function ManagerDashboard() {
               Tổng Doanh Thu
             </h2>
             
-            {/* THÊM BỘ LỌC CHỌN THÁNG Ở ĐÂY */}
             <div className="flex items-center gap-3">
                <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
@@ -254,7 +221,6 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
-        {/* HIỆU SUẤT NHÂN VIÊN (BAR CHART) */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
           <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <TrendingUp className="text-blue-500" size={20} /> Top Nhân Viên
@@ -284,7 +250,6 @@ export default function ManagerDashboard() {
         </div>
       </div>
 
-      {/* ACTIVITIES & SHORTCUTS ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col">
           <div className="p-6 border-b border-gray-100 flex items-center justify-between">
@@ -317,6 +282,11 @@ export default function ManagerDashboard() {
                   )}
                 </div>
               ))}
+              {recentActivities.length === 0 && (
+                <div className="text-center text-gray-400 py-4 text-sm">
+                  Chưa có hoạt động nào
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -333,7 +303,7 @@ export default function ManagerDashboard() {
                 <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><ClipboardList size={18} /></div>
                 <span className="font-semibold text-gray-700 group-hover:text-indigo-700">Duyệt yêu cầu kho</span>
               </div>
-              <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">5</div>
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">{pendingTransfers}</div>
             </button>
 
             <button onClick={() => navigate('/manager/inventory')} className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-indigo-50 rounded-xl transition group border border-transparent hover:border-indigo-100">

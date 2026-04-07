@@ -39,8 +39,6 @@ export const confirmPaymentApi = async (activeTab, orderId) => {
         let url = activeTab === "REPAIR" 
             ? `/repair-orders/${orderId}/complete` 
             : `/purchase-orders/${orderId}/confirm-payment`;
-        
-        // REPAIR dùng PUT, SALE/PURCHASE dùng PATCH
         const method = activeTab === "REPAIR" ? "put" : "patch";
         
         await axiosClient[method](url);
@@ -59,7 +57,6 @@ export const cancelOrderApi = async (activeTab, order) => {
             ? `/repair-orders/${order._id}/cancel` 
             : `/purchase-orders/${order._id}`;
         
-        // Đơn Sale/Purchase cần truyền thêm status để update
         const body = activeTab !== "REPAIR" 
             ? { status: "Cancelled", totalPrice: order.totalPrice, note: order.note } 
             : undefined;
@@ -70,5 +67,15 @@ export const cancelOrderApi = async (activeTab, order) => {
     } catch (error) {
         toast.error("Lỗi kết nối khi hủy đơn.");
         return false;
+    }
+};
+
+// 5. Polling tìm đơn mới chốt giá (dành cho Tab PURCHASE)
+export const pollNewPurchaseOrdersApi = async () => {
+    try {
+        const { data } = await axiosClient.get(`/purchase-orders?orderType=PURCHASE`);
+        return data?.data || data || [];
+    } catch (error) {
+        return [];
     }
 };

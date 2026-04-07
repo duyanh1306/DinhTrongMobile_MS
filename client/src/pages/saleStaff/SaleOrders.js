@@ -9,49 +9,13 @@ import dayjs from "dayjs";
 import "react-toastify/dist/ReactToastify.css";
 import html2pdf from "html2pdf.js";
 
-// IMPORT TỪ FILE API
-import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi } from "../../api/saleStaff/saleOrders";
-
-const docSoThanhChu = (so) => {
-  if (!so || so === 0) return "Không đồng";
-  const chuSo = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
-  const hang = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
-  let str = so.toString();
-  let result = "";
-  let hangCount = 0;
-
-  while (str.length > 0) {
-    let chunk = str.slice(-3);
-    str = str.slice(0, -3);
-    if (parseInt(chunk) !== 0) {
-      let chunkStr = "";
-      for (let i = 0; i < chunk.length; i++) {
-        let digit = parseInt(chunk[chunk.length - 1 - i]);
-        if (i === 0) chunkStr = chuSo[digit] + " " + chunkStr;
-        if (i === 1) chunkStr = chuSo[digit] + " mươi " + chunkStr;
-        if (i === 2) chunkStr = chuSo[digit] + " trăm " + chunkStr;
-      }
-      chunkStr = chunkStr.replace("không mươi", "lẻ");
-      chunkStr = chunkStr.replace("một mươi", "mười");
-      chunkStr = chunkStr.replace("mươi năm", "mươi lăm");
-      chunkStr = chunkStr.replace("mười năm", "mười lăm");
-      chunkStr = chunkStr.replace("mươi một", "mươi mốt");
-      
-      result = chunkStr.trim() + " " + hang[hangCount] + " " + result;
-    }
-    hangCount++;
-  }
-  
-  result = result.replace(/không trăm lẻ không/g, "");
-  result = result.replace(/không trăm lẻ/g, "lẻ");
-  result = result.trim() + " đồng";
-  return result.charAt(0).toUpperCase() + result.slice(1);
-};
+import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi, pollNewPurchaseOrdersApi } from "../../api/saleStaff/saleOrders";
+import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
 
 // ==================================================================
-// COMPONENT: HÓA ĐƠN KHỔ A4
+// COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
 // ==================================================================
-const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab }) => {
+const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
   if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
   if (activeTab === "REPAIR") invoiceTitle = "PHIẾU THANH TOÁN KIÊM BẢO HÀNH SỬA CHỮA";
@@ -102,9 +66,14 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
         </thead>
         <tbody>
           {details.map((d, idx) => {
+            let itemName = "Sản phẩm/Dịch vụ";
+            let serial = "";
+            let warrantyText = "Không";
+            let price = d.purchasePrice || d.price || 0;
+
             if (activeTab === "REPAIR") {
                 const targetPhone = d.targetPhoneId?.phoneModelId?.name || "Máy khách";
-                const serial = d.targetPhoneId?.serialCode || d.targetPhoneId?.imei || "-";
+                serial = d.targetPhoneId?.serialCode || d.targetPhoneId?.imei || "-";
                 
                 const services = d.serviceId || [];
                 const items = d.itemIds || [];
@@ -112,48 +81,36 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
                 let srvStr = services.length > 0 ? `DV: ${services.map(s => s.name).join(', ')}` : "";
                 let itemStr = items.length > 0 ? `Thay: ${items.map(i => i.name).join(', ')}` : "";
                 
-                let itemName = `${d.type === "WARRANTY" ? "Bảo hành" : "Sửa chữa"}: ${targetPhone}`;
+                itemName = `${d.type === "WARRANTY" ? "Bảo hành" : "Sửa chữa"}: ${targetPhone}`;
                 if (srvStr || itemStr) {
                     itemName += ` (${[srvStr, itemStr].filter(Boolean).join(' | ')})`;
                 }
 
                 const srvPrice = services.reduce((sum, s) => sum + (s.price || 0), 0);
                 const itmPrice = items.reduce((sum, i) => sum + (i.price || i.sellingPrice || 0), 0);
-                const price = srvPrice + itmPrice;
-
-                return (
-                  <tr key={idx}>
-                    <td className="border border-gray-800 p-2 text-center">{idx + 1}</td>
-                    <td className="border border-gray-800 p-2 font-medium">{itemName}</td>
-                    <td className="border border-gray-800 p-2 text-center">1</td>
-                    <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial}</td>
-                    <td className="border border-gray-800 p-2 text-center text-xs">Bảo hành DV</td>
-                    <td className="border border-gray-800 p-2 text-right font-bold">{formatCurrency(price)}</td>
-                  </tr>
-                );
+                price = srvPrice + itmPrice;
+                warrantyText = "Bảo hành DV";
             } 
             else {
-                const itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
-                const serial = d.phoneId ? d.phoneId.imei || d.phoneId.serialCode || d.phoneId._id?.substring(d.phoneId._id.length - 6).toUpperCase() : (d.itemId?.serialCode || d.identifier || "");
-                let warrantyText = "Không";
+                itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
+                serial = d.phoneId ? d.phoneId.imei || d.phoneId.serialCode || d.phoneId._id?.substring(d.phoneId._id.length - 6).toUpperCase() : (d.itemId?.serialCode || d.identifier || "");
                 if (d.warrantyExpireDate) {
                     warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
-                } else if (d.warranty) {
+                } else if (d.warranty || d.phoneId?.warrantyPeriod) {
                     warrantyText = "Tiêu chuẩn";
                 }
-                const price = d.purchasePrice || d.price || 0;
-
-                return (
-                  <tr key={idx}>
-                    <td className="border border-gray-800 p-2 text-center">{idx + 1}</td>
-                    <td className="border border-gray-800 p-2 font-medium">{itemName}</td>
-                    <td className="border border-gray-800 p-2 text-center">1</td>
-                    <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial || "-"}</td>
-                    <td className="border border-gray-800 p-2 text-center text-xs">{warrantyText}</td>
-                    <td className="border border-gray-800 p-2 text-right font-bold">{formatCurrency(price)}</td>
-                  </tr>
-                );
             }
+
+            return (
+              <tr key={idx}>
+                <td className="border border-gray-800 p-2 text-center">{idx + 1}</td>
+                <td className="border border-gray-800 p-2 font-medium">{itemName}</td>
+                <td className="border border-gray-800 p-2 text-center">1</td>
+                <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial}</td>
+                <td className="border border-gray-800 p-2 text-center text-xs">{warrantyText}</td>
+                <td className="border border-gray-800 p-2 text-right font-bold">{formatCurrency(price)}</td>
+              </tr>
+            );
           })}
         </tbody>
       </table>
@@ -227,21 +184,16 @@ export default function SaleOrders() {
     let interval;
     if (activeTab === "PURCHASE" && !isModalOpen) {
       interval = setInterval(async () => {
-        try {
-          const res = await fetch(`http://localhost:9999/api/purchase-orders?orderType=PURCHASE`);
-          if (res.ok) {
-            const data = await res.json();
-            const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
+        const data = await pollNewPurchaseOrdersApi();
+        const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
 
-            if (newlyValuatedOrder) {
-              setNotifiedOrderIds(prev => new Set(prev).add(newlyValuatedOrder._id));
-              toast.info(`🔥 Kỹ thuật vừa chốt giá xong đơn thu cũ! Mở chi tiết...`, { icon: "🚀", style: { background: "#4f46e5", color: "white" }});
-              
-              setOrders(sortOrdersDesc(data));
-              handleOpenDetail(newlyValuatedOrder);
-            }
-          }
-        } catch(e) {}
+        if (newlyValuatedOrder) {
+            setNotifiedOrderIds(prev => new Set(prev).add(newlyValuatedOrder._id));
+            toast.info(`🔥 Kỹ thuật vừa chốt giá xong đơn thu cũ! Mở chi tiết...`, { icon: "🚀", style: { background: "#4f46e5", color: "white" }});
+            
+            setOrders(sortOrdersDesc(data));
+            handleOpenDetail(newlyValuatedOrder);
+        }
       }, 3000); 
     }
     return () => clearInterval(interval);
@@ -283,6 +235,11 @@ export default function SaleOrders() {
     }
   };
 
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `HoaDon_${activeTab}_${selectedOrder?._id.substring(0, 6)}`,
+  });
+
   const handleDownloadPDF = () => {
       const element = printRef.current;
       const opt = {
@@ -299,13 +256,6 @@ export default function SaleOrders() {
           toast.error("Có lỗi khi tạo PDF!");
       });
   };
-
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `HoaDon_${activeTab}_${selectedOrder?._id?.substring(0, 6)}`,
-  });
-
-  const formatCurrency = (val) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val || 0);
 
   const filteredOrders = orders.filter((o) => {
     const matchesSearch = o.customerPhone?.includes(searchQuery) || o.customerName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -360,7 +310,6 @@ export default function SaleOrders() {
                     <th className="p-4">Mã đơn</th>
                     <th className="p-4">Thời gian</th>
                     <th className="p-4">Khách hàng</th>
-                    {/* 🌟 ĐÃ SỬA CỘT NÀY ĐỂ RENDER CHUẨN LOẠI ĐƠN SỬA CHỮA */}
                     {activeTab === "REPAIR" ? (
                         <th className="p-4">Phân loại sửa chữa</th>
                     ) : (
@@ -477,9 +426,7 @@ export default function SaleOrders() {
                       </button>
                   </>
                 )}
-                <button onClick={() => {
-                    setIsModalOpen(false);
-                  }} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-lg transition">
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-lg transition">
                   <X size={20} />
                 </button>
               </div>
@@ -513,7 +460,6 @@ export default function SaleOrders() {
                        let serial = "";
                        let price = detail.purchasePrice || detail.price || 0;
                        
-                       // 🌟 MAP ĐÚNG DATA ĐƠN SỬA CHỮA Ở ĐÂY
                        if (activeTab === "REPAIR") {
                            itemName = detail.serviceId && detail.serviceId.length > 0 ? detail.serviceId.map(s => s.name).join(" + ") : "Dịch vụ sửa chữa";
                            const servicePrice = detail.serviceId?.reduce((sum, s) => sum + (s.price || 0), 0) || 0;
@@ -533,17 +479,14 @@ export default function SaleOrders() {
                                 {itemName}
                             </div>
                             
-                            {/* Hiển thị Máy Khách mang tới sửa */}
                             {activeTab === "REPAIR" && detail.targetPhoneId && (
                                 <div className="text-[10px] text-blue-600 font-mono mt-1 ml-6 border border-blue-200 bg-blue-50 inline-block px-1 rounded">
                                     Máy khách: {detail.targetPhoneId.phoneModelId?.name || "Đang cập nhật"} (SN: {serial})
                                 </div>
                             )}
 
-                            {/* Hiển thị SN cho đơn bán */}
                             {activeTab !== "REPAIR" && serial && <div className="text-[10px] text-gray-400 font-mono mt-1 ml-6">{serial}</div>}
                             
-                            {/* Hiển thị linh kiện sửa chữa nếu có */}
                             {activeTab === "REPAIR" && detail.itemIds && detail.itemIds.length > 0 && (
                                 <div className="mt-2 ml-6 p-2 bg-white border rounded text-xs space-y-1">
                                    <span className="font-bold text-gray-500 uppercase text-[9px]">Linh kiện thay:</span>
