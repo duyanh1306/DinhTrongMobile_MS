@@ -190,7 +190,6 @@ const upload = require("../middlewares/upload");
  */
 
 // AUTH ROUTES
-
 /**
  * @swagger
  * /api/users/register:
@@ -559,7 +558,7 @@ router.get(
 
 /**
  * @swagger
- * /users:
+ * /api/users:
  *   get:
  *     summary: Get all users
  *     description: Retrieve a list of all users with role and store information
@@ -616,7 +615,7 @@ router.get("/:id", getUserById);
 
 /**
  * @swagger
- * /users:
+ * /api/users:
  *   post:
  *     summary: Create a new user
  *     description: Create a new user (typically for staff accounts)
