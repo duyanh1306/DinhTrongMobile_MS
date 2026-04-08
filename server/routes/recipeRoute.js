@@ -9,9 +9,9 @@ const {
 } = require("../controllers/recipeController");
 
 // PUBLIC ROUTES
-router.get("/all", getAllRecipes); // Dòng 12 thường nằm ở đây
+router.get("/all", getAllRecipes); 
 
-// PRIVATE ROUTES (Yêu cầu quyền Admin/Internal)
+// PRIVATE ROUTES 
 router.post("/create", authInternal, createRecipe);
 router.put("/update/:id", authInternal, updateRecipe);
 router.delete("/delete/:id", authInternal, deleteRecipe);

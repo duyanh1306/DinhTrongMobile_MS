@@ -42,7 +42,7 @@ export default function AdminSidebar() {
         { text: "Mẫu điện thoại", link: "/admin/phone_model", icon: <Smartphone size={18} /> },
         { text: "Loại linh kiện", link: "/admin/item_type", icon: <Cpu size={18} /> },
         { text: "Kho linh kiện", link: "/admin/items", icon: <Package size={18} /> },
-        { text: "Công thức máy dựng", link: "/admin/recipes", icon: <Layers size={18} /> },
+        { text: "Cấu hình máy dựng", link: "/admin/recipes", icon: <Layers size={18} /> },
         { text: "Dịch vụ sửa chữa", link: "/admin/repair_service", icon: <Hammer size={18} /> },
       ],
     },

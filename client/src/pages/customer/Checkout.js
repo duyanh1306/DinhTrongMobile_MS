@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { ChevronLeft, MapPin, Store, Truck, ShieldCheck, CheckCircle2, QrCode, Check, CreditCard } from "lucide-react";
+import { ChevronLeft, MapPin, Store, Truck, ShieldCheck, CheckCircle2, QrCode, Check, CreditCard, UserCircle } from "lucide-react";
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API VỪA TẠO
 import { 
     fetchLocationsApi, 
     fetchStoresApi, 
@@ -31,7 +30,8 @@ export default function Checkout() {
     const [deliveryMethod, setDeliveryMethod] = useState("home");
     const [stores, setStores] = useState([]);
     const [selectedStoreId, setSelectedStoreId] = useState("");
-    
+    const [useDefaultAddress, setUseDefaultAddress] = useState(true);
+
     const [shippingInfo, setShippingInfo] = useState({
         receiverName: "", receiverPhone: "",
         province: "", district: "", ward: "", address: "", note: ""
@@ -45,7 +45,7 @@ export default function Checkout() {
     const [distCode, setDistCode] = useState("");
     const [wardCode, setWardCode] = useState("");
 
-    // Gọi API Tỉnh Thành
+
     useEffect(() => {
         const loadLocations = async () => {
             const data = await fetchLocationsApi();
@@ -54,7 +54,7 @@ export default function Checkout() {
         loadLocations();
     }, []);
 
-    // Load Data Khởi tạo
+   
     useEffect(() => {
         const prepareCheckout = async () => {
             try {
@@ -70,12 +70,38 @@ export default function Checkout() {
                 
                 setUser({ ...userData, name: displayName, phone: displayPhone });
                 setCustomerPhone(displayPhone);
-                
-                setShippingInfo(prev => ({ 
-                    ...prev, 
+             
+                let initialShippingInfo = { 
                     receiverName: displayName, 
-                    receiverPhone: displayPhone 
-                }));
+                    receiverPhone: displayPhone,
+                    province: "", district: "", ward: "", address: "", note: ""
+                };
+
+               
+                if (userData.address) {
+                    const parts = userData.address.split(', ').map(s => s.trim());
+                    let pName = '', dName = '', wName = '', sName = '';
+                    if (parts.length >= 3) {
+                        pName = parts[parts.length - 1];
+                        dName = parts[parts.length - 2];
+                        wName = parts[parts.length - 3];
+                        sName = parts.slice(0, parts.length - 3).join(', ');
+                    } else {
+                        sName = userData.address;
+                    }
+                    initialShippingInfo = {
+                        ...initialShippingInfo,
+                        province: pName,
+                        district: dName,
+                        ward: wName,
+                        address: sName
+                    };
+                    setUseDefaultAddress(true);
+                } else {
+                    setUseDefaultAddress(false);
+                }
+
+                setShippingInfo(initialShippingInfo);
 
                 const itemsToBuy = location.state?.selectedItems;
                 if (!itemsToBuy || itemsToBuy.length === 0) {
@@ -86,8 +112,6 @@ export default function Checkout() {
                 setCheckoutItems(itemsToBuy);
 
                 const savedStoreId = localStorage.getItem('selectedStoreId');
-                
-                // DÙNG API MỚI
                 const storeList = await fetchStoresApi();
                 setStores(storeList);
                 
@@ -106,31 +130,53 @@ export default function Checkout() {
         prepareCheckout();
     }, [navigate, location.state]);
 
-    // Xử lý Form Tỉnh Thành
+    
+    const toggleAddressMode = (isDefault) => {
+        setUseDefaultAddress(isDefault);
+        if (isDefault && user?.address) {
+            const parts = user.address.split(', ').map(s => s.trim());
+            if (parts.length >= 3) {
+                setShippingInfo(prev => ({
+                    ...prev,
+                    province: parts[parts.length - 1],
+                    district: parts[parts.length - 2],
+                    ward: parts[parts.length - 3],
+                    address: parts.slice(0, parts.length - 3).join(', ')
+                }));
+            }
+        } else {
+         
+            setProvCode(""); setDistCode(""); setWardCode("");
+            setAvailableDistricts([]); setAvailableWards([]);
+            setShippingInfo(prev => ({ ...prev, province: "", district: "", ward: "", address: "" }));
+        }
+    };
+
+ 
     const handleProvinceChange = (e) => {
         const code = e.target.value;
         setProvCode(code);
-        const prov = locations.find(p => p.Id === code);
-        setShippingInfo({ ...shippingInfo, province: prov ? prov.Name : "", district: "", ward: "" });
+        const prov = locations.find(p => p.code.toString() === code);
+        setShippingInfo({ ...shippingInfo, province: prov ? prov.name : "", district: "", ward: "" });
         setDistCode(""); setWardCode("");
-        setAvailableDistricts(prov ? prov.Districts : []);
+        setAvailableDistricts(prov ? prov.districts : []);
         setAvailableWards([]);
     };
 
     const handleDistrictChange = (e) => {
         const code = e.target.value;
         setDistCode(code);
-        const dist = availableDistricts.find(d => d.Id === code);
-        setShippingInfo({ ...shippingInfo, district: dist ? dist.Name : "", ward: "" });
+        const dist = availableDistricts.find(d => d.code.toString() === code);
+        setShippingInfo({ ...shippingInfo, district: dist ? dist.name : "", ward: "" });
         setWardCode("");
-        setAvailableWards(dist ? dist.Wards : []);
+        setAvailableWards(dist ? dist.wards : []);
     };
 
     const handleWardChange = (e) => {
         const code = e.target.value;
         setWardCode(code);
-        const ward = availableWards.find(w => w.Id === code);
-        setShippingInfo({ ...shippingInfo, ward: ward ? ward.Name : "" });
+        const ward = availableWards.find(w => w.code.toString() === code);
+        setShippingInfo({ ...shippingInfo, ward: ward ? ward.name : "" });
     };
 
     const totalAmount = checkoutItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -149,7 +195,6 @@ export default function Checkout() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // XỬ LÝ THANH TOÁN GỌI QUA API FILE
     const handleCheckout = async () => {
         if (!agreedToTerms) return toast.warning("Vui lòng đồng ý với điều khoản sử dụng!");
 
@@ -169,6 +214,9 @@ export default function Checkout() {
                 warrantyPeriod: item.productType === 'CUSTOM_BUILD' ? 6 : 12 
             }));
 
+            
+            const finalAddressString = `${shippingInfo.address}, ${shippingInfo.ward}, ${shippingInfo.district}, ${shippingInfo.province}`;
+
             const orderPayload = {
                 userId: user._id || user.id,
                 storeId: selectedStoreId,
@@ -181,17 +229,17 @@ export default function Checkout() {
                     province: shippingInfo.province,
                     district: shippingInfo.district,
                     ward: shippingInfo.ward,
-                    address: shippingInfo.address,
+                    address: shippingInfo.address, 
+                    fullAddress: finalAddressString, 
                     note: shippingInfo.note
                 },
                 paymentMethod: selectedPaymentMethod 
             };
 
-            // GỌI TẠO ĐƠN API
             const orderData = await submitOrderApi(orderPayload);
             if (!orderData) {
                 setLoading(false);
-                return; // Nếu lỗi đã có toast ở hàm api
+                return; 
             }
             
             const createdOrderId = orderData.orderId || orderData.data?._id || orderData._id;
@@ -202,14 +250,12 @@ export default function Checkout() {
                 return; 
             }
 
-            // XỬ LÝ CHUYỂN HƯỚNG THEO CỔNG THANH TOÁN
             if (selectedPaymentMethod === 'VNPAY') {
                 const paymentData = await createVnpayPaymentApi(totalAmount, createdOrderId);
                 if (paymentData && paymentData.paymentUrl) {
                     window.location.href = paymentData.paymentUrl;
                 }
             } else if (selectedPaymentMethod === 'PAYOS') {
-                // Xóa giỏ hàng
                 await clearCartApi(user._id || user.id);
                 window.dispatchEvent(new Event('cartUpdated')); 
                 
@@ -316,7 +362,7 @@ export default function Checkout() {
                                         <div className="p-5 md:p-6 space-y-4">
                                             <div className="bg-gray-100 p-4 rounded-lg border border-gray-200 mb-2">
                                                 <label className="block text-[13px] font-bold text-gray-800 mb-2 flex items-center gap-2">
-                                                    <MapPin size={16} className="text-[#d70018]"/> Chi nhánh phục vụ / Xuất hàng
+                                                    <MapPin size={16} className="text-[#d70018]"/> Chi nhánh xuất hàng
                                                 </label>
                                                 <select 
                                                     disabled
@@ -328,46 +374,75 @@ export default function Checkout() {
                                             </div>
 
                                             {deliveryMethod === 'home' ? (
-                                                <div className="space-y-4 animate-in fade-in duration-300">
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                        <div>
-                                                            <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Tên người nhận <span className="text-red-500">*</span></label>
-                                                            <input type="text" value={shippingInfo.receiverName} onChange={e => setShippingInfo({...shippingInfo, receiverName: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="Họ và tên..."/>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[13px] font-medium text-gray-600 mb-1.5">SĐT người nhận <span className="text-red-500">*</span></label>
-                                                            <input type="tel" value={shippingInfo.receiverPhone} onChange={e => setShippingInfo({...shippingInfo, receiverPhone: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="Số điện thoại..."/>
-                                                        </div>
-                                                    </div>
+                                                <div className="space-y-4 animate-in fade-in duration-300 border-t border-gray-100 pt-3">
                                                     
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                        <div>
-                                                            <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                                                            <select value={provCode} onChange={handleProvinceChange} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
-                                                                <option value="">Chọn Tỉnh/Thành</option>
-                                                                {locations.map(p => <option key={p.Id} value={p.Id}>{p.Name}</option>)}
-                                                            </select>
+                                                    {/* --- BLOCK ĐỊA CHỈ: SỬ DỤNG PROFILE HAY NHẬP TAY --- */}
+                                                    {user?.address && (
+                                                        <div className="flex gap-6 mb-2">
+                                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                                <input type="radio" checked={useDefaultAddress} onChange={() => toggleAddressMode(true)} className="w-4 h-4 text-[#d70018] focus:ring-[#d70018]" />
+                                                                <span className="text-[13px] font-bold text-gray-700">Dùng địa chỉ mặc định</span>
+                                                            </label>
+                                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                                <input type="radio" checked={!useDefaultAddress} onChange={() => toggleAddressMode(false)} className="w-4 h-4 text-[#d70018] focus:ring-[#d70018]" />
+                                                                <span className="text-[13px] font-bold text-gray-700">Giao đến địa chỉ khác</span>
+                                                            </label>
                                                         </div>
-                                                        <div>
-                                                            <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Quận / Huyện <span className="text-red-500">*</span></label>
-                                                            <select disabled={!provCode} value={distCode} onChange={handleDistrictChange} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
-                                                                <option value="">Chọn Quận/Huyện</option>
-                                                                {availableDistricts.map(d => <option key={d.Id} value={d.Id}>{d.Name}</option>)}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Phường / Xã <span className="text-red-500">*</span></label>
-                                                            <select disabled={!distCode} value={wardCode} onChange={handleWardChange} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
-                                                                <option value="">Chọn Phường/Xã</option>
-                                                                {availableWards.map(w => <option key={w.Id} value={w.Id}>{w.Name}</option>)}
-                                                            </select>
-                                                        </div>
-                                                    </div>
+                                                    )}
 
-                                                    <div>
-                                                        <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Số nhà, tên đường <span className="text-red-500">*</span></label>
-                                                        <input type="text" value={shippingInfo.address} onChange={e => setShippingInfo({...shippingInfo, address: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="VD: Số 304, Đường Ngô Gia Tự..."/>
-                                                    </div>
+                                                    {useDefaultAddress && user?.address ? (
+                                                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-200">
+                                                            <p className="text-[13px] text-blue-900 font-medium flex items-start gap-2">
+                                                                <UserCircle size={18} className="text-blue-600 flex-shrink-0"/>
+                                                                <span className="leading-relaxed">
+                                                                    <strong>{shippingInfo.receiverName}</strong> - {shippingInfo.receiverPhone}<br/>
+                                                                    {user.address}
+                                                                </span>
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-4 animate-in fade-in duration-300 border border-gray-200 p-4 rounded-lg bg-gray-50/30">
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                <div>
+                                                                    <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Tên người nhận <span className="text-red-500">*</span></label>
+                                                                    <input type="text" value={shippingInfo.receiverName} onChange={e => setShippingInfo({...shippingInfo, receiverName: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="Họ và tên..."/>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[13px] font-medium text-gray-600 mb-1.5">SĐT người nhận <span className="text-red-500">*</span></label>
+                                                                    <input type="tel" value={shippingInfo.receiverPhone} onChange={e => setShippingInfo({...shippingInfo, receiverPhone: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="Số điện thoại..."/>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                                <div>
+                                                                    <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
+                                                                    <select value={provCode} onChange={handleProvinceChange} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
+                                                                        <option value="">Chọn Tỉnh/Thành</option>
+                                                                        {locations.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Quận / Huyện <span className="text-red-500">*</span></label>
+                                                                    <select disabled={!provCode} value={distCode} onChange={handleDistrictChange} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                                                        <option value="">Chọn Quận/Huyện</option>
+                                                                        {availableDistricts.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Phường / Xã <span className="text-red-500">*</span></label>
+                                                                    <select disabled={!distCode} value={wardCode} onChange={handleWardChange} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                                                        <option value="">Chọn Phường/Xã</option>
+                                                                        {availableWards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Số nhà, tên đường <span className="text-red-500">*</span></label>
+                                                                <input type="text" value={shippingInfo.address} onChange={e => setShippingInfo({...shippingInfo, address: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="VD: Số 304, Đường Ngô Gia Tự..."/>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 animate-in fade-in duration-300">
@@ -379,7 +454,7 @@ export default function Checkout() {
                                             )}
 
                                             <div>
-                                                <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Ghi chú khác (Nếu có)</label>
+                                                <label className="block text-[13px] font-medium text-gray-600 mb-1.5 mt-2">Ghi chú khác (Nếu có)</label>
                                                 <textarea value={shippingInfo.note} onChange={e => setShippingInfo({...shippingInfo, note: e.target.value})} rows="2" className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 resize-none" placeholder="Nhập ghi chú cho nhân viên..."></textarea>
                                             </div>
                                         </div>

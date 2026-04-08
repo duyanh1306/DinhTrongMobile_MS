@@ -3,7 +3,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter } from "lucide-react";
 
-// IMPORT TỪ FILE API
+
 import { 
     fetchInitialDataApi, 
     createRecipeApi, 
@@ -11,7 +11,7 @@ import {
     deleteRecipeApi 
 } from "../../api/admin/recipe";
 
-// ĐỒNG BỘ DANH SÁCH MÃ CHUẨN ĐỂ LÀM BỘ LỌC
+
 const BASE_CODES = [
     { code: "MB", label: "Mainboard" },
     { code: "SCR", label: "Màn hình" },
@@ -36,7 +36,7 @@ export default function AdminRecipe() {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
     
-    // 🌟 KHAI BÁO MỎ NEO ĐỂ CUỘN 🌟
+ 
     const endOfListRef = useRef(null);
 
     const [formData, setFormData] = useState({
@@ -45,9 +45,7 @@ export default function AdminRecipe() {
         requiredParts: []
     });
 
-    // ==============================================================
-    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
-    // ==============================================================
+    
     useEffect(() => {
         loadInitialData();
     }, []);
@@ -61,15 +59,12 @@ export default function AdminRecipe() {
         setLoading(false);
     };
 
-    // Hàm gọi riêng Recipes khi cần refresh lại bảng sau lúc thêm/sửa/xóa
     const reloadRecipesOnly = async () => {
         const data = await fetchInitialDataApi();
         setRecipes(data.recipes);
     };
 
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ FORM
-    // ==============================================================
+
     const handleOpenModal = (recipe = null) => {
         if (recipe) {
             setIsEditing(true);
@@ -108,7 +103,7 @@ export default function AdminRecipe() {
             requiredParts: [...prev.requiredParts, { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: '' }]
         }));
 
-        // TỰ ĐỘNG CUỘN XUỐNG DƯỚI SAU KHI THÊM
+      
         setTimeout(() => {
             if (endOfListRef.current) {
                 endOfListRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -141,10 +136,10 @@ export default function AdminRecipe() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa công thức này?")) return;
+        if (!window.confirm("Bạn có chắc chắn muốn xóa cấu hình này?")) return;
         const isSuccess = await deleteRecipeApi(id);
         if (isSuccess) {
-            toast.success("Đã xóa công thức");
+            toast.success("Đã xóa cấu hình");
             reloadRecipesOnly();
         }
     };
@@ -169,7 +164,7 @@ export default function AdminRecipe() {
 
             if (usedCodes.has(part.filterCode)) {
                 const baseLabel = BASE_CODES.find(b => b.code === part.filterCode)?.label;
-                return toast.error(`Lỗi: Nhóm "${baseLabel}" bị trùng lặp. Mỗi nhóm chỉ được xuất hiện 1 lần trong công thức!`);
+                return toast.error(`Lỗi: Nhóm "${baseLabel}" bị trùng lặp. Mỗi nhóm chỉ được xuất hiện 1 lần trong cấu hình!`);
             }
             usedCodes.add(part.filterCode);
         }
@@ -190,10 +185,10 @@ export default function AdminRecipe() {
         let isSuccess = false;
         if (isEditing) {
             isSuccess = await updateRecipeApi(editingId, payload);
-            if (isSuccess) toast.success("Cập nhật công thức thành công");
+            if (isSuccess) toast.success("Cập nhật cấu hình thành công");
         } else {
             isSuccess = await createRecipeApi(payload);
-            if (isSuccess) toast.success("Tạo công thức thành công");
+            if (isSuccess) toast.success("Tạo cấu hình thành công");
         }
 
         if (isSuccess) {
@@ -210,10 +205,10 @@ export default function AdminRecipe() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Settings className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Công Thức Máy Dựng</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý cấu hình Máy Dựng</h1>
                 </div>
                 <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition">
-                    <Plus size={20} /> <span>Tạo công thức mới</span>
+                    <Plus size={20} /> <span>Tạo cấu hình mới</span>
                 </button>
             </div>
 
@@ -243,19 +238,19 @@ export default function AdminRecipe() {
                             </tr>
                         ))}
                         {recipes.length === 0 && (
-                            <tr><td colSpan="4" className="text-center py-10 text-gray-500">Chưa có công thức nào!</td></tr>
+                            <tr><td colSpan="4" className="text-center py-10 text-gray-500">Chưa có cấu hình nào!</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* MODAL THÊM / SỬA CÔNG THỨC */}
+            {/* MODAL THÊM / SỬA Cấu hình */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                         
                         <div className="flex justify-between items-center p-5 border-b bg-gray-50">
-                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Sửa Công Thức' : 'Tạo Công Thức Mới'}</h2>
+                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Sửa cấu hình' : 'Tạo cấu hình Mới'}</h2>
                             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24}/></button>
                         </div>
 

@@ -108,9 +108,7 @@ const createWarrantyRequest = async (req, res) => {
     const now = new Date();
     const daysSincePurchase = Math.floor((now - purchaseDateTime) / (1000 * 60 * 60 * 24));
     
-    // ==========================================
-    // LOGIC MỚI: PHÂN LOẠI BẢO HÀNH DỰA VÀO SOURCE
-    // ==========================================
+
     const isNewDevice = phone.source === 'supplier';
     const warrantyType = isNewDevice ? "REPLACEMENT" : "REPAIR";
 

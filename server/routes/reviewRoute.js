@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 
-// Import đúng tên hàm authCustomer từ file auth.js của bạn
 const { authCustomer } = require("../middlewares/auth"); 
 const { getPhoneReviews, createReview } = require("../controllers/reviewController");
 

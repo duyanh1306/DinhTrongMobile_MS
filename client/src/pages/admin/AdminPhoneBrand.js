@@ -3,7 +3,6 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Plus, Edit, Trash2, Search, X, Smartphone } from "lucide-react";
 
-// IMPORT TỪ FILE API MỚI
 import { 
     fetchPhoneBrandsApi, 
     createPhoneBrandApi, 
@@ -11,6 +10,144 @@ import {
     deletePhoneBrandApi 
 } from "../../api/admin/phoneBrand";
 
+const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
+    const [editingDots, setEditingDots] = useState(null); 
+    const [jumpPage, setJumpPage] = useState('');
+
+    if (totalPages <= 1) return null;
+
+    const handleJumpSubmit = () => {
+        let page = parseInt(jumpPage, 10);
+        if (!isNaN(page)) {
+            if (page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            onPageChange(page);
+        }
+        setEditingDots(null);
+        setJumpPage('');
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleJumpSubmit();
+        } else if (e.key === 'Escape') {
+            setEditingDots(null);
+            setJumpPage('');
+        }
+    };
+
+    const renderInteractiveDots = (position) => {
+        if (editingDots === position) {
+            return (
+                <input
+                    key={`input-${position}`}
+                    type="number"
+                    autoFocus
+                    min={1}
+                    max={totalPages}
+                    value={jumpPage}
+                    onChange={(e) => setJumpPage(e.target.value)}
+                    onBlur={handleJumpSubmit}
+                    onKeyDown={handleKeyDown}
+                    className="w-14 px-1 py-1.5 border-2 border-blue-500 rounded-lg text-center text-sm font-bold text-blue-700 outline-none hide-arrows shadow-sm"
+                    placeholder="..."
+                />
+            );
+        }
+        return (
+            <button
+                key={`dots-${position}`}
+                onClick={() => setEditingDots(position)}
+                className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer"
+                title="Nhấn để nhập số trang"
+            >
+                ...
+            </button>
+        );
+    };
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = startPage + maxVisible - 1;
+
+        if (endPage > totalPages) {
+            endPage = totalPages;
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
+            );
+            if (startPage > 2) {
+                pages.push(renderInteractiveDots('start'));
+            }
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    onClick={() => onPageChange(i)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        i === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(renderInteractiveDots('end'));
+            }
+            pages.push(
+                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
+            );
+        }
+
+        return pages;
+    };
+
+    return (
+        <div className="flex gap-1.5 items-center">
+            <button
+                disabled={currentPage <= 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+            >
+                Trước
+            </button>
+            
+            {renderPageNumbers()}
+            
+            <button
+                disabled={currentPage >= totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+            >
+                Sau
+            </button>
+            
+            <style dangerouslySetInnerHTML={{__html: `
+                .hide-arrows::-webkit-outer-spin-button,
+                .hide-arrows::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                .hide-arrows {
+                    -moz-appearance: textfield;
+                }
+            `}} />
+        </div>
+    );
+};
 export default function AdminPhoneBrand() {
     const [brands, setBrands] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -29,7 +166,6 @@ export default function AdminPhoneBrand() {
         loadBrands();
     }, [pagination.currentPage]);
 
-    // Delay search 500ms
     useEffect(() => {
         const timeout = setTimeout(() => { 
             setPagination(prev => ({...prev, currentPage: 1}));
@@ -38,9 +174,6 @@ export default function AdminPhoneBrand() {
         return () => clearTimeout(timeout);
     }, [search]);
 
-    // ==============================================================
-    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
-    // ==============================================================
     const loadBrands = async () => {
         setLoading(true);
         const params = new URLSearchParams({
@@ -88,9 +221,6 @@ export default function AdminPhoneBrand() {
         }
     };
 
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ GIAO DIỆN
-    // ==============================================================
     const handlePageChange = (newPage) => { 
         setPagination(prev => ({ ...prev, currentPage: newPage })); 
     };
@@ -121,7 +251,6 @@ export default function AdminPhoneBrand() {
                 </button>
             </div>
 
-            {/* BỘ LỌC */}
             <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -133,7 +262,7 @@ export default function AdminPhoneBrand() {
                 </div>
             </div>
 
-            {/* BẢNG DỮ LIỆU */}
+            
             <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
                 {loading ? (
                     <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
@@ -171,16 +300,18 @@ export default function AdminPhoneBrand() {
                     </div>
                 )}
                 
+              
                 <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto">
-                    <span className="text-sm text-gray-600">Trang <span className="font-bold">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold">{pagination.totalCount}</span></span>
-                    <div className="flex gap-2">
-                        <button disabled={!pagination.hasPrevPage} onClick={() => handlePageChange(pagination.currentPage - 1)} className="px-4 py-2 border bg-white disabled:opacity-40 transition text-sm rounded hover:bg-gray-100">Trước</button>
-                        <button disabled={!pagination.hasNextPage} onClick={() => handlePageChange(pagination.currentPage + 1)} className="px-4 py-2 border bg-white disabled:opacity-40 transition text-sm rounded hover:bg-gray-100">Sau</button>
-                    </div>
+                    <span className="text-sm text-gray-600">Trang <span className="font-bold text-blue-600">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold text-gray-800">{pagination.totalCount}</span></span>
+                    <CustomPagination 
+                        currentPage={pagination.currentPage} 
+                        totalPages={pagination.totalPages} 
+                        onPageChange={handlePageChange} 
+                    />
                 </div>
             </div>
 
-            {/* MODAL */}
+          
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">

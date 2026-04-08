@@ -1,9 +1,9 @@
 const User = require("../models/User");
 const Store = require("../models/Store");
 const Role = require("../models/Role");
-const bcrypt = require("bcryptjs"); // Nhớ dùng bcryptjs cho giống file kia
+const bcrypt = require("bcryptjs"); 
 
-// Lấy danh sách tất cả user (Dùng Aggregation để tìm cửa hàng ngược lại)
+
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.aggregate([
@@ -18,9 +18,9 @@ const getAllUsers = async (req, res) => {
       { $unwind: { path: "$roleObj", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "stores", // Móc vào bảng stores
-          localField: "_id", // Trùng khớp ID của User...
-          foreignField: "staff", // ... với cái ID nằm trong mảng staff của Store
+          from: "stores", 
+          localField: "_id", 
+          foreignField: "staff", 
           as: "storeObj"
         }
       },
@@ -28,11 +28,11 @@ const getAllUsers = async (req, res) => {
       { $sort: { createdAt: -1 } }
     ]);
 
-    // Map lại data để giữ cấu trúc y hệt API cũ
+   
     const formattedUsers = users.map(u => ({
       ...u,
-      roleId: u.roleObj, // Gán lại roleId thành object giống .populate()
-      storeId: u.storeObj ? u.storeObj._id : null, // Trả về storeId để Frontend dễ dùng
+      roleId: u.roleObj,
+      storeId: u.storeObj ? u.storeObj._id : null, 
       storeName: u.storeObj ? u.storeObj.name : null
     }));
 
@@ -48,7 +48,6 @@ const getUserById = async (req, res) => {
     const user = await User.findById(req.params.id).populate("roleId", "id name");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Tìm store chứa staff này
     const store = await Store.findOne({ staff: user._id });
     
     const userResponse = {
@@ -66,7 +65,7 @@ const getUserById = async (req, res) => {
 // Tạo user mới (Thường dùng để tạo Staff)
 const createUser = async (req, res) => {
   try {
-    // bóc storeId ra khỏi req.body vì bảng User ko có trường này
+   
     const { fullName, userName, password, email, number, birthday, roleId, status, address, storeId } = req.body;
 
     const existingUser = await User.findOne({ $or: [{ userName }, { email }] });
@@ -83,7 +82,7 @@ const createUser = async (req, res) => {
 
     const savedUser = await newUser.save();
 
-    // NẾU TẠO STAFF MÀ CÓ CHỌN CỬA HÀNG -> THÊM VÀO MẢNG STAFF CỦA CỬA HÀNG ĐÓ
+  
     if (storeId) {
         await Store.findByIdAndUpdate(storeId, { $push: { staff: savedUser._id } });
     }
@@ -107,14 +106,14 @@ const updateUser = async (req, res) => {
 
     if (!updatedUser) return res.status(404).json({ message: "User not found" });
 
-    // NẾU CÓ CHỈ ĐỊNH ĐỔI CỬA HÀNG CHO NHÂN VIÊN NÀY
+
     if (storeId !== undefined) {
-        // 1. Rút user này ra khỏi TẤT CẢ các cửa hàng cũ (để tránh bị phân thân 2 nơi)
+    
         await Store.updateMany(
             { staff: req.params.id },
             { $pull: { staff: req.params.id } }
         );
-        // 2. Nhét user vào mảng staff của cửa hàng mới
+      
         if (storeId) {
             await Store.findByIdAndUpdate(storeId, { $push: { staff: req.params.id } });
         }
@@ -132,7 +131,7 @@ const deleteUser = async (req, res) => {
     const deletedUser = await User.findByIdAndDelete(req.params.id);
     if (!deletedUser) return res.status(404).json({ message: "User not found" });
 
-    // Xóa luôn ID của user này khỏi mảng staff của Store
+ 
     await Store.updateMany(
         { staff: req.params.id },
         { $pull: { staff: req.params.id } }

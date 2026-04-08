@@ -3,7 +3,6 @@ const InventoryTransactionDetail = require("../models/Inventory_transaction_deta
 
 const getAllTransactions = async (req, res) => {
   try {
-    // Chỉ lấy Phiếu Tổng
     const transactions = await InventoryTransaction.find()
       .populate("storeId", "name code address")
       .sort({ createdAt: -1 });
@@ -14,7 +13,6 @@ const getAllTransactions = async (req, res) => {
   }
 };
 
-// HÀM MỚI: Lấy chi tiết của 1 phiếu
 const getTransactionDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -38,5 +36,5 @@ const getTransactionDetails = async (req, res) => {
 
 module.exports = {
   getAllTransactions,
-  getTransactionDetails // Nhớ export và gắn route GET /:id/details cho thằng này
+  getTransactionDetails 
 };

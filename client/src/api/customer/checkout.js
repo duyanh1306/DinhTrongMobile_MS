@@ -1,14 +1,14 @@
 import axiosClient from "../axiosClient";
-import axios from "axios"; // Vẫn cần axios thường để gọi API bên thứ 3 (địa chỉ)
+import axios from "axios"; 
 import { toast } from "react-toastify";
 
 // 1. Lấy danh sách Tỉnh/Thành từ GitHub
 export const fetchLocationsApi = async () => {
     try {
-        const res = await axios.get('https://raw.githubusercontent.com/kenzouno1/DiaGioiHanhChinhVN/master/data.json');
+        const res = await axiosClient.get('/locations');
         return res.data;
     } catch (error) {
-        console.error("Lỗi lấy danh sách tỉnh thành", error);
+        console.error("Lỗi lấy danh sách tỉnh thành từ DB:", error);
         toast.error("Lỗi tải danh sách địa chỉ!");
         return [];
     }

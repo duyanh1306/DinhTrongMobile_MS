@@ -5,7 +5,7 @@ const Phone = require("../models/Phone");
 // GET /api/phone_models/all
 const getAllPhoneModels = async (req, res) => {
     try {
-        // Lấy toàn bộ danh sách Model kèm tên Hãng
+    
         const phone_models = await Phone_model.find().populate('brand', 'name').lean();
 
     
@@ -62,8 +62,6 @@ const updatePhoneModel = async (req, res) => {
         if (updateData.specifications && typeof updateData.specifications === 'string') {
             updateData.specifications = JSON.parse(updateData.specifications);
         }
-
-        // Đảm bảo rác không lọt vào db
         delete updateData.condition;
         delete updateData.compatibleItemTypes;
 

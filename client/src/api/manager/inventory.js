@@ -1,7 +1,6 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
-// --- GET DATA ---
 export const fetchItemTypesApi = async () => {
     try {
         const { data } = await axiosClient.get(`/item_types/all`);
@@ -36,7 +35,7 @@ export const fetchPhonesApi = async (storeId) => {
     }
 };
 
-// --- DELETE ---
+
 export const deleteItemApi = async (id) => {
     try {
         await axiosClient.delete(`/items/${id}`);
@@ -59,7 +58,6 @@ export const deletePhoneApi = async (id) => {
     }
 };
 
-// --- SUBMIT FORMS ---
 export const submitItemApi = async (isEditing, id, formData) => {
     try {
         if (isEditing) {
@@ -96,7 +94,7 @@ export const submitPhoneApi = async (isEditing, id, submitData) => {
     }
 };
 
-// --- GET QR BLOB ---
+
 export const getQrBlobApi = async (type, id) => {
     try {
         const endpoint = type === 'item' ? `/items/${id}/qr` : `/phones/qrcode/${id}`;

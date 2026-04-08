@@ -5,7 +5,6 @@ import {toast, ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {Html5Qrcode} from "html5-qrcode";
 
-// 🌟 IMPORT API
 import { 
     fetchStoresApi, 
     getTransferRequestByIdApi, 
@@ -221,7 +220,6 @@ export default function ManagerTransferRequestDetail() {
         }
     };
 
-    // Receipt QR Code Scanning Functions
     const startReceiptScanning = () => {
         setShowReceiptScanner(true);
         setReceiptScanning(true);
@@ -261,13 +259,11 @@ export default function ManagerTransferRequestDetail() {
 
             const item = items[0];
 
-            // Check if item already exists in scanned receipt list
             if (scannedReceiptItems.find(scannedItem => scannedItem.id === item._id)) {
                 toast.warning("Mặt hàng này đã được quét");
                 return;
             }
 
-            // Check if this item is part of the transferred items
             const isTransferredItem = transferredItems.some(transferredItem =>
                 transferredItem.id === item._id || transferredItem.serialCode === item.serialCode
             );
@@ -277,7 +273,6 @@ export default function ManagerTransferRequestDetail() {
                 return;
             }
 
-            // Add item to scanned receipt list
             const receiptItem = {
                 id: item._id,
                 name: item.name || item.serialCode || "Unknown item",
@@ -311,23 +306,14 @@ export default function ManagerTransferRequestDetail() {
 
     const startCameraScanning = async () => {
         try {
-            console.log("Starting camera detection...");
-
-            // Get available cameras
             const devices = await Html5Qrcode.getCameras();
-            console.log("Detected devices:", devices);
-
             setCameras(devices);
 
             if (devices.length === 0) {
-                console.log("No cameras detected");
                 toast.error("Không tìm thấy camera nào. Vui lòng kiểm tra kết nối camera.");
                 return;
             }
 
-            console.log("Found cameras:", devices.map(d => ({ id: d.id, label: d.label })));
-
-            // Select first camera by default
             setSelectedCamera(devices[0].id);
             setCameraScanning(true);
             setReceiptScanning(false);
@@ -352,7 +338,6 @@ export default function ManagerTransferRequestDetail() {
 
     const initializeScanner = async (cameraId) => {
         try {
-            // Stop existing scanner if any
             if (scannerRef.current) {
                 await scannerRef.current.stop();
             }
@@ -367,13 +352,9 @@ export default function ManagerTransferRequestDetail() {
                     qrbox: { width: 250, height: 250 }
                 },
                 (decodedText, decodedResult) => {
-                    // QR Code detected
-                    console.log("QR Code detected:", decodedText);
                     handleReceiptQRCodeDetected(decodedText);
                 },
-                (errorMessage) => {
-                    // Ignore errors during scanning
-                }
+                (errorMessage) => { }
             );
         } catch (error) {
             console.error("Error starting scanner:", error);
@@ -382,15 +363,12 @@ export default function ManagerTransferRequestDetail() {
     };
 
     const handleReceiptQRCodeDetected = async (qrText) => {
-        // Stop scanning temporarily to prevent multiple reads
         if (scannerRef.current) {
             await scannerRef.current.pause();
         }
 
-        // Search for item with the QR code text
         await searchReceiptItem(qrText);
 
-        // Resume scanning after a delay
         setTimeout(() => {
             if (scannerRef.current && cameraScanning) {
                 scannerRef.current.resume();
@@ -409,7 +387,6 @@ export default function ManagerTransferRequestDetail() {
         if (cameraScanning && selectedCamera) {
             initializeScanner(selectedCamera);
         }
-
         return () => {
             if (scannerRef.current) {
                 scannerRef.current.stop().catch(() => {});
@@ -423,7 +400,7 @@ export default function ManagerTransferRequestDetail() {
 
         requestedItems.forEach((item, index) => {
             if (item.scannedQuantity !== item.requiredQuantity) {
-                errors[`item_${index}`] = `Số lượng không khớp: cần ${item.requiredQuantity}, có ${item.scannedQuantity}`;
+                errors[`item_${index}`] = `Thiếu ${item.requiredQuantity - item.scannedQuantity} SP`;
                 isValid = false;
             }
         });
@@ -439,8 +416,6 @@ export default function ManagerTransferRequestDetail() {
         const isInProgress = transferRequest?.status?.toUpperCase() === "IN PROGRESS";
         const itemsValid = requestedItems.every((item) => item.isValid);
 
-        // FROM store can only submit when status is APPROVED and items are valid
-        // TO store can only submit when status is IN PROGRESS and all items are scanned
         const fromStoreCanSubmit = isFromUserStore && isApproved && itemsValid;
         const toStoreCanSubmit = isToUserStore && isInProgress && canConfirmReceipt();
 
@@ -527,39 +502,24 @@ export default function ManagerTransferRequestDetail() {
     const getStatusBadge = (status) => {
         switch (status) {
             case "COMPLETED":
-                return <span
-                    className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium flex items-center gap-1"><CheckCircle
-                    size={14}/> Đã hoàn thành</span>;
+                return <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium flex items-center gap-1"><CheckCircle size={14}/> Đã hoàn thành</span>;
             case "APPROVED":
-                return <span
-                    className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium flex items-center gap-1"><CheckCircle
-                    size={14}/> Đã duyệt</span>;
+                return <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium flex items-center gap-1"><CheckCircle size={14}/> Đã duyệt</span>;
             case "IN PROGRESS":
-                return <span
-                    className="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded-full font-medium flex items-center gap-1"><Truck
-                    size={14}/> Đang vận chuyển</span>;
+                return <span className="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded-full font-medium flex items-center gap-1"><Truck size={14}/> Đang vận chuyển</span>;
             case "PENDING":
-                return <span
-                    className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full font-medium flex items-center gap-1"><Clock
-                    size={14}/> Chờ duyệt</span>;
+                return <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full font-medium flex items-center gap-1"><Clock size={14}/> Chờ duyệt</span>;
             case "REJECTED":
-                return <span
-                    className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full font-medium flex items-center gap-1"><X
-                    size={14}/> Từ chối</span>;
+                return <span className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full font-medium flex items-center gap-1"><X size={14}/> Từ chối</span>;
             default:
-                return <span
-                    className="px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded-full font-medium">{status}</span>;
+                return <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded-full font-medium">{status}</span>;
         }
     };
 
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         return new Date(dateString).toLocaleString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric"
+            hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric"
         });
     };
 
@@ -568,12 +528,8 @@ export default function ManagerTransferRequestDetail() {
         const isToUserStore = transferRequest?.toStoreId?._id === userStoreId;
         const status = transferRequest?.status?.toUpperCase();
 
-        if (isFromUserStore && status === "APPROVED") {
-            return "Xác nhận gửi hàng";
-        }
-        if (isToUserStore && status === "IN PROGRESS") {
-            return "Xác nhận nhận hàng";
-        }
+        if (isFromUserStore && status === "APPROVED") return "Xác nhận gửi hàng";
+        if (isToUserStore && status === "IN PROGRESS") return "Xác nhận nhận hàng";
         return "Xác nhận chuyển kho";
     };
 
@@ -581,7 +537,7 @@ export default function ManagerTransferRequestDetail() {
         return (
             <div className="p-6 max-w-4xl mx-auto">
                 <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">Đang tải thông tin...</div>
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-200 border-t-indigo-600"></div>
                 </div>
             </div>
         );
@@ -590,9 +546,7 @@ export default function ManagerTransferRequestDetail() {
     if (!transferRequest) {
         return (
             <div className="p-6 max-w-4xl mx-auto">
-                <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">Không tìm thấy yêu cầu chuyển kho</div>
-                </div>
+                <div className="flex items-center justify-center h-64 text-red-500 font-bold">Không tìm thấy yêu cầu chuyển kho</div>
             </div>
         );
     }
@@ -600,12 +554,12 @@ export default function ManagerTransferRequestDetail() {
     return (
         <>
             <ToastContainer position="top-right" autoClose={3000}/>
-            <div className="p-6 max-w-4xl mx-auto">
+            <div className="p-4 md:p-6 max-w-5xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate("/manager/transfer_approvals")}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-2 hover:bg-gray-200 rounded-lg transition-colors bg-white shadow-sm"
                         >
                             <ArrowLeft size={20}/>
                         </button>
@@ -618,212 +572,163 @@ export default function ManagerTransferRequestDetail() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <Store size={20} className="text-indigo-600"/>
-                            Thông tin cửa hàng
+                            <Store size={20} className="text-indigo-600"/> Thông tin cửa hàng
                         </h2>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Cửa hàng gửi
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transferRequest.fromStoreId?.name || "N/A"}
-                                    disabled
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Cửa hàng gửi</label>
+                                <input type="text" value={transferRequest.fromStoreId?.name || "N/A"} disabled className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Cửa hàng nhận
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transferRequest.toStoreId?.name || "N/A"}
-                                    disabled
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Cửa hàng nhận</label>
+                                <input type="text" value={transferRequest.toStoreId?.name || "N/A"} disabled className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" />
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <User size={20} className="text-indigo-600"/>
-                            Thông tin yêu cầu
+                            <User size={20} className="text-indigo-600"/> Thông tin yêu cầu
                         </h2>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Người yêu cầu
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transferRequest.requestedBy?.fullName || "N/A"}
-                                    disabled
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Người yêu cầu</label>
+                                <input type="text" value={transferRequest.requestedBy?.fullName || "N/A"} disabled className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Ngày tạo
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formatDate(transferRequest.createdAt)}
-                                    disabled
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày tạo</label>
+                                <input type="text" value={formatDate(transferRequest.createdAt)} disabled className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Người duyệt
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transferRequest.approvedBy?.fullName || "Chưa có"}
-                                    disabled
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Người duyệt</label>
+                                <input type="text" value={transferRequest.approvedBy?.fullName || "Chưa có"} disabled className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" />
                             </div>
                         </div>
 
-                        <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Ghi chú
-                            </label>
+                        <div className="mt-5">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ghi chú</label>
                             <textarea
                                 value={formData.note}
                                 onChange={(e) => setFormData((prev) => ({...prev, note: e.target.value}))}
                                 disabled={transferRequest.status !== "APPROVED" || transferRequest.fromStoreId?._id !== userStoreId}
-                                rows={3}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-600"
-                                placeholder="Thêm ghi chú..."
+                                rows={2}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-600 font-medium"
+                                placeholder="Không có ghi chú..."
                             />
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <Package size={20} className="text-indigo-600"/>
-                            Kiểm tra sản phẩm
+                            <Package size={20} className="text-indigo-600"/> Kiểm tra sản phẩm
                         </h2>
 
                         {transferRequest.status?.toUpperCase() === "APPROVED" && transferRequest.fromStoreId?._id === userStoreId && (
-                            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <h3 className="text-md font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                                    <Plus size={18} className="text-blue-600"/>
-                                    Thêm sản phẩm vào yêu cầu
+                            <div className="mb-6 p-5 bg-blue-50/50 border border-blue-200 rounded-xl">
+                                <h3 className="text-md font-bold text-blue-800 mb-3 flex items-center gap-2">
+                                    <Scan size={18} className="text-blue-600"/> Thêm sản phẩm xuất kho
                                 </h3>
-                                <div className="flex gap-4 items-end">
-                                    <div className="flex-1">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Mã sản phẩm (QR Code)
-                                        </label>
+                                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                                    <div className="flex-1 w-full">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mã Serial Code (QR Code)</label>
                                         <input
                                             type="text"
                                             value={qrCode}
                                             onChange={(e) => setQrCode(e.target.value)}
                                             onKeyPress={handleQRCodeKeyPress}
-                                            placeholder="Quét mã QR hoặc nhập mã sản phẩm"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            placeholder="Quét mã QR hoặc nhập mã sản phẩm..."
+                                            className="w-full px-4 py-2.5 border-2 border-blue-300 rounded-lg focus:border-blue-500 outline-none font-mono text-blue-900"
                                         />
                                     </div>
                                     <button
                                         type="button"
                                         onClick={handleAddItem}
                                         disabled={!qrCode.trim()}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
-                                        <Plus size={16}/>
-                                        Thêm sản phẩm
+                                        <Plus size={18}/> Thêm
                                     </button>
                                 </div>
                             </div>
                         )}
 
-                        <div className="space-y-3">
-                            {requestedItems.map((item, index) => (
-                                <div key={item.itemTypeId} className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg">
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-xs uppercase tracking-wide text-gray-500">Loại sản phẩm
-                                                yêu cầu</p>
-                                            {item.transferredItems.length > 0 && transferRequest.status?.toUpperCase() === "APPROVED" && transferRequest.fromStoreId?._id === userStoreId && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleClearItemType(item.itemTypeId)}
-                                                    className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
-                                                >
-                                                    Xóa tất cả
-                                                </button>
-                                            )}
-                                        </div>
-                                        <h3 className="font-medium text-gray-800">{item.name}</h3>
+                      
+                        <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-50 text-gray-500 uppercase text-xs border-b border-gray-200">
+                                    <tr>
+                                        <th className="p-4 font-bold text-center w-12 align-middle">STT</th>
+                                        <th className="p-4 font-bold w-[30%] align-middle">Loại sản phẩm yêu cầu</th>
+                                        <th className="p-4 font-bold text-center w-[15%] align-middle">Tiến độ</th>
+                                        <th className="p-4 font-bold w-[45%] align-middle">Sản phẩm thực tế đã quét</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {requestedItems.map((item, index) => (
+                                        <tr key={item.itemTypeId} className="hover:bg-slate-50/50 transition align-top">
+                                            <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
+                                            
+                                            <td className="p-4">
+                                                <div className="font-bold text-gray-800 text-[15px] mb-2">{item.name}</div>
+                                                {item.transferredItems.length > 0 && transferRequest.status?.toUpperCase() === "APPROVED" && transferRequest.fromStoreId?._id === userStoreId && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleClearItemType(item.itemTypeId)}
+                                                        className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors inline-flex items-center gap-1"
+                                                    >
+                                                        <X size={12}/> Xóa tất cả quét
+                                                    </button>
+                                                )}
+                                            </td>
 
-                                        <div className="flex items-center gap-4 mt-1">
-                                            <span className="text-sm text-gray-600">Yêu cầu: <span className="font-medium">{item.requiredQuantity}</span></span>
-                                            <span className="text-sm text-gray-600">Đã thêm: <span className={`font-medium ${item.isValid ? "text-green-600" : "text-red-600"}`}>{item.scannedQuantity}</span></span>
-                                        </div>
+                                            <td className="p-4 text-center">
+                                                <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full font-bold text-xs ${item.isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                    {item.scannedQuantity} / {item.requiredQuantity}
+                                                    {item.isValid ? <CheckCircle size={14}/> : <Clock size={14}/>}
+                                                </div>
+                                                {validationErrors[`item_${index}`] && (
+                                                    <p className="text-[11px] text-red-500 mt-2 font-medium flex items-center justify-center gap-1">
+                                                        <AlertCircle size={12}/> {validationErrors[`item_${index}`]}
+                                                    </p>
+                                                )}
+                                            </td>
 
-                                        {validationErrors[`item_${index}`] && (
-                                            <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                                <AlertCircle size={14}/>
-                                                {validationErrors[`item_${index}`]}
-                                            </p>
-                                        )}
-
-                                        <div className="mt-3 rounded-md bg-gray-50 p-3">
-                                            <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Danh sách
-                                                sản phẩm thực tế</p>
-                                            {item.transferredItems.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {item.transferredItems.map((transferredItem) => (
-                                                        <div key={transferredItem.id}
-                                                             className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2">
-                                                            <div className="flex-1">
-                                                                <p className="text-sm font-medium text-gray-800">{transferredItem.name}</p>
-                                                                <p className="text-xs text-gray-500">Serial: {transferredItem.serialCode}</p>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span
-                                                                    className="text-xs text-gray-500">{transferredItem.itemTypeName}</span>
+                                            <td className="p-4 bg-gray-50/30">
+                                                {item.transferredItems.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        {item.transferredItems.map((transferredItem) => (
+                                                            <div key={transferredItem.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[13px] font-bold text-gray-800 truncate" title={transferredItem.name}>{transferredItem.name}</p>
+                                                                    <p className="text-[11px] text-gray-500 font-mono mt-0.5">SN: {transferredItem.serialCode}</p>
+                                                                </div>
                                                                 {transferRequest.status?.toUpperCase() === "APPROVED" && transferRequest.fromStoreId?._id === userStoreId && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleDeleteItem(transferredItem.id)}
-                                                                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors flex-shrink-0"
                                                                         title="Xóa sản phẩm"
                                                                     >
                                                                         <X size={14}/>
                                                                     </button>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-sm text-gray-500">Chưa có sản phẩm nào được thêm cho loại này.</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-6">
-                                        {item.isValid ? (
-                                            <div className="text-green-600"><CheckCircle size={20}/></div>
-                                        ) : (
-                                            <div className="text-red-600"><X size={20}/></div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-gray-400 text-xs italic font-medium">
+                                                        Chưa quét sản phẩm nào
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -831,7 +736,7 @@ export default function ManagerTransferRequestDetail() {
                         <button
                             type="button"
                             onClick={() => navigate("/manager/transfer_approvals")}
-                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                            className="px-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
                         >
                             Quay lại
                         </button>
@@ -840,18 +745,12 @@ export default function ManagerTransferRequestDetail() {
                             <button
                                 type="submit"
                                 disabled={submitting}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md"
                             >
                                 {submitting ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        Đang xử lý...
-                                    </>
+                                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Đang xử lý...</>
                                 ) : (
-                                    <>
-                                        <Save size={16}/>
-                                        {getSubmitButtonText()}
-                                    </>
+                                    <><Save size={18}/> {getSubmitButtonText()}</>
                                 )}
                             </button>
                         )}
@@ -860,74 +759,67 @@ export default function ManagerTransferRequestDetail() {
                             <button
                                 type="button"
                                 onClick={startReceiptScanning}
-                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                                className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-md"
                             >
-                                <Scan size={16}/>
-                                Quét mã QR xác nhận nhận hàng
+                                <Scan size={18}/> Quét mã QR Xác nhận Nhận hàng
                             </button>
                         )}
                     </div>
                 </form>
 
                 {showReceiptScanner && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                            <div className="p-6 border-b border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                                        <Scan className="text-green-600"/>
-                                        Xác nhận nhận hàng - Quét mã QR
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="p-5 border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                        <Scan className="text-emerald-600"/> Xác nhận nhận hàng - Quét mã QR
                                     </h2>
-                                    <button
-                                        onClick={closeReceiptScanner}
-                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                    >
-                                        <X size={20}/>
-                                    </button>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        Vui lòng quét <strong className="text-emerald-600">{transferredItems.length}</strong> sản phẩm để xác nhận nhập kho
+                                    </p>
                                 </div>
-                                <p className="text-sm text-gray-600 mt-2">
-                                    Vui lòng quét tất cả các mặt hàng ({transferredItems.length} sản phẩm) để xác nhận nhận hàng
-                                </p>
+                                <button onClick={closeReceiptScanner} className="p-2 bg-white border border-gray-200 text-gray-500 hover:text-red-500 rounded-full transition-colors shadow-sm">
+                                    <X size={20}/>
+                                </button>
                             </div>
 
-                            <div className="p-6">
+                            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
                                 <div className="mb-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-medium text-gray-800">
-                                            Quét mã QR sản phẩm
-                                        </h3>
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                                        <h3 className="text-md font-bold text-gray-800">1. Chọn phương thức quét</h3>
                                         <div className="flex gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => setReceiptScanning(true)}
                                                 disabled={cameraScanning}
-                                                className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                                className="px-4 py-2 bg-gray-100 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-2 border border-gray-200 shadow-sm"
                                             >
-                                                <Scan size={14}/> Nhập Serial
+                                                <Scan size={16}/> Nhập Serial tay
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={startCameraScanning}
                                                 disabled={receiptScanning}
-                                                className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                                className="px-4 py-2 bg-indigo-600 text-white font-bold text-sm rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
                                             >
-                                                <Camera size={14}/> Quét Camera
+                                                <Camera size={16}/> Mở Camera thiết bị
                                             </button>
                                         </div>
                                     </div>
 
                                     {cameraScanning && (
-                                        <div className="mb-4 p-4 bg-white rounded-lg border border-indigo-200">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h4 className="text-sm font-medium text-indigo-700">
-                                                    <Camera size={16} className="inline mr-1"/> Quét QR Code bằng Camera
+                                        <div className="mb-4 p-5 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h4 className="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                                                    <Camera size={18}/> Quét QR Code bằng Camera
                                                 </h4>
                                                 <div className="flex items-center gap-2">
                                                     {cameras.length > 1 && (
                                                         <select
                                                             value={selectedCamera || ""}
                                                             onChange={(e) => handleCameraChange(e.target.value)}
-                                                            className="px-2 py-1 text-sm border border-gray-300 rounded"
+                                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg outline-none font-semibold text-gray-700"
                                                         >
                                                             {cameras.map((camera, index) => (
                                                                 <option key={camera.id} value={camera.id}>
@@ -936,102 +828,120 @@ export default function ManagerTransferRequestDetail() {
                                                             ))}
                                                         </select>
                                                     )}
-                                                    <button onClick={stopCameraScanning} className="px-2 py-1 text-red-600 hover:text-red-700 transition-colors"><X size={16}/></button>
+                                                    <button onClick={stopCameraScanning} className="p-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-md transition-colors"><X size={16}/></button>
                                                 </div>
                                             </div>
                                             <div className="flex justify-center">
-                                                <div id="receipt-qr-reader" className="border-2 border-indigo-300 rounded-lg" style={{ width: '300px', height: '300px' }}/>
+                                                <div id="receipt-qr-reader" className="border-4 border-dashed border-indigo-300 rounded-2xl overflow-hidden" style={{ width: '300px', height: '300px' }}/>
                                             </div>
-                                            <p className="text-xs text-gray-600 mt-2 text-center">Đưa QR code vào khung để quét tự động</p>
+                                            <p className="text-sm text-gray-500 mt-3 text-center font-medium">Đưa QR code vào khung hình để hệ thống quét tự động</p>
                                         </div>
                                     )}
 
                                     {receiptScanning && (
-                                        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                            <div className="flex items-center gap-2">
-                                                <Scan size={16} className="text-gray-600"/>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Nhập mã serial hoặc quét QR code..."
-                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                                    onKeyPress={handleReceiptQRCodeKeyPress}
-                                                    autoFocus
-                                                />
-                                                <button onClick={() => setReceiptScanning(false)} className="px-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"><X size={16}/></button>
-                                            </div>
+                                        <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-3">
+                                            <Scan size={20} className="text-gray-500"/>
+                                            <input
+                                                type="text"
+                                                placeholder="Nhập mã serial hoặc dùng máy quét..."
+                                                className="flex-1 px-4 py-2.5 font-mono font-bold text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                                                onKeyPress={handleReceiptQRCodeKeyPress}
+                                                autoFocus
+                                            />
+                                            <button onClick={() => setReceiptScanning(false)} className="p-2 bg-white border border-gray-300 text-gray-500 hover:text-gray-700 rounded-lg transition-colors shadow-sm"><X size={20}/></button>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="mb-6">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-lg font-medium text-gray-800">
-                                            Danh sách sản phẩm đã quét ({scannedReceiptItems.length}/{transferredItems.length})
+                                    <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
+                                        <h3 className="text-md font-bold text-gray-800">
+                                            2. Danh sách sản phẩm đã quét 
+                                            <span className="ml-2 text-indigo-600">({scannedReceiptItems.length}/{transferredItems.length})</span>
                                         </h3>
-                                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${scannedReceiptItems.length === transferredItems.length ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                            {scannedReceiptItems.length === transferredItems.length ? 'Hoàn thành' : 'Cần quét thêm'}
+                                        <div className={`px-4 py-1.5 rounded-full text-xs font-bold border ${scannedReceiptItems.length === transferredItems.length ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-orange-100 text-orange-800 border-orange-200'}`}>
+                                            {scannedReceiptItems.length === transferredItems.length ? 'Đã đủ số lượng' : 'Cần quét thêm'}
                                         </div>
                                     </div>
 
+                                
                                     {scannedReceiptItems.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {scannedReceiptItems.map((item) => (
-                                                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                                    <div className="flex-1">
-                                                        <div className="font-medium text-sm">{item.name}</div>
-                                                        <div className="text-xs text-gray-500">Serial: {item.serialCode} | Loại: {item.itemTypeName}</div>
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Ghi chú vấn đề (nếu có)..."
-                                                            value={item.issue}
-                                                            onChange={(e) => updateReceiptItemIssue(item.id, e.target.value)}
-                                                            className="mt-2 w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                                                        />
-                                                    </div>
-                                                    <button onClick={() => removeScannedReceiptItem(item.id)} className="ml-2 p-1 text-red-500 hover:text-red-700 transition-colors"><X size={14}/></button>
-                                                </div>
-                                            ))}
+                                        <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                            <table className="w-full text-left text-sm whitespace-nowrap">
+                                                <thead className="bg-gray-50 text-gray-500 uppercase text-[11px] border-b border-gray-200">
+                                                    <tr>
+                                                        <th className="px-4 py-3 font-semibold text-center w-12">STT</th>
+                                                        <th className="px-4 py-3 font-semibold w-[35%]">Sản phẩm</th>
+                                                        <th className="px-4 py-3 font-semibold w-[40%]">Ghi chú vấn đề</th>
+                                                        <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {scannedReceiptItems.map((item, idx) => (
+                                                        <tr key={item.id} className="hover:bg-gray-50 transition">
+                                                            <td className="px-4 py-3 text-center font-bold text-gray-400">{idx + 1}</td>
+                                                            <td className="px-4 py-3">
+                                                                <div className="font-bold text-gray-800 text-[13px] truncate" title={item.name}>{item.name}</div>
+                                                                <div className="text-[11px] text-gray-500 mt-0.5 font-mono">SN: {item.serialCode}</div>
+                                                            </td>
+                                                            <td className="px-4 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="VD: Bị xước, hỏng..."
+                                                                    value={item.issue}
+                                                                    onChange={(e) => updateReceiptItemIssue(item.id, e.target.value)}
+                                                                    className="w-full px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-shadow"
+                                                                />
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <button onClick={() => removeScannedReceiptItem(item.id)} className="p-1.5 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-md transition-colors inline-flex"><X size={14}/></button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     ) : (
-                                        <div className="text-center py-8 text-gray-400">
-                                            <Package size={32} className="mx-auto mb-2"/>
-                                            <p className="text-sm">Chưa quét sản phẩm nào</p>
-                                            <p className="text-xs">Nhấn "Quét Camera" hoặc "Nhập Serial" để bắt đầu</p>
+                                        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400">
+                                            <Package size={40} className="mx-auto mb-3 opacity-30"/>
+                                            <p className="text-sm font-medium">Chưa quét sản phẩm nào</p>
+                                            <p className="text-xs mt-1">Chọn "Quét Camera" hoặc "Nhập Serial" để bắt đầu</p>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú chung về việc nhận hàng</label>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">3. Ghi chú chung (Không bắt buộc)</label>
                                     <textarea
                                         value={receiptNote}
                                         onChange={(e) => setReceiptNote(e.target.value)}
-                                        rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                        placeholder="Nhập ghi chú về tình trạng nhận hàng (nếu có)..."
+                                        rows={2}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-sm"
+                                        placeholder="Ví dụ: Lô hàng nhận đủ, đóng gói cẩn thận..."
                                     />
                                 </div>
-
-                                <div className="flex justify-end gap-3">
-                                    <button onClick={closeReceiptScanner} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Hủy</button>
-                                    <button
-                                        type="button"
-                                        onClick={handleSubmit}
-                                        disabled={scannedReceiptItems.length !== transferredItems.length || submitting}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        {submitting ? (
-                                            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Đang xử lý...</>
-                                        ) : (
-                                            <><CheckCircle size={16}/> Xác nhận nhận hàng</>
-                                        )}
-                                    </button>
-                                </div>
+                            </div>
+                            
+                            <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 shrink-0">
+                                <button onClick={closeReceiptScanner} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-sm">Hủy Bỏ</button>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={scannedReceiptItems.length !== transferredItems.length || submitting}
+                                    className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md shadow-emerald-500/20"
+                                >
+                                    {submitting ? (
+                                        <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Đang xử lý...</>
+                                    ) : (
+                                        <><CheckCircle size={18}/> Chốt Nhận Hàng</>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
                 )}
             </div>
+            <style dangerouslySetInnerHTML={{__html: `.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }`}} />
         </>
     );
 }

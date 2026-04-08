@@ -1,12 +1,10 @@
-const Item_type = require("../models/Item_type"); // Đã sửa thành Item_type chuẩn
+const Item_type = require("../models/Item_type"); 
 const Recipe = require("../models/Recipe"); 
 const Item = require("../models/Item");
 
 const getAllItemTypes = async (req, res) => {
     try {
         const itemTypes = await Item_type.find().lean();
-
-        // Thuật toán đếm kho
         const stockCounts = await Item.aggregate([
             { $match: { status: 'in_stock' } },
             { $group: { _id: '$item_type', count: { $sum: 1 } } }
@@ -44,7 +42,6 @@ const getItemTypePaginatedAndSearch = async (req, res) => {
         const sortQuery = {};
         sortQuery[sortBy] = sortOrder === 'desc' ? -1 : 1;
         
-        // Nếu Frontend truyền limit lớn (dạng cây), bỏ qua phân trang
         let itemTypes = [];
         if (parseInt(limit) >= 100) {
             itemTypes = await Item_type.find(searchQuery).sort(sortQuery).lean();

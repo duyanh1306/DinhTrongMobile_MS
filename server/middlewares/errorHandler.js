@@ -1,10 +1,8 @@
 // middlewares/errorHandler.js
-
-// Middleware for 404 - Not Found
 const notFound = (req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
-  res.status(404); // Explicitly set the response status
-  next(error);     // Forward error to the errorHandler
+  res.status(404); 
+  next(error);     
 };
 
 // Global Error Handler Middleware

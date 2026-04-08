@@ -18,7 +18,6 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import { useNavigate, useParams } from "react-router-dom";
 
-// IMPORT TỪ FILE API
 import { 
     fetchUsersApi, 
     fetchRolesApi, 
@@ -61,9 +60,7 @@ export default function ManageStaffStore() {
   const [errors, setErrors] = useState({});
   const [targetStoreId, setTargetStoreId] = useState("");
 
-  // ==============================================================
-  // GỌI API QUA HÀM ĐÃ TÁCH
-  // ==============================================================
+
   useEffect(() => {
     loadInitialData();
   }, [storeId]);
@@ -81,7 +78,7 @@ export default function ManageStaffStore() {
       if (storeInfo) setStoreName(storeInfo.name || "");
   };
 
-  // Hàm load lại users sau khi thêm/sửa/xóa
+
   const reloadUsers = async () => {
       const usersData = await fetchUsersApi();
       setUsers(usersData);
