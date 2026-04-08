@@ -277,7 +277,7 @@ router.get("/", getAllTransferRequests);
 
 /**
  * @swagger
- * /transfer-requests/{id}/details:
+ * /api/transfer-requests/{id}/details:
  *   get:
  *     summary: Get transfer request details
  *     description: Retrieve detailed items and phones for a specific transfer request
@@ -366,7 +366,7 @@ router.post("/", createTransferRequest);
 
 /**
  * @swagger
- * /transfer-requests/{id}:
+ * /api/transfer-requests/{id}:
  *   get:
  *     summary: Get transfer request by ID
  *     description: Retrieve a specific transfer request by its ID
@@ -411,7 +411,7 @@ router.get("/:id", getTransferRequestById);
 
 /**
  * @swagger
- * /transfer-requests/{id}/shipment:
+ * /api/transfer-requests/{id}/shipment:
  *   put:
  *     summary: Confirm shipment
  *     description: Confirm that items have been shipped and create outbound inventory transactions
@@ -473,7 +473,7 @@ router.put("/:id/shipment", confirmShipment);
 
 /**
  * @swagger
- * /transfer-requests/{id}/receipt:
+ * /api/transfer-requests/{id}/receipt:
  *   put:
  *     summary: Confirm receipt
  *     description: Confirm receipt of transferred items and update inventory
@@ -529,7 +529,7 @@ router.put("/:id/receipt", confirmReceipt);
 
 /**
  * @swagger
- * /transfer-requests/{id}/approve:
+ * /api/transfer-requests/{id}/approve:
  *   put:
  *     summary: Approve transfer request
  *     description: Approve a pending transfer request
@@ -585,7 +585,7 @@ router.put("/:id/approve", approveTransferRequest);
 
 /**
  * @swagger
- * /transfer-requests/{id}/reject:
+ * /api/transfer-requests/{id}/reject:
  *   put:
  *     summary: Reject transfer request
  *     description: Reject a pending transfer request

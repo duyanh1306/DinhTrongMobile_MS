@@ -179,7 +179,7 @@ const { getPhoneReviews, createReview } = require("../controllers/reviewControll
 
 /**
  * @swagger
- * /reviews/phone/{phoneModelId}:
+ * /api/reviews/phone/{phoneModelId}:
  *   get:
  *     summary: Get reviews for a specific phone model
  *     description: Retrieve all reviews for a specific phone model with statistics and filtering options
@@ -228,7 +228,7 @@ router.get("/phone/:phoneModelId", getPhoneReviews);
 
 /**
  * @swagger
- * /reviews/create:
+ * /api/reviews/create:
  *   post:
  *     summary: Create or update a review
  *     description: Create a new review or update an existing review for a phone model. Only authenticated customers can access this endpoint.

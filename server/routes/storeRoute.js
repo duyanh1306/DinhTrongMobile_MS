@@ -47,7 +47,7 @@ const {
 
 /**
  * @swagger
- * /stores/all:
+ * /api/stores/all:
  *   get:
  *     summary: Get all stores
  *     description: Retrieve a list of all stores with success wrapper
@@ -118,7 +118,7 @@ router.get("/", getAllStores);
 
 /**
  * @swagger
- * /stores/{id}:
+ * /api/stores/{id}:
  *   get:
  *     summary: Get store by ID
  *     description: Retrieve a specific store by its MongoDB ID
@@ -213,7 +213,7 @@ router.post("/", createStore);
 
 /**
  * @swagger
- * /stores/{id}:
+ * /api/stores/{id}:
  *   put:
  *     summary: Update store by ID
  *     description: Update a specific store by its MongoDB ID
@@ -276,7 +276,7 @@ router.put("/:id", updateStore);
 
 /**
  * @swagger
- * /stores/{id}:
+ * /api/stores/{id}:
  *   delete:
  *     summary: Delete store by ID
  *     description: Delete a specific store by its MongoDB ID
