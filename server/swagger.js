@@ -12,6 +12,21 @@ const swaggerDefinition = {
       url: process.env.IP_ADDRESS || "http://localhost:9999/api",
     },
   ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "JWT authentication token"
+      }
+    }
+  },
+  security: [
+    {
+      bearerAuth: []
+    }
+  ]
 };
 
 const options = {
