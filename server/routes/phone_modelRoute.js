@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { authInternal } = require("../middlewares/auth");
-const uploadCloud = require("../config/cloudinary"); // Chắc chắn có dòng này
+const uploadCloud = require("../config/cloudinary"); 
 
 const {
     createPhoneModel,

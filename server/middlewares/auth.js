@@ -3,7 +3,7 @@ const Role = require("../models/Role");
 
 /**
  * Hàm tạo Middleware kiểm tra quyền hạn động
- * @param {Array} allowedRoleIds - Danh sách các mã role được phép (VD: ['ADMIN', 'SALE_STAFF'])
+ * @param {Array} allowedRoleIds 
  */
 const checkRole = (allowedRoleIds) => {
   return async (req, res, next) => {
@@ -16,20 +16,14 @@ const checkRole = (allowedRoleIds) => {
     const token = authHeader.split(" ")[1];
 
     try {
-      // 2. Giải mã Token
+
       const decoded = jwt.verify(token, process.env.JWT_KEY);
       req.user = decoded;
-
-      // 3. Kiểm tra Role từ Database
-      // Token chứa roleId (là ObjectId), ta cần tìm Role đó trong DB để lấy trường 'id' (ADMIN,...)
       const role = await Role.findById(decoded.roleId);
 
       if (!role) {
         return res.status(403).json({ message: "Forbidden: Role not found in system" });
       }
-
-      // 4. So sánh quyền
-      // role.id chính là các chuỗi: "ADMIN", "SALE_STAFF", "TECHNICIAN", "CUSTOMER"
       if (!allowedRoleIds.includes(role.id)) {
         return res.status(403).json({ 
           message: `Forbidden: Requires one of roles [${allowedRoleIds.join(", ")}]` 
@@ -46,25 +40,17 @@ const checkRole = (allowedRoleIds) => {
 
 // Xuất ra các hàm middleware cụ thể để dễ dùng
 module.exports = {
-  // Chỉ Admin
   authAdmin: checkRole(["ADMIN"]),
   
   authManager: checkRole(["MANAGER"]),
-  
-  // Chỉ Sale Staff
   authSaleStaff: checkRole(["SALE_STAFF"]),
-  
-  // Chỉ Technician
+
   authTechnician: checkRole(["TECHNICIAN"]),
-  
-  // Chỉ Customer
+
   authCustomer: checkRole(["CUSTOMER"]),
   
-  // Ví dụ: Cho phép cả Admin và Sale Staff (dùng cho các chức năng quản lý đơn hàng)
   authManagement: checkRole(["ADMIN", "MANAGER", "SALE_STAFF"]),
-  
-  // Ví dụ: Cho phép tất cả nhân viên nội bộ (trừ khách hàng)
+ 
   authInternal: checkRole(["ADMIN", "MANAGER", "SALE_STAFF", "TECHNICIAN"]),
-  // Hàm gốc nếu muốn tự custom ở route
   checkRole 
 };

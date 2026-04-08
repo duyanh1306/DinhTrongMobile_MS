@@ -3,6 +3,10 @@ const TransferRequestDetail = require("../models/Transfer_request_detail");
 const Store = require("../models/Store");
 const User = require("../models/User");
 const { sendTransferRequestCreatedEmail, sendTransferRequestApprovedEmail } = require("../utils/sendEmail"); 
+const InventoryTransaction = require("../models/Inventory_transaction"); 
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); 
+const Item = require("../models/Item");
+const Phone = require("../models/Phone");
 // Lấy tất cả yêu cầu chuyển kho
 const getAllTransferRequests = async (req, res) => {
     try {
@@ -31,7 +35,6 @@ const getTransferRequestDetailsById = async (req, res) => {
                 select: "serialCode item_type itemTypeId",
                 populate: [
                     {path: "item_type", select: "name"},
-                    // { path: "itemTypeId", select: "name" }
                 ]
             });
 
@@ -61,7 +64,7 @@ const createTransferRequest = async (req, res) => {
             status: "PENDING",
             note: note || "",
             itemType: Array.isArray(itemType) ? itemType : [],
-            phoneModel: Array.isArray(phoneModel) ? phoneModel : [] // Lưu cả phone model theo mảng mới
+            phoneModel: Array.isArray(phoneModel) ? phoneModel : [] 
         });
 
         const savedRequest = await transferRequest.save();
@@ -83,7 +86,6 @@ const createTransferRequest = async (req, res) => {
 
        
             try {
-                // Populate thêm roleId nếu sau này bạn cần dùng tên role
                 const fromStore = await Store.findById(fromStoreId).populate({
                     path: 'staff',
                     populate: { path: 'roleId' } 
@@ -241,8 +243,7 @@ const approveTransferRequest = async (req, res) => {
                     .map(u => u.email)
                     .filter(Boolean);
     
-                console.log("Tìm thấy các Sale email:", saleEmails); 
-    
+               
                 if (saleEmails.length > 0) {
                     await sendTransferRequestApprovedEmail(saleEmails, transferRequest, fromStore.name, toStore.name);
                 }
@@ -324,9 +325,6 @@ const confirmShipment = async (req, res) => {
         transferRequest.approvedBy = userId;
         await transferRequest.save();
 
-        const TransferRequestDetail = require("../models/Transfer_request_detail");
-        // 🌟 GỌI MODEL INVENTORY_TRANSACTION
-        const InventoryTransaction = require("../models/Inventory_transaction"); 
 
         if ((items && items.length > 0) || (phones && phones.length > 0)) {
             let existingDetails = await TransferRequestDetail.findOne({transferRequestId: id});
@@ -349,17 +347,24 @@ const confirmShipment = async (req, res) => {
                 });
             }
 
-            // 🌟 LOGIC TẠO LỊCH SỬ GIAO DỊCH XUẤT KHO (OUTBOUND)
-            const transactions = [];
+            const totalScanned = (items ? items.length : 0) + (phones ? phones.length : 0);
+            const newTransaction = await InventoryTransaction.create({
+                storeId: transferRequest.fromStoreId,
+                transactionType: "OUTBOUND",
+                referenceType: "TRANSFER_REQUEST",
+                referenceId: transferRequest._id,
+                totalItems: totalScanned,
+                note: "Xuất kho luân chuyển"
+            });
+
+            const transactionDetails = [];
 
             if (items && items.length > 0) {
                 items.forEach(item => {
-                    transactions.push({
-                        storeId: transferRequest.fromStoreId, // Lấy từ cửa hàng xuất
-                        transactionType: "OUTBOUND",
-                        referenceType: "TRANSFER_REQUEST",
-                        referenceId: transferRequest._id,
+                    transactionDetails.push({
+                        transactionId: newTransaction._id, 
                         itemId: item.id,
+                        quantity: 1,
                         note: "Xuất kho luân chuyển"
                     });
                 });
@@ -367,20 +372,17 @@ const confirmShipment = async (req, res) => {
 
             if (phones && phones.length > 0) {
                 phones.forEach(phone => {
-                    transactions.push({
-                        storeId: transferRequest.fromStoreId, // Lấy từ cửa hàng xuất
-                        transactionType: "OUTBOUND",
-                        referenceType: "TRANSFER_REQUEST",
-                        referenceId: transferRequest._id,
+                    transactionDetails.push({
+                        transactionId: newTransaction._id, 
                         phoneId: phone.id,
+                        quantity: 1,
                         note: "Xuất kho luân chuyển"
                     });
                 });
             }
 
-            // Lưu toàn bộ giao dịch vào Database
-            if (transactions.length > 0) {
-                await InventoryTransaction.insertMany(transactions);
+            if (transactionDetails.length > 0) {
+                await InventoryTransactionDetail.insertMany(transactionDetails);
             }
         }
 
@@ -411,68 +413,71 @@ const confirmReceipt = async (req, res) => {
             return res.status(404).json({ success: false, message: "Không tìm thấy yêu cầu vận chuyển" });
         }
         if (transferRequest.status?.toUpperCase() !== "DELIVERING") {
-            return res.status(400).json({ success: false, message: "Yêu cầu vận chuyện phải trong trạng thái Đang vận chuyển để xác nhận" });
+            return res.status(400).json({ success: false, message: "Yêu cầu vận chuyển phải trong trạng thái Đang vận chuyển để xác nhận" });
         }
 
         transferRequest.status = "COMPLETED";
         transferRequest.completedAt = new Date();
         await transferRequest.save();
 
-        const TransferRequestDetail = require("../models/Transfer_request_detail");
-        const Item = require("../models/Item");
-        const Phone = require("../models/Phone");
-        const InventoryTransaction = require("../models/Inventory_transaction");
+ 
 
         const details = await TransferRequestDetail.find({ transferRequestId: id });
-        const transactions = [];
+        
 
-        for (const detail of details) {
-            // 1. Xử lý Linh kiện
-            if (detail.itemId && detail.itemId.length > 0) {
-                // Chuyển kho sang toStoreId
-                await Item.updateMany(
-                    { _id: { $in: detail.itemId } },
-                    { storeId: transferRequest.toStoreId }
-                );
+        let totalReceived = 0;
+        details.forEach(d => {
+            totalReceived += (d.itemId?.length || 0) + (d.phoneId?.length || 0);
+        });
 
-                // Tạo log Nhập kho (INBOUND) cho từng linh kiện
-                detail.itemId.forEach(itemId => {
-                    transactions.push({
-                        storeId: transferRequest.toStoreId, // Cửa hàng nhận
-                        transactionType: "INBOUND",
-                        referenceType: "TRANSFER_REQUEST",
-                        referenceId: transferRequest._id,
-                        itemId: itemId,
-                        note: "Nhập kho luân chuyển từ " + (transferRequest.fromStoreId?.name || "kho khác")
+        if (totalReceived > 0) {
+
+            const newTransaction = await InventoryTransaction.create({
+                storeId: transferRequest.toStoreId, 
+                transactionType: "INBOUND",
+                referenceType: "TRANSFER_REQUEST",
+                referenceId: transferRequest._id,
+                totalItems: totalReceived,
+                note: "Nhập kho luân chuyển từ " + (transferRequest.fromStoreId?.name || "kho khác")
+            });
+
+            const transactionDetails = [];
+
+            for (const detail of details) {
+                if (detail.itemId && detail.itemId.length > 0) {
+                    await Item.updateMany(
+                        { _id: { $in: detail.itemId } },
+                        { storeId: transferRequest.toStoreId }
+                    );
+
+                    detail.itemId.forEach(itemId => {
+                        transactionDetails.push({
+                            transactionId: newTransaction._id,
+                            itemId: itemId,
+                            quantity: 1
+                        });
                     });
-                });
-            }
+                }
 
-            // 2. Xử lý Điện thoại
-            if (detail.phoneId && detail.phoneId.length > 0) {
-                // Chuyển kho sang toStoreId
-                await Phone.updateMany(
-                    { _id: { $in: detail.phoneId } },
-                    { storeId: transferRequest.toStoreId }
-                );
+                if (detail.phoneId && detail.phoneId.length > 0) {
+                    await Phone.updateMany(
+                        { _id: { $in: detail.phoneId } },
+                        { storeId: transferRequest.toStoreId }
+                    );
 
-                // Tạo log Nhập kho (INBOUND) cho từng điện thoại
-                detail.phoneId.forEach(phoneId => {
-                    transactions.push({
-                        storeId: transferRequest.toStoreId, // Cửa hàng nhận
-                        transactionType: "INBOUND",
-                        referenceType: "TRANSFER_REQUEST",
-                        referenceId: transferRequest._id,
-                        phoneId: phoneId,
-                        note: "Nhập kho luân chuyển từ " + (transferRequest.fromStoreId?.name || "kho khác")
+              
+                    detail.phoneId.forEach(phoneId => {
+                        transactionDetails.push({
+                            transactionId: newTransaction._id,
+                            phoneId: phoneId,
+                            quantity: 1
+                        });
                     });
-                });
+                }
             }
-        }
-
-     
-        if (transactions.length > 0) {
-            await InventoryTransaction.insertMany(transactions);
+            if (transactionDetails.length > 0) {
+                await InventoryTransactionDetail.insertMany(transactionDetails);
+            }
         }
 
         const updatedRequest = await TransferRequest.findById(id)

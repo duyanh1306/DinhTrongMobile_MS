@@ -1,7 +1,7 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
-// 1. Lấy danh sách cửa hàng
+
 export const fetchStoresApi = async () => {
     try {
         const response = await axiosClient.get(`/stores`);
@@ -13,7 +13,7 @@ export const fetchStoresApi = async () => {
     }
 };
 
-// 2. Lấy danh sách loại linh kiện
+
 export const fetchItemTypesApi = async () => {
     try {
         const response = await axiosClient.get(`/item_types?limit=100`);
@@ -25,7 +25,7 @@ export const fetchItemTypesApi = async () => {
     }
 };
 
-// 3. Tìm kiếm cửa hàng của Manager hiện tại
+
 export const fetchUserStoreApi = async (userId) => {
     try {
         const response = await axiosClient.get(`/stores`);
@@ -47,7 +47,7 @@ export const fetchUserStoreApi = async (userId) => {
     }
 };
 
-// 4. Tạo yêu cầu chuyển kho
+
 export const createTransferRequestApi = async (transferRequestData) => {
     try {
         await axiosClient.post(`/transfer-requests`, transferRequestData);

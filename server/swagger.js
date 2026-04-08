@@ -1,4 +1,5 @@
 const swaggerJSDoc = require("swagger-jsdoc");
+require("dotenv").config();
 
 const swaggerDefinition = {
   openapi: "3.0.0",
@@ -9,9 +10,29 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: process.env.IP_ADDRESS || "http://localhost:9999/api",
+      url: process.env.IP_ADDRESS,
+      description: "Development server"
     },
+    {
+      url: process.env.IP_ADDRESS + `:9999`,
+      description: "Production server"
+    }
   ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "JWT authentication token"
+      }
+    }
+  },
+  security: [
+    {
+      bearerAuth: []
+    }
+  ]
 };
 
 const options = {

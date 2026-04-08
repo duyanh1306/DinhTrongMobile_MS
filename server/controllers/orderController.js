@@ -4,11 +4,8 @@ const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const User = require("../models/User");
 const InventoryTransaction = require("../models/Inventory_transaction");
-
-// 🌟 ĐÃ FIX: Import chuẩn xác các hàm gửi mail để không bị lỗi 500
 const { sendConfirmRequestEmail, sendIssueReportEmail } = require("../utils/sendEmail");
 
-// Bỏ qua cảnh báo chặn mạng ở môi trường Localhost
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const payos = new PayOS({
@@ -57,7 +54,7 @@ const createOrder = async (req, res) => {
 
         res.status(201).json({ success: true, data: savedOrder, orderId: savedOrder._id });
     } catch (error) {
-        console.error("❌ LỖI TẠO ĐƠN HÀNG PAYOS:", error);
+        console.error(" LỖI TẠO ĐƠN HÀNG PAYOS:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -70,11 +67,11 @@ const payosWebhook = async (req, res) => {
                 { orderCode: webhookData.orderCode.toString() },
                 { paymentStatus: 'Paid', orderStatus: 'Processing' }
             );
-            console.log(`✅ Ting Ting! PayOS báo đã nhận tiền cho đơn: ${webhookData.orderCode}`);
+            console.log(` Ting Ting! PayOS báo đã nhận tiền cho đơn: ${webhookData.orderCode}`);
         }
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Lỗi Webhook:", error.message);
+        console.error("Lỗi Webhook:", error.message);
         res.json({ success: false });
     }
 };
@@ -95,7 +92,7 @@ const getOrderById = async (req, res) => {
     try {
         const { id } = req.params;
         const order = await Order.findById(id)
-            .populate('items.selectedParts', 'name price serialCode warrantyPeriod') // 🌟 Dùng đúng selectedParts
+            .populate('items.selectedParts', 'name price serialCode warrantyPeriod') 
             .populate('storeId', 'name address phone'); 
         
         if (!order) {
@@ -177,7 +174,7 @@ const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({})
             .populate('storeId', 'name address location phone')
-            .populate('items.selectedParts', 'name serialCode') // 🌟 Đã trả về đúng selectedParts của bạn
+            .populate('items.selectedParts', 'name serialCode') 
             .populate('items.phoneId', 'serialCode')
             .sort({ createdAt: -1 });
 

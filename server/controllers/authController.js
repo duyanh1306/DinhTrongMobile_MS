@@ -30,18 +30,15 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Mặc định user đăng ký mới sẽ là 'CUSTOMER'
     const customerRole = await Role.findOne({ id: "CUSTOMER" });
     if (!customerRole) {
       return res.status(500).json({ message: "Lỗi hệ thống: Không tìm thấy phân quyền Khách hàng." });
     }
     
-    // Kiểm tra định dạng mật khẩu
     if (!isValidPassword(password)) {
       return res.status(400).json({ message: "Mật khẩu phải tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ viết hoa và 1 ký tự đặc biệt." });
     }
 
-    // Mã hóa mật khẩu
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -60,13 +57,9 @@ exports.register = async (req, res) => {
 
     await newUser.save();
 
-    // Tạo mã OTP 6 số
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Lưu OTP vào DB
     await new Otp({ email, otp: otpCode }).save();
 
-    // Gửi Email
     await sendEmail(email, "Xác thực tài khoản - DinhTrongMobile", `Mã OTP của bạn là: ${otpCode}. Mã sẽ hết hạn sau 5 phút.`);
 
     res.status(201).json({ message: "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã xác thực OTP." });
@@ -86,14 +79,11 @@ exports.verifyOtpRegister = async (req, res) => {
       return res.status(400).json({ message: "Mã OTP không chính xác hoặc đã hết hạn." });
     }
 
-    // Kích hoạt User
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "Không tìm thấy thông tin người dùng." });
 
     user.status = "active";
     await user.save();
-
-    // Xóa OTP sau khi dùng xong
     await Otp.deleteMany({ email });
 
     res.status(200).json({ message: "Xác thực tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ." });
@@ -133,12 +123,9 @@ exports.login = async (req, res) => {
     );
 
     const { password: _, ...userInfo } = user._doc;
-
-    // TÌM XEM NHÂN VIÊN NÀY THUỘC CỬA HÀNG NÀO (Bỏ qua CUSTOMER hoặc ADMIN TỔNG)
     let userStoreId = null;
     let userStoreName = null;
     
-    // Nếu role không phải là CUSTOMER, thì đi tìm cửa hàng
     if (user.roleId.id !== "CUSTOMER") {
         const userStore = await Store.findOne({ staff: user._id });
         if (userStore) {
@@ -147,7 +134,6 @@ exports.login = async (req, res) => {
         }
     }
 
-    // Ghép storeId vào userInfo để trả về cho Frontend (CỨU SỐNG TOÀN BỘ FRONTEND)
     const finalUserInfo = {
         ...userInfo,
         storeId: userStoreId,
@@ -288,11 +274,9 @@ exports.changePassword = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "Không tìm thấy thông tin người dùng." });
 
-    // Kiểm tra mật khẩu cũ
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) return res.status(400).json({ message: "Mật khẩu hiện tại không chính xác." });
 
-    // Kiểm tra định dạng mật khẩu mới
     if (!isValidPassword(newPassword)) {
       return res.status(400).json({ message: "Mật khẩu mới phải tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ viết hoa và 1 ký tự đặc biệt." });
     }

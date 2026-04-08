@@ -2,7 +2,6 @@ import React, {useEffect, useState} from "react";
 import {toast} from "react-toastify";
 import {Plus, Edit, Search, ChevronLeft, ChevronRight, X, Wrench, ArrowUpDown, Trash2} from "lucide-react";
 
-// IMPORT TỪ FILE API
 import {
     fetchRepairServicesApi,
     createRepairServiceApi,
@@ -28,9 +27,7 @@ export default function ManageRepairService() {
     const [formData, setFormData] = useState({name: '', price: ''});
     const [editingId, setEditingId] = useState(null);
 
-    // ==============================================================
-    // GỌI API THÔNG QUA HÀM ĐÃ TÁCH
-    // ==============================================================
+
     useEffect(() => {
         loadRepairServices();
     }, []);
@@ -59,9 +56,6 @@ export default function ManageRepairService() {
         setLoading(false);
     };
 
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ GIAO DIỆN
-    // ==============================================================
     const handleCreate = () => {
         setIsEditing(false);
         setFormData({name: '', price: ''});

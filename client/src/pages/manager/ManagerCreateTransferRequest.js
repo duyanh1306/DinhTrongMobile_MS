@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
-import { Save, ArrowLeft, Package, Smartphone, Store, List, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, ArrowLeft, Package, Smartphone, Store, List, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
-// 🌟 IMPORT API
 import { 
     fetchStoresApi, 
     fetchItemsByStoreApi, 
@@ -116,6 +115,7 @@ const ManagerCreateTransferRequest = () => {
         }
     };
 
+  
     const groupedItems = useMemo(() => {
         const groups = {};
         availableItems.forEach(item => {
@@ -148,20 +148,6 @@ const ManagerCreateTransferRequest = () => {
         return groupedItems.filter(g => g.baseCategory === selectedBaseCategory);
     }, [groupedItems, selectedBaseCategory]);
 
-    const handleItemQuantityChange = (typeId, value, max) => {
-        let val = parseInt(value, 10);
-        if (isNaN(val) || val < 0) val = 0;
-        if (val > max) {
-            val = max;
-            toast.warning(`Kho nguồn chỉ còn tối đa ${max} sản phẩm này!`);
-        }
-        setSelectedItemQuantities(prev => {
-            const updated = { ...prev, [typeId]: val };
-            if (val === 0) delete updated[typeId]; 
-            return updated;
-        });
-    };
-
     const groupedPhones = useMemo(() => {
         const groups = {};
         availablePhones.forEach(phone => {
@@ -191,8 +177,18 @@ const ManagerCreateTransferRequest = () => {
         return Object.values(groups).sort((a, b) => a.modelName.localeCompare(b.modelName));
     }, [availablePhones]);
 
-    const toggleExpandModel = (modelId) => {
-        setExpandedPhoneModels(prev => ({ ...prev, [modelId]: !prev[modelId] }));
+    const handleItemQuantityChange = (typeId, value, max) => {
+        let val = parseInt(value, 10);
+        if (isNaN(val) || val < 0) val = 0;
+        if (val > max) {
+            val = max;
+            toast.warning(`Kho nguồn chỉ còn tối đa ${max} sản phẩm này!`);
+        }
+        setSelectedItemQuantities(prev => {
+            const updated = { ...prev, [typeId]: val };
+            if (val === 0) delete updated[typeId]; 
+            return updated;
+        });
     };
 
     const handlePhoneQuantityChange = (variationKey, value, max) => {
@@ -209,9 +205,57 @@ const ManagerCreateTransferRequest = () => {
         });
     };
 
-    // ==============================================================
-    // XỬ LÝ SUBMIT YÊU CẦU CHUYỂN KHO
-    // ==============================================================
+    const toggleExpandModel = (modelId) => {
+        setExpandedPhoneModels(prev => ({ ...prev, [modelId]: !prev[modelId] }));
+    };
+
+    const handleRemoveSelectedItem = (typeId) => {
+        setSelectedItemQuantities(prev => {
+            const updated = { ...prev };
+            delete updated[typeId];
+            return updated;
+        });
+    };
+
+    const handleRemoveSelectedPhone = (variationKey) => {
+        setSelectedPhoneQuantities(prev => {
+            const updated = { ...prev };
+            delete updated[variationKey];
+            return updated;
+        });
+    };
+
+  
+    const selectedItemsSummary = useMemo(() => {
+        const summary = [];
+        groupedItems.forEach(group => {
+            const qty = selectedItemQuantities[group.typeId] || 0;
+            if (qty > 0) summary.push({ id: group.typeId, name: group.typeName, qty });
+        });
+        return summary;
+    }, [groupedItems, selectedItemQuantities]);
+
+    const selectedPhonesSummary = useMemo(() => {
+        const summary = [];
+        groupedPhones.forEach(group => {
+            Object.values(group.variations).forEach(variation => {
+                const qty = selectedPhoneQuantities[variation.variationKey] || 0;
+                if (qty > 0) {
+                    summary.push({ 
+                        id: variation.variationKey, 
+                        name: `${group.modelName} (${variation.colorName} - ${variation.capacity})`, 
+                        qty 
+                    });
+                }
+            });
+        });
+        return summary;
+    }, [groupedPhones, selectedPhoneQuantities]);
+
+    const totalSelectedItems = selectedItemsSummary.reduce((a, b) => a + b.qty, 0);
+    const totalSelectedPhones = selectedPhonesSummary.reduce((a, b) => a + b.qty, 0);
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -219,15 +263,13 @@ const ManagerCreateTransferRequest = () => {
         if (!userStore) return toast.error('Lỗi: Không xác định được cửa hàng đích của bạn');
         if (fromStoreId === userStore._id) return toast.error('Bạn không thể yêu cầu chuyển hàng từ chính cửa hàng của mình');
         
-        const totalItems = Object.values(selectedItemQuantities).reduce((a, b) => a + b, 0);
-        const totalPhones = Object.values(selectedPhoneQuantities).reduce((a, b) => a + b, 0);
-
-        if (totalItems === 0 && totalPhones === 0) {
+        if (totalSelectedItems === 0 && totalSelectedPhones === 0) {
             return toast.error('Vui lòng nhập số lượng cho ít nhất 1 linh kiện hoặc 1 phiên bản điện thoại');
         }
+
         const result = await Swal.fire({
             title: 'Xác nhận tạo yêu cầu?',
-            text: `Bạn đang xin cấp ${totalItems} linh kiện và ${totalPhones} điện thoại từ cửa hàng khác.`,
+            text: `Bạn đang xin cấp ${totalSelectedItems} linh kiện và ${totalSelectedPhones} điện thoại từ cửa hàng khác.`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Gửi yêu cầu ngay',
@@ -297,13 +339,9 @@ const ManagerCreateTransferRequest = () => {
         } finally {
             setLoading(false);
         }
-        
-        setLoading(false);
     };
 
     const availableStores = stores.filter(store => store._id !== userStore?._id);
-    const totalSelectedItems = Object.values(selectedItemQuantities).reduce((a, b) => a + b, 0);
-    const totalSelectedPhones = Object.values(selectedPhoneQuantities).reduce((a, b) => a + b, 0);
 
     return (
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
@@ -341,13 +379,13 @@ const ManagerCreateTransferRequest = () => {
                         onClick={() => setActiveTab('ITEMS')} 
                         className={`flex-1 py-3.5 font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'ITEMS' ? 'bg-white border-t-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
                     >
-                        <Package size={18}/> Xin cấp Linh Kiện ({totalSelectedItems})
+                        <Package size={18}/> Xin cấp Linh Kiện
                     </button>
                     <button 
                         onClick={() => setActiveTab('PHONES')} 
                         className={`flex-1 py-3.5 font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'PHONES' ? 'bg-white border-t-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
                     >
-                        <Smartphone size={18}/> Xin cấp Điện Thoại ({totalSelectedPhones})
+                        <Smartphone size={18}/> Xin cấp Điện Thoại
                     </button>
                 </div>
 
@@ -490,6 +528,47 @@ const ManagerCreateTransferRequest = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            
+                {(selectedItemsSummary.length > 0 || selectedPhonesSummary.length > 0) && (
+                    <div className="mb-6 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2 border-b border-gray-200 pb-2">
+                            <List size={18} className="text-orange-500"/> Danh sách đã chọn ({totalSelectedItems + totalSelectedPhones} món)
+                        </h3>
+                        <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                            {selectedPhonesSummary.map(item => (
+                                <div key={item.id} className="flex justify-between items-center bg-white px-4 py-2.5 rounded-lg border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-100 text-blue-600 p-1.5 rounded-md"><Smartphone size={16}/></div>
+                                        <div>
+                                            <p className="font-bold text-sm text-gray-800">{item.name}</p>
+                                            <p className="text-xs text-gray-500">Điện thoại mới</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold text-orange-600 text-sm">SL: {item.qty}</span>
+                                        <button onClick={() => handleRemoveSelectedPhone(item.id)} className="text-gray-400 hover:text-red-500 transition" title="Xóa"><X size={18}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {selectedItemsSummary.map(item => (
+                                <div key={item.id} className="flex justify-between items-center bg-white px-4 py-2.5 rounded-lg border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-emerald-100 text-emerald-600 p-1.5 rounded-md"><Package size={16}/></div>
+                                        <div>
+                                            <p className="font-bold text-sm text-gray-800">{item.name}</p>
+                                            <p className="text-xs text-gray-500">Linh kiện mới</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold text-orange-600 text-sm">SL: {item.qty}</span>
+                                        <button onClick={() => handleRemoveSelectedItem(item.id)} className="text-gray-400 hover:text-red-500 transition" title="Xóa"><X size={18}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <label className="block text-sm font-bold text-gray-700 mb-2">Ghi chú (Lý do xin chuyển)</label>
                 <textarea
                     name="note"
@@ -514,6 +593,13 @@ const ManagerCreateTransferRequest = () => {
                     </div>
                 </div>
             </div>
+            
+            <style dangerouslySetInnerHTML={{__html: `
+                .custom-scrollbar::-webkit-scrollbar { width: 5px; } 
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } 
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+            `}} />
         </div>
     );
 }
