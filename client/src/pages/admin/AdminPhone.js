@@ -13,11 +13,64 @@ const initialFormState = {
 
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
+    const [editingDots, setEditingDots] = useState(null); 
+    const [jumpPage, setJumpPage] = useState('');
+
     if (totalPages <= 1) return null;
+
+    const handleJumpSubmit = () => {
+        let page = parseInt(jumpPage, 10);
+        if (!isNaN(page)) {
+            if (page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            onPageChange(page);
+        }
+        setEditingDots(null);
+        setJumpPage('');
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleJumpSubmit();
+        } else if (e.key === 'Escape') {
+            setEditingDots(null);
+            setJumpPage('');
+        }
+    };
+
+    const renderInteractiveDots = (position) => {
+        if (editingDots === position) {
+            return (
+                <input
+                    key={`input-${position}`}
+                    type="number"
+                    autoFocus
+                    min={1}
+                    max={totalPages}
+                    value={jumpPage}
+                    onChange={(e) => setJumpPage(e.target.value)}
+                    onBlur={handleJumpSubmit}
+                    onKeyDown={handleKeyDown}
+                    className="w-14 px-1 py-1.5 border-2 border-blue-500 rounded-lg text-center text-sm font-bold text-blue-700 outline-none hide-arrows shadow-sm"
+                    placeholder="..."
+                />
+            );
+        }
+        return (
+            <button
+                key={`dots-${position}`}
+                onClick={() => setEditingDots(position)}
+                className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer"
+                title="Nhấn để nhập số trang"
+            >
+                ...
+            </button>
+        );
+    };
 
     const renderPageNumbers = () => {
         const pages = [];
-        const maxVisible = 5; 
+        const maxVisible = 5;
 
         let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
         let endPage = startPage + maxVisible - 1;
@@ -32,10 +85,10 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
                 <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
             );
             if (startPage > 2) {
-                pages.push(<span key="dots-start" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+                pages.push(renderInteractiveDots('start'));
             }
         }
-
+        
         for (let i = startPage; i <= endPage; i++) {
             pages.push(
                 <button
@@ -54,7 +107,7 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
 
         if (endPage < totalPages) {
             if (endPage < totalPages - 1) {
-                pages.push(<span key="dots-end" className="px-2 text-gray-400 font-bold tracking-widest">...</span>);
+                pages.push(renderInteractiveDots('end'));
             }
             pages.push(
                 <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
@@ -83,6 +136,17 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
             >
                 Sau
             </button>
+            
+            <style dangerouslySetInnerHTML={{__html: `
+                .hide-arrows::-webkit-outer-spin-button,
+                .hide-arrows::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                .hide-arrows {
+                    -moz-appearance: textfield;
+                }
+            `}} />
         </div>
     );
 };

@@ -352,7 +352,8 @@ const importBatchPhone = async (req, res) => {
         const {
             phoneModelId, storeId, quantity, batchSuffix,
             colorName, capacity, grade, importPrice, sellingPrice,
-            warrantyPeriod, source
+            warrantyPeriod, source,
+            isFirst, totalCombinedItems, transactionId 
         } = req.body;
 
         const qty = parseInt(quantity, 10);
@@ -399,28 +400,38 @@ const importBatchPhone = async (req, res) => {
 
         const savedPhones = await Phone.insertMany(phonesToInsert);
 
+    
+        let headerId = transactionId;
 
-        const header = await InventoryTransaction.create({
-            storeId: storeId,
-            transactionType: "INBOUND",
-            referenceType: "IMPORT_BATCH",
-            referenceId: savedPhones[0]._id, 
-            totalItems: qty,
-            note: `Nhập kho lô ${qty} điện thoại mới (Model: ${ModelInfo.name})`
-        });
-        const transactionDetails = savedPhones.map(p => ({
-            transactionId: header._id,
-            phoneId: p._id,
-            quantity: 1,
-            note: "Nhập mới theo lô"
-        }));
+ 
+        if ((isFirst === 'true' || isFirst === true) && !headerId) {
+            const header = await InventoryTransaction.create({
+                storeId: storeId,
+                transactionType: "INBOUND",
+                referenceType: "IMPORT_BATCH",
+                referenceId: savedPhones[0]._id, 
+                totalItems: parseInt(totalCombinedItems, 10) || qty,
+                note: `Nhập kho Lô ${parseInt(totalCombinedItems, 10) || qty} sản phẩm`
+            });
+            headerId = header._id;
+        }
 
-        await InventoryTransactionDetail.insertMany(transactionDetails);
+        
+        if (headerId) {
+            const transactionDetails = savedPhones.map(p => ({
+                transactionId: headerId,
+                phoneId: p._id,
+                quantity: 1,
+                note: "Nhập mới theo lô"
+            }));
+            await InventoryTransactionDetail.insertMany(transactionDetails);
+        }
 
         res.status(201).json({
             success: true,
             message: `Đã nhập thành công ${qty} máy ${ModelInfo.name} vào kho.`,
-            data: savedPhones
+            data: savedPhones,
+            transactionId: headerId 
         });
 
     } catch (error) {

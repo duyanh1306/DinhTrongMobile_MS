@@ -1,7 +1,8 @@
 const Item = require("../models/Item");
 const QRCode = require('qrcode');
 const Item_type = require("../models/Item_type");
-
+const InventoryTransaction = require("../models/Inventory_transaction");
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail");
 const generateItemQRCode = async (req, res) => {
     try {
         const { id } = req.params;
@@ -122,7 +123,8 @@ const deleteItem = async (req, res) => {
 
 const importBatch = async (req, res) => {
     try {
-        const { batches } = req.body; 
+    
+        const { batches, isFirst, totalCombinedItems, transactionId } = req.body; 
         if (!batches || !Array.isArray(batches) || batches.length === 0) return res.status(400).json({ success: false, message: "Danh sách nhập kho trống!" });
 
         const itemsToInsert = [];
@@ -154,13 +156,44 @@ const importBatch = async (req, res) => {
                 });
             }
         }
+        
         if (itemsToInsert.length === 0) return res.status(400).json({ success: false, message: "Không có sản phẩm hợp lệ để nhập." });
         const savedItems = await Item.insertMany(itemsToInsert);
-        res.status(201).json({ success: true, message: `Đã nhập thành công ${itemsToInsert.length} linh kiện.`, data: savedItems });
+
+        let headerId = transactionId;
+
+        if (isFirst && !headerId) {
+            const firstStoreId = savedItems[0].storeId;
+            const header = await InventoryTransaction.create({
+                storeId: firstStoreId,
+                transactionType: "INBOUND",
+                referenceType: "IMPORT_BATCH",
+                referenceId: savedItems[0]._id, 
+                totalItems: totalCombinedItems || savedItems.length,
+                note: `Nhập kho Lô ${totalCombinedItems || savedItems.length} sản phẩm`
+            });
+            headerId = header._id;
+        }
+
+        if (headerId) {
+            const transactionDetails = savedItems.map(item => ({
+                transactionId: headerId,
+                itemId: item._id,
+                quantity: 1,
+                note: "Nhập mới theo lô"
+            }));
+            await InventoryTransactionDetail.insertMany(transactionDetails);
+        }
+
+        res.status(201).json({ 
+            success: true, 
+            message: `Đã nhập thành công ${itemsToInsert.length} linh kiện.`, 
+            data: savedItems,
+            transactionId: headerId 
+        });
     } catch (error) {
         if (error.code === 11000) return res.status(400).json({ success: false, message: "Trùng lặp mã Serial Code do lô hàng đã tồn tại." });
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
 module.exports = { importBatch, getAllItems, getItemsPaginatedAndSearch, getItemById, createItem, updateItem, deleteItem, generateItemQRCode };
