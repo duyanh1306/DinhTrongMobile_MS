@@ -273,7 +273,7 @@ router.post("/create", createWarrantyRequest);
 
 /**
  * @swagger
- * /warranty:
+ * /api/warranty:
  *   get:
  *     summary: Get all warranty requests
  *     description: Retrieve a list of all warranty requests with filtering options. Requires internal staff authentication.

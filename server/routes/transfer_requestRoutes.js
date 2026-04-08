@@ -234,7 +234,7 @@ const {
 
 /**
  * @swagger
- * /transfer-requests:
+ * /api/transfer-requests:
  *   get:
  *     summary: Get all transfer requests
  *     description: Retrieve a list of all transfer requests with populated store and user information
@@ -311,7 +311,7 @@ router.get("/:id/details", getTransferRequestDetailsById);
 
 /**
  * @swagger
- * /transfer-requests:
+ * /api/transfer-requests:
  *   post:
  *     summary: Create a new transfer request
  *     description: Create a new transfer request between stores

@@ -80,7 +80,7 @@ const {
 
 /**
  * @swagger
- * /repair-services:
+ * /api/repair_services:
  *   get:
  *     summary: Get repair services with pagination
  *     description: Retrieve repair services with pagination, search, and sorting options (public endpoint)
@@ -145,7 +145,7 @@ router.get("/",  getRepairServices);
 
 /**
  * @swagger
- * /api/repair-services/all:
+ * /api/repair_services/all:
  *   get:
  *     summary: Get all repair services
  *     description: Retrieve all repair services without pagination (internal staff only)
@@ -197,7 +197,7 @@ router.get("/all", authInternal, getAllRepairServices);
 
 /**
  * @swagger
- * /api/repair-services/create:
+ * /api/repair_services/create:
  *   post:
  *     summary: Create a new repair service
  *     description: Create a new repair service (internal staff only)
@@ -250,7 +250,7 @@ router.post("/create", authInternal, createRepairService);
 
 /**
  * @swagger
- * /api/repair-services/update/{id}:
+ * /api/repair_services/update/{id}:
  *   put:
  *     summary: Update repair service
  *     description: Update an existing repair service (internal staff only)
@@ -323,7 +323,7 @@ router.put("/update/:id", authInternal, updateRepairService);
 
 /**
  * @swagger
- * /api/repair-services/{id}:
+ * /api/repair_services/{id}:
  *   delete:
  *     summary: Delete repair service
  *     description: Delete a repair service (internal staff only)

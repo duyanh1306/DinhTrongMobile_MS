@@ -83,7 +83,7 @@ router.get("/all", getAllStores);
 
 /**
  * @swagger
- * /stores:
+ * /api/stores:
  *   get:
  *     summary: (Also) Get all stores (Use the same endpoint as /all)
  *     description: Retrieve a list of all stores with success wrapper
@@ -162,7 +162,7 @@ router.get("/:id", getStoreById);
 
 /**
  * @swagger
- * /stores:
+ * /api/stores:
  *   post:
  *     summary: Create a new store
  *     description: Create a new store with code, name, and location
