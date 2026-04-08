@@ -193,7 +193,7 @@ const upload = require("../middlewares/upload");
 
 /**
  * @swagger
- * /users/register:
+ * /api/users/register:
  *   post:
  *     summary: Register a new user
  *     description: Register a new user account with OTP verification
@@ -235,7 +235,7 @@ router.post("/register", authController.register);
 
 /**
  * @swagger
- * /users/verify-otp:
+ * /api/users/verify-otp:
  *   post:
  *     summary: Verify OTP for registration
  *     description: Verify OTP sent during registration process
@@ -281,7 +281,7 @@ router.post("/verify-otp", authController.verifyOtpRegister);
 
 /**
  * @swagger
- * /users/login:
+ * /api/users/login:
  *   post:
  *     summary: User login
  *     description: Authenticate user and return JWT token
@@ -317,7 +317,7 @@ router.post("/login", authController.login);
 
 /**
  * @swagger
- * /users/forgot-password:
+ * /api/users/forgot-password:
  *   post:
  *     summary: Request password reset
  *     description: Send OTP to email for password reset
@@ -348,7 +348,7 @@ router.post("/forgot-password", authController.forgotPassword);
 
 /**
  * @swagger
- * /users/reset-password:
+ * /api/users/reset-password:
  *   post:
  *     summary: Reset password with OTP
  *     description: Reset password using OTP verification
@@ -389,7 +389,7 @@ router.post("/reset-password", authController.resetPassword);
 
 /**
  * @swagger
- * /users/verify-otp-reset:
+ * /api/users/verify-otp-reset:
  *   post:
  *     summary: Verify OTP for password reset
  *     description: Verify OTP before allowing password reset
@@ -425,7 +425,7 @@ router.post("/verify-otp-reset", authController.verifyOtpReset);
 
 /**
  * @swagger
- * /users/profile:
+ * /api/users/profile:
  *   put:
  *     summary: Update user profile
  *     description: Update user profile with optional avatar upload
@@ -474,7 +474,7 @@ router.put("/profile", upload.single("avatar"), authController.updateProfile);
 
 /**
  * @swagger
- * /users/change-password:
+ * /api/users/change-password:
  *   put:
  *     summary: Change user password
  *     description: Change password for authenticated user
@@ -509,7 +509,7 @@ router.put("/change-password", authController.changePassword);
 
 /**
  * @swagger
- * /users/auth/google:
+ * /api/users/auth/google:
  *   get:
  *     summary: Initiate Google OAuth
  *     description: Redirect user to Google for authentication
@@ -525,7 +525,7 @@ router.get(
 
 /**
  * @swagger
- * /users/google/callback:
+ * /api/users/google/callback:
  *   get:
  *     summary: Google OAuth callback
  *     description: Handle Google OAuth callback and authenticate user
@@ -580,7 +580,7 @@ router.get("/", getAllUsers);
 
 /**
  * @swagger
- * /users/{id}:
+ * /api/users/{id}:
  *   get:
  *     summary: Get user by ID
  *     description: Retrieve a specific user by their MongoDB ID
@@ -651,7 +651,7 @@ router.post("/", createUser);
 
 /**
  * @swagger
- * /users/{id}:
+ * /api/users/{id}:
  *   put:
  *     summary: Update user by ID
  *     description: Update a specific user's information
@@ -713,7 +713,7 @@ router.put("/:id", updateUser);
 
 /**
  * @swagger
- * /users/{id}:
+ * /api/users/{id}:
  *   delete:
  *     summary: Delete user by ID
  *     description: Delete a specific user and remove from store assignments
@@ -745,7 +745,7 @@ router.delete("/:id", deleteUser);
 
 /**
  * @swagger
- * /users/{id}/reset-password:
+ * /api/users/{id}/reset-password:
  *   put:
  *     summary: Reset user password (Admin)
  *     description: Reset password for a specific user (admin function)

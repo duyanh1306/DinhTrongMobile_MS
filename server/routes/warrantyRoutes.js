@@ -222,7 +222,7 @@ const {
 
 /**
  * @swagger
- * /warranty/create:
+ * /api/warranty/create:
  *   post:
  *     summary: Create a new warranty request
  *     description: Create a new warranty request for a phone device
@@ -328,7 +328,7 @@ router.get("/", getAllWarrantyRequests);
 
 /**
  * @swagger
- * /warranty/{id}:
+ * /api/warranty/{id}:
  *   get:
  *     summary: Get warranty request by ID
  *     description: Retrieve a specific warranty request by its MongoDB ID. Requires internal staff authentication.
@@ -386,7 +386,7 @@ router.get("/:id", getWarrantyRequestById);
 
 /**
  * @swagger
- * /warranty/{id}:
+ * /api/warranty/{id}:
  *   put:
  *     summary: Update warranty request
  *     description: Update a specific warranty request's notes or status
@@ -434,7 +434,7 @@ router.put("/:id", updateWarrantyRequest);
 
 /**
  * @swagger
- * /warranty/{id}/process:
+ * /api/warranty/{id}/process:
  *   put:
  *     summary: Process warranty request
  *     description: Process a pending warranty request (approve replacement or create repair order)
@@ -503,7 +503,7 @@ router.put("/:id/process", processWarrantyRequest);
 
 /**
  * @swagger
- * /warranty/{id}/complete:
+ * /api/warranty/{id}/complete:
  *   put:
  *     summary: Complete warranty request
  *     description: Mark a warranty request as completed
@@ -555,7 +555,7 @@ router.put("/:id/complete", completeWarrantyRequest);
 
 /**
  * @swagger
- * /warranty/{id}:
+ * /api/warranty/{id}:
  *   delete:
  *     summary: Delete warranty request
  *     description: Delete a warranty request (only if not in progress)

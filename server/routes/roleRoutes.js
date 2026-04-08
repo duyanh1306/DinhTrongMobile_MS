@@ -4,7 +4,7 @@ const { getAllRoles } = require("../controllers/roleController");
 
 /**
  * @swagger
- * /roles:
+ * /api/roles:
  *   get:
  *     summary: Get all roles
  *     description: Retrieve a list of all available roles

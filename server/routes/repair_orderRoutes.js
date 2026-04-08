@@ -200,7 +200,7 @@ const {
 
 /**
  * @swagger
- * /repair-orders:
+ * /api/repair-orders:
  *   post:
  *     summary: Create a new repair order
  *     description: Create a new repair order for a customer
@@ -233,7 +233,7 @@ router.post("/", createRepairOrder);
 
 /**
  * @swagger
- * /repair-orders:
+ * /api/repair-orders:
  *   get:
  *     summary: Get all repair orders
  *     description: Retrieve all repair orders for the user's store with repair type information
@@ -266,7 +266,7 @@ router.get("/", getAllRepairOrders);
 
 /**
  * @swagger
- * /repair-orders/filter:
+ * /api/repair-orders/filter:
  *   get:
  *     summary: Get filtered repair orders
  *     description: Retrieve repair orders with filtering by status, type, and store
@@ -311,7 +311,7 @@ router.get("/filter", getFilteredRepairOrders);
 
 /**
  * @swagger
- * /repair-orders/by-status:
+ * /api/repair-orders/by-status:
  *   get:
  *     summary: Get repair orders by status (alias for filter endpoint)
  *     description: Retrieve repair orders filtered by status (alias for /filter endpoint)
@@ -356,7 +356,7 @@ router.get("/by-status", getFilteredRepairOrders);
 
 /**
  * @swagger
- * /repair-orders/{id}/details:
+ * /api/repair-orders/{id}/details:
  *   get:
  *     summary: Get repair order details
  *     description: Retrieve detailed information about a specific repair order including services and items
@@ -390,7 +390,7 @@ router.get("/:id/details", getRepairOrderDetailsById);
 
 /**
  * @swagger
- * /repair-orders/{id}:
+ * /api/repair-orders/{id}:
  *   get:
  *     summary: Get repair order by ID
  *     description: Retrieve a specific repair order by its ID
@@ -432,7 +432,7 @@ router.get("/:id", getRepairOrderById);
 
 /**
  * @swagger
- * /repair-orders/test-auth:
+ * /api/repair-orders/test-auth:
  *   get:
  *     summary: Test authentication endpoint
  *     description: Test endpoint to verify authentication middleware is working
@@ -476,7 +476,7 @@ router.get("/test-auth", (req, res) => {
 
 /**
  * @swagger
- * /repair-orders/{id}/details:
+ * /api/repair-orders/{id}/details:
  *   put:
  *     summary: Update repair order details
  *     description: Update the details of a specific repair order (services, items, etc.)
@@ -516,7 +516,7 @@ router.put("/:id/details", updateRepairOrderDetails);
 
 /**
  * @swagger
- * /repair-orders/{id}/details-with-transfer:
+ * /api/repair-orders/{id}/details-with-transfer:
  *   put:
  *     summary: Update repair order details with transfer
  *     description: Update repair order details and handle inventory transfers if needed
@@ -556,7 +556,7 @@ router.put("/:id/details-with-transfer", updateRepairOrderDetailsWithTransfer);
 
 /**
  * @swagger
- * /repair-orders/{id}/complete:
+ * /api/repair-orders/{id}/complete:
  *   put:
  *     summary: Complete repair order
  *     description: Mark a repair order as completed
@@ -590,7 +590,7 @@ router.put("/:id/complete", completeRepairOrder);
 
 /**
  * @swagger
- * /repair-orders/{id}/accept:
+ * /api/repair-orders/{id}/accept:
  *   put:
  *     summary: Accept repair order
  *     description: Accept a repair order and change status to "In Progress"
@@ -624,7 +624,7 @@ router.put("/:id/accept", acceptRepairOrder);
 
 /**
  * @swagger
- * /repair-orders/{id}/cancel:
+ * /api/repair-orders/{id}/cancel:
  *   put:
  *     summary: Cancel repair order
  *     description: Cancel a repair order
@@ -658,7 +658,7 @@ router.put("/:id/cancel", cancelRepairOrder);
 
 /**
  * @swagger
- * /repair-orders/{id}:
+ * /api/repair-orders/{id}:
  *   put:
  *     summary: Update repair order
  *     description: Update basic information of a repair order

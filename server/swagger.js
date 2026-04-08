@@ -9,8 +9,10 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: process.env.IP_ADDRESS || "http://localhost:9999/api",
+      url: process.env.IP_ADDRESS,
+      description: "Production server"
     },
+
   ],
   components: {
     securitySchemes: {

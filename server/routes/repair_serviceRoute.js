@@ -145,7 +145,7 @@ router.get("/",  getRepairServices);
 
 /**
  * @swagger
- * /repair-services/all:
+ * /api/repair-services/all:
  *   get:
  *     summary: Get all repair services
  *     description: Retrieve all repair services without pagination (internal staff only)
@@ -197,7 +197,7 @@ router.get("/all", authInternal, getAllRepairServices);
 
 /**
  * @swagger
- * /repair-services/create:
+ * /api/repair-services/create:
  *   post:
  *     summary: Create a new repair service
  *     description: Create a new repair service (internal staff only)
@@ -250,7 +250,7 @@ router.post("/create", authInternal, createRepairService);
 
 /**
  * @swagger
- * /repair-services/update/{id}:
+ * /api/repair-services/update/{id}:
  *   put:
  *     summary: Update repair service
  *     description: Update an existing repair service (internal staff only)
@@ -323,7 +323,7 @@ router.put("/update/:id", authInternal, updateRepairService);
 
 /**
  * @swagger
- * /repair-services/{id}:
+ * /api/repair-services/{id}:
  *   delete:
  *     summary: Delete repair service
  *     description: Delete a repair service (internal staff only)
