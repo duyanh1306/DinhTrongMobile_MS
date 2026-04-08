@@ -10,12 +10,8 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: process.env.IP_ADDRESS,
-      description: "Production server"
-    },
-    {
       url: process.env.IP_ADDRESS + `:9999`,
-      description: "Deploy server"
+      description: "Production server"
     }
   ],
   components: {
