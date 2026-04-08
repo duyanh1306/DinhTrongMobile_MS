@@ -1,66 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  CheckCircle,
-  Eye,
-  Search,
-  X,
-  Calendar,
-  Smartphone,
-  Package,
-  Printer,
-  XCircle,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  Phone,
-  Wrench
+  CheckCircle, Eye, Search, X, Calendar, Smartphone, Package,
+  Printer, XCircle, ChevronLeft, ChevronRight, Filter, Phone, Wrench, Download
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import { useReactToPrint } from "react-to-print";
 import dayjs from "dayjs";
 import "react-toastify/dist/ReactToastify.css";
+import html2pdf from "html2pdf.js";
 
-// Hàm hỗ trợ đọc số tiền thành chữ
-const docSoThanhChu = (so) => {
-  if (!so || so === 0) return "Không đồng";
-  const chuSo = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
-  const hang = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
-  let str = so.toString();
-  let result = "";
-  let hangCount = 0;
-
-  while (str.length > 0) {
-    let chunk = str.slice(-3);
-    str = str.slice(0, -3);
-    if (parseInt(chunk) !== 0) {
-      let chunkStr = "";
-      for (let i = 0; i < chunk.length; i++) {
-        let digit = parseInt(chunk[chunk.length - 1 - i]);
-        if (i === 0) chunkStr = chuSo[digit] + " " + chunkStr;
-        if (i === 1) chunkStr = chuSo[digit] + " mươi " + chunkStr;
-        if (i === 2) chunkStr = chuSo[digit] + " trăm " + chunkStr;
-      }
-      chunkStr = chunkStr.replace("không mươi", "lẻ");
-      chunkStr = chunkStr.replace("một mươi", "mười");
-      chunkStr = chunkStr.replace("mươi năm", "mươi lăm");
-      chunkStr = chunkStr.replace("mười năm", "mười lăm");
-      chunkStr = chunkStr.replace("mươi một", "mươi mốt");
-      
-      result = chunkStr.trim() + " " + hang[hangCount] + " " + result;
-    }
-    hangCount++;
-  }
-  
-  result = result.replace(/không trăm lẻ không/g, "");
-  result = result.replace(/không trăm lẻ/g, "lẻ");
-  result = result.trim() + " đồng";
-  return result.charAt(0).toUpperCase() + result.slice(1);
-};
+import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi, pollNewPurchaseOrdersApi } from "../../api/saleStaff/saleOrders";
+import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
 
 // ==================================================================
 // COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
 // ==================================================================
-const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab }) => {
+const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
   if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
   if (activeTab === "REPAIR") invoiceTitle = "PHIẾU THANH TOÁN KIÊM BẢO HÀNH SỬA CHỮA";
@@ -69,18 +24,10 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
     <div
       ref={contentRef}
       className="bg-white text-black p-10"
-      style={{ 
-        width: "210mm", 
-        minHeight: "297mm", 
-        fontFamily: "'Times New Roman', Times, serif",
-        margin: "0 auto"
-      }}
+      style={{ width: "210mm", minHeight: "297mm", fontFamily: "'Times New Roman', Times, serif", margin: "0 auto" }}
     >
-      <style type="text/css" media="print">
-        {`@page { size: A4 portrait; margin: 10mm; }`}
-      </style>
+      <style type="text/css" media="print">{`@page { size: A4 portrait; margin: 10mm; }`}</style>
 
-      {/* HEADER CÔNG TY */}
       <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
         <div>
             <h1 className="text-xl font-black uppercase tracking-wide">CÔNG TY TNHH DINH TRONG MOBILE</h1>
@@ -89,28 +36,23 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
             <p className="text-sm"><strong>Website:</strong> dinhtrongmobile.vn | <strong>Email:</strong> cskh@dinhtrongmobile.vn</p>
         </div>
         <div className="text-right">
-            <div className="w-20 h-20 border-2 border-dashed border-gray-400 flex items-center justify-center text-xs text-gray-500 mb-1">
-                QR CODE
-            </div>
+            <div className="w-20 h-20 border-2 border-dashed border-gray-400 flex items-center justify-center text-xs text-gray-500 mb-1">QR CODE</div>
             <p className="text-[10px] italic">Quét để tra cứu bảo hành</p>
         </div>
       </div>
 
-      {/* TIÊU ĐỀ HÓA ĐƠN */}
       <div className="text-center mb-8">
         <h2 className="text-2xl font-black uppercase">{invoiceTitle}</h2>
         <p className="text-sm italic mt-1">Ngày {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('DD')} tháng {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('MM')} năm {dayjs(order?.createdAt || order?.repairOrderDate || new Date()).format('YYYY')}</p>
         <p className="text-sm font-bold mt-1">Số: #{order?._id?.substring(order._id.length - 8).toUpperCase()}</p>
       </div>
 
-      {/* THÔNG TIN KHÁCH HÀNG */}
       <div className="mb-6 text-sm space-y-2">
         <p><strong>Tên khách hàng:</strong> {order?.customerName}</p>
         <p><strong>Điện thoại:</strong> {order?.customerPhone || "..........................................................."}</p>
         <p><strong>Nhân viên phục vụ:</strong> {order?.createdBy?.fullName || order?.createdBy?.userName || "N/A"}</p>
       </div>
 
-      {/* BẢNG SẢN PHẨM / DỊCH VỤ */}
       <table className="w-full border-collapse border border-gray-800 mb-4 text-sm">
         <thead>
           <tr className="bg-gray-100">
@@ -130,18 +72,31 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
             let price = d.purchasePrice || d.price || 0;
 
             if (activeTab === "REPAIR") {
-                itemName = d.serviceId?.name || "Dịch vụ sửa chữa";
-                if(d.itemIds && d.itemIds.length > 0) {
-                    itemName += ` (Thay: ${d.itemIds.map(i => i.name).join(", ")})`;
-                    serial = d.itemIds.map(i => i.serialCode).join(", ");
+                const targetPhone = d.targetPhoneId?.phoneModelId?.name || "Máy khách";
+                serial = d.targetPhoneId?.serialCode || d.targetPhoneId?.imei || "-";
+                
+                const services = d.serviceId || [];
+                const items = d.itemIds || [];
+                
+                let srvStr = services.length > 0 ? `DV: ${services.map(s => s.name).join(', ')}` : "";
+                let itemStr = items.length > 0 ? `Thay: ${items.map(i => i.name).join(', ')}` : "";
+                
+                itemName = `${d.type === "WARRANTY" ? "Bảo hành" : "Sửa chữa"}: ${targetPhone}`;
+                if (srvStr || itemStr) {
+                    itemName += ` (${[srvStr, itemStr].filter(Boolean).join(' | ')})`;
                 }
-                price = d.serviceId?.price || 0;
-            } else {
+
+                const srvPrice = services.reduce((sum, s) => sum + (s.price || 0), 0);
+                const itmPrice = items.reduce((sum, i) => sum + (i.price || i.sellingPrice || 0), 0);
+                price = srvPrice + itmPrice;
+                warrantyText = "Bảo hành DV";
+            } 
+            else {
                 itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
                 serial = d.phoneId ? d.phoneId.imei || d.phoneId.serialCode || d.phoneId._id?.substring(d.phoneId._id.length - 6).toUpperCase() : (d.itemId?.serialCode || d.identifier || "");
                 if (d.warrantyExpireDate) {
                     warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
-                } else if (d.warranty) {
+                } else if (d.warranty || d.phoneId?.warrantyPeriod) {
                     warrantyText = "Tiêu chuẩn";
                 }
             }
@@ -151,7 +106,7 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
                 <td className="border border-gray-800 p-2 text-center">{idx + 1}</td>
                 <td className="border border-gray-800 p-2 font-medium">{itemName}</td>
                 <td className="border border-gray-800 p-2 text-center">1</td>
-                <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial || "-"}</td>
+                <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial}</td>
                 <td className="border border-gray-800 p-2 text-center text-xs">{warrantyText}</td>
                 <td className="border border-gray-800 p-2 text-right font-bold">{formatCurrency(price)}</td>
               </tr>
@@ -160,7 +115,6 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
         </tbody>
       </table>
 
-      {/* TỔNG TIỀN */}
       <div className="flex justify-end mb-6">
         <div className="w-1/2 text-right">
             <div className="text-lg mb-1">
@@ -172,7 +126,6 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
         </div>
       </div>
 
-      {/* ĐIỀU KHOẢN BẢO HÀNH */}
       <div className="text-[11px] mb-10 leading-relaxed text-gray-700">
         <p className="font-bold underline text-black mb-1">Lưu ý / Quy định bảo hành:</p>
         <p>- Quý khách vui lòng kiểm tra kỹ sản phẩm, hình thức, phụ kiện đi kèm trước khi rời khỏi cửa hàng.</p>
@@ -181,20 +134,10 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
         <p>- Quý khách vui lòng giữ lại phiếu này để thuận tiện cho việc tra cứu và hỗ trợ bảo hành.</p>
       </div>
 
-      {/* CHỮ KÝ */}
       <div className="flex justify-between text-center text-sm font-bold pt-8">
-        <div className="w-1/3">
-            <p>Người Mua Hàng</p>
-            <p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p>
-        </div>
-        <div className="w-1/3">
-            <p>Người Giao Hàng</p>
-            <p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p>
-        </div>
-        <div className="w-1/3">
-            <p>Thủ Kho / Kế Toán</p>
-            <p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p>
-        </div>
+        <div className="w-1/3"><p>Người Mua Hàng</p><p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p></div>
+        <div className="w-1/3"><p>Người Giao Hàng</p><p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p></div>
+        <div className="w-1/3"><p>Thủ Kho / Kế Toán</p><p className="font-normal italic text-xs text-gray-500 mt-1">(Ký, ghi rõ họ tên)</p></div>
       </div>
     </div>
   );
@@ -205,7 +148,7 @@ const InvoicePrintA4 = ({ order, details, formatCurrency, contentRef, activeTab 
 // MAIN COMPONENT
 // ==================================================================
 export default function SaleOrders() {
-  const [activeTab, setActiveTab] = useState("SALE"); // "SALE" | "PURCHASE" | "REPAIR"
+  const [activeTab, setActiveTab] = useState("SALE"); 
   
   const [orders, setOrders] = useState([]);
   const [orderDetails, setOrderDetails] = useState([]);
@@ -213,10 +156,8 @@ export default function SaleOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Lưu trữ các đơn đã tự động mở Pop-up để tránh mở lặp lại
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set());
 
-  // States cho Lọc và Phân trang
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); 
   const [currentPage, setCurrentPage] = useState(1);
@@ -224,7 +165,6 @@ export default function SaleOrders() {
 
   const printRef = useRef(null);
 
-  // HÀM SẮP XẾP MỚI NHẤT LÊN ĐẦU
   const sortOrdersDesc = (ordersList) => {
     return [...ordersList].sort((a, b) => {
         const dateA = new Date(a.createdAt || a.repairOrderDate || a.purchaseOrderDate).getTime();
@@ -233,63 +173,37 @@ export default function SaleOrders() {
     });
   };
 
-  // Thay đổi Tab -> Load lại dữ liệu
   useEffect(() => {
-    fetchOrders();
+    loadOrders();
     setCurrentPage(1);
     setSearchQuery("");
     setStatusFilter("ALL");
   }, [activeTab]);
 
-  // =================================================================
-  // TỰ ĐỘNG MỞ POP-UP KHI TECH CHỐT GIÁ XONG
-  // =================================================================
   useEffect(() => {
     let interval;
     if (activeTab === "PURCHASE" && !isModalOpen) {
       interval = setInterval(async () => {
-        try {
-          const res = await fetch(`http://localhost:9999/api/purchase-orders?orderType=PURCHASE`);
-          if (res.ok) {
-            const data = await res.json();
-            const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
+        const data = await pollNewPurchaseOrdersApi();
+        const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
 
-            if (newlyValuatedOrder) {
-              setNotifiedOrderIds(prev => new Set(prev).add(newlyValuatedOrder._id));
-              toast.info(`🔥 Kỹ thuật vừa chốt giá xong đơn thu cũ! Mở chi tiết...`, { icon: "🚀", style: { background: "#4f46e5", color: "white" }});
-              
-              setOrders(sortOrdersDesc(data));
-              handleOpenDetail(newlyValuatedOrder);
-            }
-          }
-        } catch(e) {}
+        if (newlyValuatedOrder) {
+            setNotifiedOrderIds(prev => new Set(prev).add(newlyValuatedOrder._id));
+            toast.info(`🔥 Kỹ thuật vừa chốt giá xong đơn thu cũ! Mở chi tiết...`, { icon: "🚀", style: { background: "#4f46e5", color: "white" }});
+            
+            setOrders(sortOrdersDesc(data));
+            handleOpenDetail(newlyValuatedOrder);
+        }
       }, 3000); 
     }
     return () => clearInterval(interval);
   }, [activeTab, isModalOpen, notifiedOrderIds]);
 
-
-  const fetchOrders = async () => {
+  const loadOrders = async () => {
     setIsLoading(true);
-    try {
-      let url = "";
-      if (activeTab === "SALE" || activeTab === "PURCHASE") {
-        url = `http://localhost:9999/api/purchase-orders?orderType=${activeTab}`;
-      } else if (activeTab === "REPAIR") {
-        url = `http://localhost:9999/api/repair-orders`;
-      }
-
-      const res = await fetch(url);
-      if(res.ok) {
-          let data = await res.json();
-          // Sắp xếp MỚI NHẤT LÊN ĐẦU
-          setOrders(sortOrdersDesc(data));
-      }
-    } catch (err) {
-      toast.error("Lỗi tải danh sách hóa đơn");
-    } finally {
-      setIsLoading(false);
-    }
+    const data = await fetchOrdersApi(activeTab);
+    setOrders(sortOrdersDesc(data));
+    setIsLoading(false);
   };
 
   const handleOpenDetail = async (order) => {
@@ -297,19 +211,28 @@ export default function SaleOrders() {
     setOrderDetails([]);
     setIsModalOpen(true);
     
-    try {
-      let url = "";
-      if (activeTab === "REPAIR") {
-          url = `http://localhost:9999/api/repair-orders/${order._id}/details`;
-      } else {
-          url = `http://localhost:9999/api/purchase-orders/${order._id}/details`;
-      }
+    const details = await fetchOrderDetailsApi(activeTab, order._id);
+    setOrderDetails(details);
+  };
 
-      const res = await fetch(url);
-      if (res.ok) setOrderDetails(await res.json());
-    } catch (err) {
-      toast.error("Không thể tải chi tiết");
-    } 
+  const handleConfirmPayment = async (orderId) => {
+    if (!window.confirm("Xác nhận hoàn tất thanh toán đơn hàng này?")) return;
+    const success = await confirmPaymentApi(activeTab, orderId);
+    if (success) {
+        setIsModalOpen(false);
+        loadOrders();
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+    if (!window.confirm("Xác nhận HUỶ đơn hàng này? Thao tác này sẽ hoàn trả máy/linh kiện về kho và không thể khôi phục.")) return;
+    
+    const success = await cancelOrderApi(activeTab, selectedOrder);
+    if (success) {
+        setIsModalOpen(false);
+        loadOrders();
+    }
   };
 
   const handlePrint = useReactToPrint({
@@ -317,60 +240,23 @@ export default function SaleOrders() {
     documentTitle: `HoaDon_${activeTab}_${selectedOrder?._id.substring(0, 6)}`,
   });
 
-  const handleConfirmPayment = async (orderId) => {
-    if (!window.confirm("Xác nhận hoàn tất thanh toán đơn hàng này?")) return;
-
-    try {
-      let url = activeTab === "REPAIR" 
-            ? `http://localhost:9999/api/repair-orders/${orderId}/complete` 
-            : `http://localhost:9999/api/purchase-orders/${orderId}/confirm-payment`;
-
-      const res = await fetch(url, { method: activeTab === "REPAIR" ? "PUT" : "PATCH" });
-
-      if (res.ok) {
-        toast.success("Xác nhận thành công!");
-        fetchOrders();
-        setIsModalOpen(false);
-      }
-    } catch (err) {
-      toast.error("Thao tác thất bại");
-    }
-  };
-
-  // =================================================================
-  // TÍNH NĂNG MỚI: HỦY ĐƠN TRONG MODAL CHI TIẾT
-  // =================================================================
-  const handleCancelOrder = async () => {
-    if (!selectedOrder) return;
-    if (!window.confirm("Xác nhận HUỶ đơn hàng này? Thao tác này sẽ hoàn trả máy/linh kiện về kho và không thể khôi phục.")) return;
-    
-    try {
-      let url = activeTab === "REPAIR" 
-            ? `http://localhost:9999/api/repair-orders/${selectedOrder._id}/cancel` 
-            : `http://localhost:9999/api/purchase-orders/${selectedOrder._id}`;
-
-      const res = await fetch(url, { 
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          // Đơn Sale/Purchase cần truyền thêm status để update
-          body: activeTab !== "REPAIR" ? JSON.stringify({ status: "Cancelled", totalPrice: selectedOrder.totalPrice, note: selectedOrder.note }) : undefined,
+  const handleDownloadPDF = () => {
+      const element = printRef.current;
+      const opt = {
+          margin:       [10, 10, 10, 10], 
+          filename:     `HoaDon_${selectedOrder?._id?.substring(selectedOrder._id.length - 6).toUpperCase() || 'Moi'}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      toast.info("Đang tạo file PDF, vui lòng đợi giây lát...", { autoClose: 2000 });
+      html2pdf().set(opt).from(element).save().then(() => {
+          toast.success("Tải file PDF thành công!");
+      }).catch(err => {
+          toast.error("Có lỗi khi tạo PDF!");
       });
-
-      if (res.ok) {
-        toast.success("Đã hủy đơn hàng thành công!");
-        fetchOrders();
-        setIsModalOpen(false);
-      } else {
-          toast.error("Không thể hủy đơn hàng lúc này.");
-      }
-    } catch (err) {
-      toast.error("Lỗi kết nối khi hủy đơn.");
-    }
   };
 
-  const formatCurrency = (val) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val || 0);
-
-  // LỌC VÀ PHÂN TRANG 
   const filteredOrders = orders.filter((o) => {
     const matchesSearch = o.customerPhone?.includes(searchQuery) || o.customerName?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || o.status === statusFilter;
@@ -384,50 +270,21 @@ export default function SaleOrders() {
     <div className="p-8 bg-gray-50 min-h-screen">
       <ToastContainer position="top-right" autoClose={3000} />
 
-      {/* HEADER & TABS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             Hóa Đơn & Giao Dịch
         </h1>
         <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab("SALE")}
-            className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${
-              activeTab === "SALE" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Đơn Bán Hàng
-          </button>
-
-          <button
-            onClick={() => setActiveTab("PURCHASE")}
-            className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${
-              activeTab === "PURCHASE" ? "border-purple-600 text-purple-600" : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Đơn Thu Mua
-          </button>
-
-          <button
-            onClick={() => setActiveTab("REPAIR")}
-            className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${
-              activeTab === "REPAIR" ? "border-orange-600 text-orange-600" : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Đơn Sửa Chữa
-          </button>
+          <button onClick={() => setActiveTab("SALE")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "SALE" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Bán Hàng</button>
+          <button onClick={() => setActiveTab("PURCHASE")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "PURCHASE" ? "border-purple-600 text-purple-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Thu Mua</button>
+          <button onClick={() => setActiveTab("REPAIR")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "REPAIR" ? "border-orange-600 text-orange-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Sửa Chữa</button>
         </div>
       </div>
 
-      {/* BỘ LỌC */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center bg-white border rounded-lg px-3 focus-within:ring-2 focus-within:ring-blue-500 shadow-sm">
             <Filter size={18} className="text-gray-400 mr-1" />
-            <select 
-               value={statusFilter} 
-               onChange={(e) => setStatusFilter(e.target.value)}
-               className="bg-transparent py-2.5 px-2 outline-none font-medium text-gray-600"
-            >
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-transparent py-2.5 px-2 outline-none font-medium text-gray-600">
                <option value="ALL">Tất cả trạng thái</option>
                <option value="Pending">Chờ xác nhận</option>
                {activeTab === "REPAIR" && <option value="In Progress">Đang xử lý</option>}
@@ -438,17 +295,10 @@ export default function SaleOrders() {
 
         <div className="relative w-80 shadow-sm">
             <Search className="absolute left-3 top-3 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Tìm tên hoặc SĐT khách hàng..."
-              value={searchQuery}
-              className="pl-10 pr-4 py-2.5 border rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <input type="text" placeholder="Tìm tên hoặc SĐT khách hàng..." value={searchQuery} className="pl-10 pr-4 py-2.5 border rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none bg-white" onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
       </div>
 
-      {/* BẢNG DỮ LIỆU */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col">
         {isLoading && <div className="p-10 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div></div>}
         
@@ -460,8 +310,12 @@ export default function SaleOrders() {
                     <th className="p-4">Mã đơn</th>
                     <th className="p-4">Thời gian</th>
                     <th className="p-4">Khách hàng</th>
+                    {activeTab === "REPAIR" ? (
+                        <th className="p-4">Phân loại sửa chữa</th>
+                    ) : (
+                        <th className="p-4">Loại đơn</th>
+                    )}
                     <th className="p-4 text-right">Tổng tiền</th>
-                    {activeTab === "REPAIR" && <th className="p-4">Loại S.Chữa</th>}
                     <th className="p-4">Trạng thái</th>
                     <th className="p-4 text-center">Thao tác</th>
                     </tr>
@@ -483,13 +337,22 @@ export default function SaleOrders() {
                             <Phone size={12}/> {order.customerPhone || "N/A"}
                         </div>
                         </td>
+                        
+                        <td className="p-4 text-sm font-medium text-gray-600">
+                            {activeTab === "REPAIR" ? (
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${order.type === "WARRANTY" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                                    {order.type === "WARRANTY" ? "BẢO HÀNH" : "SỬA CHỮA"}
+                                </span>
+                            ) : (
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${order.orderType === "SALE" ? "bg-green-100 text-green-700" : "bg-purple-100 text-purple-700"}`}>
+                                    {order.orderType === "SALE" ? "BÁN HÀNG" : "THU MUA"}
+                                </span>
+                            )}
+                        </td>
+
                         <td className="p-4 font-bold text-gray-800 text-right">
                             {formatCurrency(order.totalPrice)}
                         </td>
-                        
-                        {activeTab === "REPAIR" && (
-                            <td className="p-4 text-sm font-medium text-gray-600">{order.repairType || "REPAIR"}</td>
-                        )}
 
                         <td className="p-4 text-sm">
                         <span
@@ -507,19 +370,11 @@ export default function SaleOrders() {
                         </span>
                         </td>
                         <td className="p-4 flex justify-center gap-2">
-                        <button
-                            onClick={() => handleOpenDetail(order)}
-                            className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
-                            title="Xem chi tiết & In Bill"
-                        >
+                        <button onClick={() => handleOpenDetail(order)} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition" title="Xem chi tiết & In Bill">
                             <Eye size={18} />
                         </button>
                         {order.status === "Pending" && activeTab !== "REPAIR" && (
-                            <button
-                                onClick={() => handleConfirmPayment(order._id)}
-                                className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition"
-                                title="Xác nhận thanh toán"
-                            >
+                            <button onClick={() => handleConfirmPayment(order._id)} className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition" title="Xác nhận thanh toán">
                                 <CheckCircle size={18} />
                             </button>
                         )}
@@ -538,34 +393,20 @@ export default function SaleOrders() {
             </div>
         )}
 
-        {/* Thanh Phân trang */}
         {!isLoading && totalPages > 1 && (
             <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
                 <span className="text-sm text-gray-500">
                     Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredOrders.length)} / {filteredOrders.length}
                 </span>
                 <div className="flex gap-2">
-                    <button 
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                        disabled={currentPage === 1}
-                        className="p-2 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
-                    >
-                        <ChevronLeft size={16}/>
-                    </button>
+                    <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-2 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"><ChevronLeft size={16}/></button>
                     <span className="px-4 py-1.5 text-sm font-bold bg-white border rounded">{currentPage}</span>
-                    <button 
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                        disabled={currentPage === totalPages}
-                        className="p-2 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
-                    >
-                        <ChevronRight size={16}/>
-                    </button>
+                    <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-2 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"><ChevronRight size={16}/></button>
                 </div>
             </div>
         )}
       </div>
 
-      {/* Modal Chi tiết đơn hàng */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
@@ -573,17 +414,19 @@ export default function SaleOrders() {
               <h3 className="text-xl font-bold text-gray-800">
                 Chi tiết Hóa Đơn <span className="text-blue-600 font-mono">#{selectedOrder._id.substring(selectedOrder._id.length - 6).toUpperCase()}</span>
               </h3>
-              <div className="flex gap-3">
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gray-800 text-white rounded-lg font-bold text-sm hover:bg-black shadow-md transition"
-                >
-                  <Printer size={16} /> IN PHIẾU A4
-                </button>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-gray-400 hover:text-red-500 bg-white border p-2 rounded-lg"
-                >
+              
+              <div className="flex gap-2">
+                {selectedOrder.status === "Completed" && (
+                  <>
+                      <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs hover:bg-blue-700 shadow-md">
+                        <Printer size={16} /> IN BILL
+                      </button>
+                      <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-bold text-xs hover:bg-green-700 shadow-md">
+                        <Download size={16} /> TẢI PDF
+                      </button>
+                  </>
+                )}
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-lg transition">
                   <X size={20} />
                 </button>
               </div>
@@ -607,8 +450,8 @@ export default function SaleOrders() {
                   <thead className="bg-gray-100 text-gray-600 uppercase text-[10px] font-bold tracking-wider">
                     <tr>
                       <th className="p-4">Sản phẩm / Dịch vụ</th>
+                      <th className="p-4 text-right">Đơn giá</th>
                       <th className="p-4 text-center">Bảo hành</th>
-                      <th className="p-4 text-right">Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -618,8 +461,11 @@ export default function SaleOrders() {
                        let price = detail.purchasePrice || detail.price || 0;
                        
                        if (activeTab === "REPAIR") {
-                           itemName = detail.serviceId?.name || "Dịch vụ";
-                           price = detail.serviceId?.price || 0;
+                           itemName = detail.serviceId && detail.serviceId.length > 0 ? detail.serviceId.map(s => s.name).join(" + ") : "Dịch vụ sửa chữa";
+                           const servicePrice = detail.serviceId?.reduce((sum, s) => sum + (s.price || 0), 0) || 0;
+                           const itemsPrice = detail.itemIds?.reduce((sum, i) => sum + (i.price || i.sellingPrice || 0), 0) || 0;
+                           price = servicePrice + itemsPrice;
+                           serial = detail.targetPhoneId ? (detail.targetPhoneId.serialCode || detail.targetPhoneId.imei || "-") : "-";
                        } else {
                            itemName = detail.phoneId?.phoneModelId?.name || detail.itemId?.item_type?.name || detail.name || "Sản phẩm";
                            serial = detail.phoneId ? `Mã máy: ${detail.phoneId._id?.substring(detail.phoneId._id.length - 6).toUpperCase()}` : `SN: ${detail.itemId?.serialCode || detail.identifier}`;
@@ -632,33 +478,33 @@ export default function SaleOrders() {
                                 {activeTab === "REPAIR" ? <Wrench size={16} className="text-orange-500" /> : detail.phoneId ? <Smartphone size={16} className="text-blue-500" /> : <Package size={16} className="text-emerald-500" />}
                                 {itemName}
                             </div>
-                            {serial && <div className="text-xs text-gray-500 font-mono mt-1 ml-6">{serial}</div>}
                             
-                            {/* Hiển thị linh kiện sửa chữa nếu có */}
+                            {activeTab === "REPAIR" && detail.targetPhoneId && (
+                                <div className="text-[10px] text-blue-600 font-mono mt-1 ml-6 border border-blue-200 bg-blue-50 inline-block px-1 rounded">
+                                    Máy khách: {detail.targetPhoneId.phoneModelId?.name || "Đang cập nhật"} (SN: {serial})
+                                </div>
+                            )}
+
+                            {activeTab !== "REPAIR" && serial && <div className="text-[10px] text-gray-400 font-mono mt-1 ml-6">{serial}</div>}
+                            
                             {activeTab === "REPAIR" && detail.itemIds && detail.itemIds.length > 0 && (
                                 <div className="mt-2 ml-6 p-2 bg-white border rounded text-xs space-y-1">
                                    <span className="font-bold text-gray-500 uppercase text-[9px]">Linh kiện thay:</span>
                                    {detail.itemIds.map(item => (
                                        <div key={item._id} className="flex justify-between text-gray-600">
-                                           <span>- {item.name}</span>
-                                           <span>{formatCurrency(item.price)}</span>
+                                           <span>- {item.name} <span className="text-[10px] font-mono ml-1 text-gray-400">(SN: {item.serialCode})</span></span>
+                                           <span>{formatCurrency(item.price || item.sellingPrice)}</span>
                                        </div>
                                    ))}
                                 </div>
                             )}
                             </td>
-                            <td className="p-4 text-center">
-                            {detail.warrantyExpireDate ? (
-                                <span className="text-xs text-green-700 font-bold bg-green-100 border border-green-200 px-2 py-1 rounded">
-                                   Đến {dayjs(detail.warrantyExpireDate).format('DD/MM/YYYY')}
-                                </span>
-                            ) : detail.warranty ? (
-                                <span className="text-xs text-blue-700 font-bold bg-blue-50 px-2 py-1 rounded">Tiêu chuẩn</span>
-                            ) : (
-                                <span className="text-xs text-gray-400 font-bold">Không</span>
-                            )}
-                            </td>
                             <td className="p-4 text-right font-black text-gray-800">{formatCurrency(price)}</td>
+                            <td className="p-4 text-center">
+                                <span className={`text-[10px] ${activeTab === "REPAIR" ? "text-orange-600 bg-orange-50" : "text-green-600 bg-green-50"} font-bold px-2 py-1 rounded`}>
+                                    {activeTab === "REPAIR" ? "Bảo hành DV" : "CÓ BH"}
+                                </span>
+                            </td>
                         </tr>
                        )
                     })}
@@ -667,16 +513,13 @@ export default function SaleOrders() {
               </div>
             </div>
 
-            {/* MODAL FOOTER CHỨA CÁC NÚT ĐIỀU KHIỂN */}
             <div className="p-4 border-t bg-gray-50 flex justify-between items-center rounded-b-xl">
                {selectedOrder.status === "Pending" ? (
                   <div className="flex gap-3 w-full justify-between items-center">
-                     {/* NÚT HỦY ĐƠN */}
                      <button onClick={handleCancelOrder} className="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 flex items-center gap-2 transition">
                         <XCircle size={18}/> HỦY ĐƠN
                      </button>
                      
-                     {/* NÚT XÁC NHẬN VÀ ĐÓNG */}
                      <div className="flex gap-3">
                         <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Đóng</button>
                         <button onClick={() => handleConfirmPayment(selectedOrder._id)} className="px-8 py-2.5 bg-green-600 text-white rounded-lg font-black flex items-center gap-2 hover:bg-green-700 shadow-md transition">
@@ -695,7 +538,7 @@ export default function SaleOrders() {
                )}
             </div>
 
-            <div className="hidden">
+            <div className="absolute left-[-9999px] top-[-9999px] opacity-0 pointer-events-none -z-50">
               <InvoicePrintA4 contentRef={printRef} order={selectedOrder} details={orderDetails} formatCurrency={formatCurrency} activeTab={activeTab} />
             </div>
           </div>

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
-import { PackagePlus, Filter, Save, FileText, CheckCircle, Cpu, ListPlus, Trash2, ShoppingCart } from "lucide-react";
+import { PackagePlus, Filter, Save, ListPlus, Trash2, ShoppingCart } from "lucide-react";
+
+// IMPORT TỪ FILE API MỚI
+import { fetchImportInitDataApi, submitBatchImportApi } from "../../api/manager/importInventory";
 
 const BASE_CODES = [
     { code: "MB", label: "Mainboard" }, { code: "SCR", label: "Màn hình" },
@@ -28,23 +30,27 @@ export default function ImportInventory() {
         quality: '', sourceDevice: '', ram: '', capacity: '', color: ''
     });
 
-    useEffect(() => { fetchData(); }, []);
+    // ==============================================================
+    // GỌI API KHỞI TẠO DATA
+    // ==============================================================
+    useEffect(() => { 
+        loadInitData(); 
+    }, []);
 
-    const fetchData = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const headers = { Authorization: `Bearer ${token}` };
-            const [typeRes, storeRes] = await Promise.all([
-                axios.get("http://localhost:9999/api/item_types/all", { headers }),
-                axios.get("http://localhost:9999/api/stores/all", { headers })
-            ]);
-            setItemTypes(typeRes.data.data || []);
-            const storeList = storeRes.data.data || [];
-            setStores(storeList);
-            if (storeList.length > 0) setFormData(prev => ({ ...prev, storeId: storeList[0]._id }));
-        } catch (error) { toast.error("Lỗi tải dữ liệu."); }
+    const loadInitData = async () => {
+        const data = await fetchImportInitDataApi();
+        if (data) {
+            setItemTypes(data.itemTypes);
+            setStores(data.stores);
+            if (data.stores.length > 0) {
+                setFormData(prev => ({ ...prev, storeId: data.stores[0]._id }));
+            }
+        }
     };
 
+    // ==============================================================
+    // LOGIC XỬ LÝ FORM & BỘ LỌC
+    // ==============================================================
     const filteredItemTypes = itemTypes.filter(type => {
         if (!filterGroup) return false;
         return type.code.toUpperCase().includes(filterGroup.toUpperCase());
@@ -88,27 +94,24 @@ export default function ImportInventory() {
         setPendingBatches(updated);
     };
 
+    // ==============================================================
+    // LƯU TOÀN BỘ VÀO DB
+    // ==============================================================
     const handleSubmitAll = async () => {
         if (pendingBatches.length === 0) return toast.warning("Danh sách chờ nhập đang trống!");
         
         setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            await axios.post("http://localhost:9999/api/items/import-batch", 
-                { batches: pendingBatches }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            toast.success(`Đã nhập thành công toàn bộ lô hàng vào kho!`);
+        const success = await submitBatchImportApi(pendingBatches);
+        
+        if (success) {
             setPendingBatches([]); 
-
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi nhập kho");
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
+    // ==============================================================
+    // CÁC HÀM PHỤ TRỢ TÍNH TOÁN
+    // ==============================================================
     const totalItems = pendingBatches.reduce((sum, batch) => sum + parseInt(batch.quantity), 0);
     const totalBaseCost = pendingBatches.reduce((sum, batch) => sum + (parseInt(batch.quantity) * parseInt(batch.baseCost || 0)), 0);
 

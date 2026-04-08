@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, MapPin, Store, Truck, ShieldCheck, CheckCircle2, QrCode, Check, CreditCard } from "lucide-react";
-import axiosClient from "../../api/axiosClient";
-import axios from "axios"; 
 import CustomerLayout from "../../layouts/CustomerLayout";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { 
+    fetchLocationsApi, 
+    fetchStoresApi, 
+    submitOrderApi, 
+    createVnpayPaymentApi, 
+    clearCartApi 
+} from "../../api/customer/checkout";
 
 export default function Checkout() {
     const navigate = useNavigate();
@@ -37,15 +45,16 @@ export default function Checkout() {
     const [distCode, setDistCode] = useState("");
     const [wardCode, setWardCode] = useState("");
 
+    // Gọi API Tỉnh Thành
     useEffect(() => {
-        axios.get('https://raw.githubusercontent.com/kenzouno1/DiaGioiHanhChinhVN/master/data.json')
-            .then(res => setLocations(res.data))
-            .catch(err => {
-                console.error("Lỗi lấy danh sách tỉnh thành", err);
-                toast.error("Lỗi tải danh sách địa chỉ!");
-            });
+        const loadLocations = async () => {
+            const data = await fetchLocationsApi();
+            setLocations(data);
+        };
+        loadLocations();
     }, []);
 
+    // Load Data Khởi tạo
     useEffect(() => {
         const prepareCheckout = async () => {
             try {
@@ -77,8 +86,9 @@ export default function Checkout() {
                 setCheckoutItems(itemsToBuy);
 
                 const savedStoreId = localStorage.getItem('selectedStoreId');
-                const storeRes = await axiosClient.get('/stores/all');
-                const storeList = Array.isArray(storeRes.data) ? storeRes.data : (storeRes.data.data || []);
+                
+                // DÙNG API MỚI
+                const storeList = await fetchStoresApi();
                 setStores(storeList);
                 
                 if (savedStoreId && storeList.some(s => s._id === savedStoreId)) {
@@ -96,6 +106,7 @@ export default function Checkout() {
         prepareCheckout();
     }, [navigate, location.state]);
 
+    // Xử lý Form Tỉnh Thành
     const handleProvinceChange = (e) => {
         const code = e.target.value;
         setProvCode(code);
@@ -138,6 +149,7 @@ export default function Checkout() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // XỬ LÝ THANH TOÁN GỌI QUA API FILE
     const handleCheckout = async () => {
         if (!agreedToTerms) return toast.warning("Vui lòng đồng ý với điều khoản sử dụng!");
 
@@ -175,40 +187,36 @@ export default function Checkout() {
                 paymentMethod: selectedPaymentMethod 
             };
 
-            const orderRes = await axiosClient.post('/orders/create', orderPayload);
+            // GỌI TẠO ĐƠN API
+            const orderData = await submitOrderApi(orderPayload);
+            if (!orderData) {
+                setLoading(false);
+                return; // Nếu lỗi đã có toast ở hàm api
+            }
             
-            // 🌟 FIX LỖI: Quét mã đơn hàng trên nhiều cấu trúc API Backend khác nhau
-            const createdOrderId = orderRes.data.orderId || orderRes.data.data?._id || orderRes.data._id;
+            const createdOrderId = orderData.orderId || orderData.data?._id || orderData._id;
 
             if (!createdOrderId) {
                 toast.error("Hệ thống chưa trả về Mã Đơn Hàng, vui lòng kiểm tra Backend!");
                 setLoading(false);
-                return; // Dừng lại không nhảy trang nữa
+                return; 
             }
 
+            // XỬ LÝ CHUYỂN HƯỚNG THEO CỔNG THANH TOÁN
             if (selectedPaymentMethod === 'VNPAY') {
-                const paymentRes = await axiosClient.post('/vnpay/create', {
-                    amountVnd: totalAmount,
-                    orderId: createdOrderId,
-                    orderInfo: `Thanh toan don hang DTM mua tai DinhTrongMobile`,
-                    locale: 'vn'
-                });
-
-                if (paymentRes.data && paymentRes.data.paymentUrl) {
-                    window.location.href = paymentRes.data.paymentUrl;
-                } else {
-                    toast.error("Không thể tạo link thanh toán VNPay");
+                const paymentData = await createVnpayPaymentApi(totalAmount, createdOrderId);
+                if (paymentData && paymentData.paymentUrl) {
+                    window.location.href = paymentData.paymentUrl;
                 }
             } else if (selectedPaymentMethod === 'PAYOS') {
-                // Xóa giỏ hàng sau khi tạo đơn thành công
-                await axiosClient.delete(`/cart/clear/${user._id || user.id}`);
+                // Xóa giỏ hàng
+                await clearCartApi(user._id || user.id);
                 window.dispatchEvent(new Event('cartUpdated')); 
                 
                 toast.success("Đang chuyển hướng đến cổng thanh toán...");
                 
-                // 🌟 CHUYỂN HƯỚNG SANG TRANG THANH TOÁN CỦA PAYOS 🌟
-                if (orderRes.data && orderRes.data.checkoutUrl) {
-                    window.location.href = orderRes.data.checkoutUrl;
+                if (orderData.checkoutUrl) {
+                    window.location.href = orderData.checkoutUrl;
                 } else {
                     toast.error("Không thể tạo link thanh toán PayOS!");
                 }
@@ -233,6 +241,7 @@ export default function Checkout() {
 
     return (
         <CustomerLayout>
+            <ToastContainer position="top-right" autoClose={3000} />
             <div className="bg-[#f4f6f8] min-h-screen py-8 pb-20">
                 <div className="max-w-5xl mx-auto px-4">
                     
@@ -400,7 +409,6 @@ export default function Checkout() {
                                         </div>
                                     </div>
 
-                                    {/* PHƯƠNG THỨC THANH TOÁN (ĐÃ XÓA MÃ QR Ở ĐÂY, CHỈ GIỮ THẺ CHỌN) */}
                                     <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200">
                                         <h2 className="text-gray-800 text-sm font-bold uppercase mb-4">THÔNG TIN THANH TOÁN</h2>
                                         
@@ -429,7 +437,7 @@ export default function Checkout() {
                                                 )}
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-10 h-10 flex-shrink-0 bg-white rounded shadow-sm flex items-center justify-center p-1 border ${selectedPaymentMethod === 'VNPAY' ? 'border-red-200' : 'border-gray-200'}`}>
-                                                    <CreditCard className="w-6 h-6 text-[#d70018]" strokeWidth={2} />
+                                                        <CreditCard className="w-6 h-6 text-[#d70018]" strokeWidth={2} />
                                                     </div>
                                                     <div>
                                                         <h3 className={`font-bold text-[14px] ${selectedPaymentMethod === 'VNPAY' ? 'text-[#d70018]' : 'text-gray-800'}`}>Thanh toán qua VNPAY</h3>

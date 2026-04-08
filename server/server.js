@@ -32,6 +32,7 @@ const phoneBrand = require("./routes/phone_brandRoute");
 const review = require("./routes/reviewRoute");
 const paymentRoute = require('./routes/paymentRoute');
 const warrantyRoutes = require("./routes/warrantyRoutes");
+const locationRoutes = require("./routes/locationRoutes");
 connectDB();
 
 app.use(
@@ -62,13 +63,12 @@ app.use("/api/orders", orderRoute);
 app.use("/api/phone_brands", phoneBrand);
 app.use("/api/reviews", review);
 app.use('/api', paymentRoute);
+app.use("/api/locations", locationRoutes);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to ExpressJS" });
 });
 const PORT = process.env.PORT || 9999;
-// const HOSTNAME = process.env.IP_ADDRESS ? new URL(process.env.IP_ADDRESS).hostname : "0.0.0.0";
 
 server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
-

@@ -4,9 +4,9 @@ const Otp = require("../models/Otp");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Store = require("../models/Store");
-const sendEmail = require("../utils/sendEmail");
+const { sendEmail } = require("../utils/sendEmail");
 
-// Hàm kiểm tra mật khẩu: Tối thiểu 8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt
+
 const isValidPassword = (password) => {
   const regex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
   return regex.test(password);
@@ -17,10 +17,17 @@ exports.register = async (req, res) => {
   try {
     const { fullName, userName, password, email, number, address, birthday } = req.body;
 
-    // Kiểm tra user đã tồn tại chưa
-    const existingUser = await User.findOne({ $or: [{ email }, { userName }] });
+    const existingUser = await User.findOne({ $or: [{ email }, { userName }, { number }] });
     if (existingUser) {
-      return res.status(400).json({ message: "Email hoặc Tên đăng nhập đã tồn tại trong hệ thống." });
+      if (existingUser.email === email) {
+        return res.status(400).json({ message: "Email này đã được sử dụng." });
+      }
+      if (existingUser.userName === userName) {
+        return res.status(400).json({ message: "Tên đăng nhập này đã tồn tại." });
+      }
+      if (existingUser.number === number) {
+        return res.status(400).json({ message: "Số điện thoại này đã được đăng ký cho một tài khoản khác." });
+      }
     }
 
     // Mặc định user đăng ký mới sẽ là 'CUSTOMER'
@@ -38,7 +45,7 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Tạo User mới với status là 'pending'
+    
     const newUser = new User({
       fullName,
       userName,
@@ -239,7 +246,10 @@ exports.googleAuthCallback = (req, res) => {
     const { password: _, ...userInfo } = user._doc ? user._doc : user;
 
     const userString = encodeURIComponent(JSON.stringify(userInfo));
-    res.redirect(`http://localhost:3000/login-success?token=${token}&user=${userString}`);
+    
+    const ipAddr = process.env.IP_ADDRESS || "http://localhost:3000";
+    
+    res.redirect(`${ipAddr}/login-success?token=${token}&user=${userString}`);
 
   } catch (error) {
     res.status(500).json({ message: error.message });

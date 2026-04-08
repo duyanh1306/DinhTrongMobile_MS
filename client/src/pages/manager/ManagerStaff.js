@@ -1,19 +1,29 @@
 import { useState, useEffect } from "react";
 import {
   Search,
-  Edit,
-  Trash2,
   Eye,
-  Key,
   Plus,
   X,
   ChevronLeft,
   ChevronRight,
-  Store
+//   Edit,
+//   Key,
+//   Trash2
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
+
+// IMPORT TỪ FILE API MỚI
+import {
+    fetchUsersApi,
+    fetchRolesApi,
+    fetchStoresApi,
+    updateUserApi,
+    createUserApi,
+    banUserApi,
+    resetPasswordApi
+} from "../../api/manager/staff";
 
 export default function ManagerStaff() {
   const [users, setUsers] = useState([]);
@@ -30,99 +40,53 @@ export default function ManagerStaff() {
   const [modalType, setModalType] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [formData, setFormData] = useState({
-    fullName: "",
-    userName: "",
-    email: "",
-    number: "",
-    birthday: "",
-    roleId: "",
-    storeId: "",
-    status: "active",
-    password: "",
+    fullName: "", userName: "", email: "", number: "", birthday: "",
+    roleId: "", storeId: "", status: "active", password: "",
   });
   const [errors, setErrors] = useState({});
 
+  // ==============================================================
+  // INIT DATA
+  // ==============================================================
   useEffect(() => {
-    // Get current user from localStorage
     const user = JSON.parse(localStorage.getItem("user"));
     setCurrentUser(user);
     
-    fetchUsers();
-    fetchRoles();
-    fetchStores();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+      const [usersData, rolesData, storesData] = await Promise.all([
+          fetchUsersApi(),
+          fetchRolesApi(),
+          fetchStoresApi()
+      ]);
+      setUsers(usersData);
+      setRoles(rolesData);
+      setStores(storesData);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedFilter]);
-
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách người dùng: " + error.message);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/roles");
-      if (res.ok) {
-        const data = await res.json();
-        setRoles(data);
-      }
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách vai trò: " + error.message);
-    }
-  };
-
-  const fetchStores = async () => {
-    try {
-      const res = await fetch("http://localhost:9999/api/stores");
-      if (res.ok) {
-        const data = await res.json();
-        setStores(Array.isArray(data) ? data : data.data || []);
-      }
-    } catch (error) {
-      console.log("Lỗi tải cửa hàng", error);
-    }
-  };
 
   const isStaffRole = (roleCode) => ["SALE_STAFF", "TECHNICIAN"].includes(roleCode);
   const isAdminRole = (roleCode) => roleCode === "ADMIN";
 
   // Filter users to only show staff from the current manager's store
   const filteredUsers = users.filter((user) => {
-    // Only show staff roles (not managers or admins)
-    if (!isStaffRole(user.roleId?.id)) {
-      return false;
-    }
+    if (!isStaffRole(user.roleId?.id)) return false;
+    if (currentUser?.storeId && user.storeId !== currentUser.storeId) return false;
 
-    // Only show users from the current manager's store
-    if (currentUser?.storeId && user.storeId !== currentUser.storeId) {
-      return false;
-    }
+    const matchName = user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      user.userName?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Apply search filter
-    const matchName =
-      user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.userName?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Apply role filter
     let matchRole = true;
     const roleCode = user.roleId?.id;
 
-    if (selectedFilter === "SALE_STAFF") {
-      matchRole = roleCode === "SALE_STAFF";
-    } else if (selectedFilter === "TECHNICIAN") {
-      matchRole = roleCode === "TECHNICIAN";
-    } else if (selectedFilter === "STAFF") {
-      matchRole = isStaffRole(roleCode);
-    }
+    if (selectedFilter === "SALE_STAFF") matchRole = roleCode === "SALE_STAFF";
+    else if (selectedFilter === "TECHNICIAN") matchRole = roleCode === "TECHNICIAN";
+    else if (selectedFilter === "STAFF") matchRole = isStaffRole(roleCode);
 
     return matchName && matchRole;
   });
@@ -134,12 +98,13 @@ export default function ManagerStaff() {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // ==============================================================
+  // FORM HANDLING
+  // ==============================================================
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const validateForm = () => {
@@ -201,7 +166,6 @@ export default function ManagerStaff() {
       isValid = false;
     }
 
-    // Validate Cửa hàng - must be current manager's store
     const selectedRoleObj = roles.find(r => r._id === formData.roleId);
     if (selectedRoleObj && isStaffRole(selectedRoleObj.id) && !formData.storeId) {
         newErrors.storeId = "Vui lòng chọn Cửa hàng làm việc";
@@ -214,214 +178,137 @@ export default function ManagerStaff() {
 
   const openCreateStaffModal = () => {
     setFormData({
-      fullName: "",
-      userName: "",
-      email: "",
-      number: "",
-      birthday: "",
-      roleId: "",
-      storeId: currentUser?.storeId || "", // Default to current manager's store
-      status: "active",
-      password: "",
+      fullName: "", userName: "", email: "", number: "", birthday: "",
+      roleId: "", storeId: currentUser?.storeId || "", status: "active", password: "",
     });
     setErrors({});
     setModalType("CREATE_STAFF");
   };
 
-  const openUpdateModal = (user) => {
-    if (isAdminRole(user.roleId?.id)) {
-      toast.error("Không thể chỉnh sửa tài khoản Quản trị viên.");
-      return;
-    }
-    setSelectedUser(user);
-    setFormData({
-      fullName: user.fullName,
-      userName: user.userName,
-      email: user.email,
-      number: user.number || "",
-      birthday: user.birthday ? user.birthday.split("T")[0] : "",
-      roleId: user.roleId?._id || "",
-      storeId: user.storeId || "",
-      status: user.status,
-    });
-    setErrors({});
-    setModalType("UPDATE");
-  };
+  // NOTE: Giữ nguyên để đó lỡ muốn dùng
+  // const openUpdateModal = (user) => {
+  //   if (isAdminRole(user.roleId?.id)) {
+  //     toast.error("Không thể chỉnh sửa tài khoản Quản trị viên.");
+  //     return;
+  //   }
+  //   setSelectedUser(user);
+  //   setFormData({
+  //     fullName: user.fullName, userName: user.userName, email: user.email,
+  //     number: user.number || "", birthday: user.birthday ? user.birthday.split("T")[0] : "",
+  //     roleId: user.roleId?._id || "", storeId: user.storeId || "", status: user.status,
+  //   });
+  //   setErrors({});
+  //   setModalType("UPDATE");
+  // };
 
   const handleCloseModal = () => {
     setModalType(null);
     setErrors({});
   };
 
+  // ==============================================================
+  // ACTIONS SUBMIT / BAN / RESET PWD
+  // ==============================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Ensure storeId is set to current manager's store for staff roles
     const selectedRoleObj = roles.find(r => r._id === formData.roleId);
     const submitData = { ...formData };
     
     if (isStaffRole(selectedRoleObj?.id)) {
-      submitData.storeId = currentUser?.storeId; // Force to current manager's store
+      submitData.storeId = currentUser?.storeId; 
     } else {
       submitData.storeId = null; 
     }
 
-    try {
-      if (modalType === "UPDATE") {
-        const res = await fetch(
-          `http://localhost:9999/api/users/${selectedUser._id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(submitData),
-          }
-        );
-        if (res.ok) {
-          toast.success("Cập nhật thông tin thành công!");
-          fetchUsers();
-          handleCloseModal();
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Cập nhật thất bại");
-        }
-      } else if (modalType === "CREATE_STAFF") {
-        const res = await fetch(`http://localhost:9999/api/users`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(submitData),
-        });
-        if (res.ok) {
-          toast.success("Tạo tài khoản nhân viên thành công!");
-          fetchUsers();
-          handleCloseModal();
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Tạo tài khoản thất bại");
-        }
-      }
-    } catch (error) {
-      toast.error("Lỗi khi lưu: " + error.message);
+    let success = false;
+    if (modalType === "UPDATE") {
+        success = await updateUserApi(selectedUser._id, submitData);
+    } else if (modalType === "CREATE_STAFF") {
+        success = await createUserApi(submitData);
+    }
+
+    if (success) {
+        const usersData = await fetchUsersApi();
+        setUsers(usersData);
+        handleCloseModal();
     }
   };
 
-  const handleBanUser = async (user) => {
-    if (isAdminRole(user.roleId?.id)) {
-      toast.error("Không thể khóa tài khoản Quản trị viên.");
-      return;
-    }
+  // NOTE: Giữ nguyên để đó lỡ muốn dùng
+  // const handleBanUser = async (user) => {
+  //   if (isAdminRole(user.roleId?.id)) {
+  //     toast.error("Không thể khóa tài khoản Quản trị viên.");
+  //     return;
+  //   }
+  //   if (user.status === "inactive") {
+  //     toast.info("Tài khoản này đã bị khóa từ trước.");
+  //     return;
+  //   }
 
-    if (user.status === "inactive") {
-      toast.info("Tài khoản này đã bị khóa từ trước.");
-      return;
-    }
+  //   Swal.fire({
+  //     title: "Khóa tài khoản?",
+  //     text: `Bạn có chắc muốn khóa tài khoản của ${user.fullName}?`,
+  //     icon: "warning",
+  //     showCancelButton: true,
+  //     confirmButtonText: "Vâng, khóa ngay!",
+  //     cancelButtonText: "Bỏ qua",
+  //     reverseButtons: true,
+  //     focusCancel: true,
+  //     customClass: {
+  //       confirmButton: "bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-700 ml-2",
+  //       cancelButton: "bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded hover:bg-gray-400 mr-2",
+  //     },
+  //     buttonsStyling: false,
+  //   }).then(async (result) => {
+  //     if (result.isConfirmed) {
+  //       const success = await banUserApi(user._id);
+  //       if (success) {
+  //           const usersData = await fetchUsersApi();
+  //           setUsers(usersData);
+  //       }
+  //     }
+  //   });
+  // };
 
-    Swal.fire({
-      title: "Khóa tài khoản?",
-      text: `Bạn có chắc muốn khóa tài khoản của ${user.fullName}?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Vâng, khóa ngay!",
-      cancelButtonText: "Bỏ qua",
-      reverseButtons: true,
-      focusCancel: true,
-      customClass: {
-        confirmButton:
-          "bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-700 ml-2",
-        cancelButton:
-          "bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded hover:bg-gray-400 mr-2",
-      },
-      buttonsStyling: false,
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const res = await fetch(
-            `http://localhost:9999/api/users/${user._id}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "inactive" }),
-            }
-          );
+  // NOTE: Giữ nguyên để đó lỡ muốn dùng
+  // const handleResetPassword = async (id) => {
+  //   const { value: newPassword } = await Swal.fire({
+  //     title: "Đặt lại mật khẩu",
+  //     input: "password",
+  //     inputLabel: "Nhập mật khẩu mới cho nhân viên này",
+  //     inputPlaceholder: "8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt",
+  //     showCancelButton: true,
+  //     confirmButtonText: "Lưu",
+  //     cancelButtonText: "Hủy",
+  //     buttonsStyling: false,
+  //     customClass: {
+  //       popup: "rounded-xl p-6", title: "text-2xl font-bold text-gray-800 mb-2",
+  //       htmlContainer: "text-sm text-gray-600",
+  //       input: "!w-full !mx-0 mt-4 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none box-border text-gray-800",
+  //       actions: "flex justify-end gap-3 mt-6 w-full",
+  //       confirmButton: "px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 m-0",
+  //       cancelButton: "px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 m-0",
+  //     },
+  //     inputValidator: (value) => {
+  //       const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+  //       if (!value) return "Vui lòng nhập mật khẩu mới!";
+  //       if (!passwordRegex.test(value)) return "Mật khẩu phải từ 8 ký tự, có ít nhất 1 chữ hoa và 1 ký tự đặc biệt!";
+  //     },
+  //   });
 
-          if (res.ok) {
-            toast.success("Đã khóa tài khoản thành công!");
-            fetchUsers();
-          } else {
-            const errData = await res.json();
-            toast.error(errData.message || "Khóa tài khoản thất bại.");
-          }
-        } catch (error) {
-          toast.error("Lỗi hệ thống: " + error.message);
-        }
-      }
-    });
-  };
-
-  const handleResetPassword = async (id) => {
-    const { value: newPassword } = await Swal.fire({
-      title: "Đặt lại mật khẩu",
-      input: "password",
-      inputLabel: "Nhập mật khẩu mới cho nhân viên này",
-      inputPlaceholder: "8 ký tự, 1 chữ hoa, 1 ký tự đặc biệt",
-      showCancelButton: true,
-      confirmButtonText: "Lưu",
-      cancelButtonText: "Hủy",
-      buttonsStyling: false,
-      customClass: {
-        popup: "rounded-xl p-6",
-        title: "text-2xl font-bold text-gray-800 mb-2",
-        htmlContainer: "text-sm text-gray-600",
-        input:
-          "!w-full !mx-0 mt-4 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none box-border text-gray-800",
-        actions: "flex justify-end gap-3 mt-6 w-full",
-        confirmButton:
-          "px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 m-0",
-        cancelButton:
-          "px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 m-0",
-      },
-      inputValidator: (value) => {
-        const passwordRegex =
-          /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
-        if (!value) return "Vui lòng nhập mật khẩu mới!";
-        if (!passwordRegex.test(value)) {
-          return "Mật khẩu phải từ 8 ký tự, có ít nhất 1 chữ hoa và 1 ký tự đặc biệt!";
-        }
-      },
-    });
-
-    if (newPassword) {
-      try {
-        const res = await fetch(
-          `http://localhost:9999/api/users/${id}/reset-password`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password: newPassword }),
-          }
-        );
-        if (res.ok) {
-          toast.success("Đặt lại mật khẩu thành công!");
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Đặt lại mật khẩu thất bại.");
-        }
-      } catch (error) {
-        toast.error("Lỗi khi đặt lại mật khẩu: " + error.message);
-      }
-    }
-  };
+  //   if (newPassword) {
+  //       await resetPasswordApi(id, newPassword);
+  //   }
+  // };
 
   const getStatusText = (status) => {
     switch (status) {
-      case "active":
-        return "HOẠT ĐỘNG";
-      case "inactive":
-        return "VÔ HIỆU HÓA";
-      case "pending":
-        return "CHỜ DUYỆT";
-      default:
-        return status?.toUpperCase() || "";
+      case "active": return "HOẠT ĐỘNG";
+      case "inactive": return "VÔ HIỆU HÓA";
+      case "pending": return "CHỜ DUYỆT";
+      default: return status?.toUpperCase() || "";
     }
   };
 
@@ -516,27 +403,9 @@ export default function ManagerStaff() {
                     >
                       <Eye size={18} />
                     </button>
-                    {/* <button
-                      onClick={() => openUpdateModal(user)}
-                      className="text-blue-500 hover:text-blue-700 transition"
-                      title="Sửa"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleResetPassword(user._id)}
-                      className="text-yellow-500 hover:text-yellow-700 transition"
-                      title="Đặt lại mật khẩu"
-                    >
-                      <Key size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleBanUser(user)}
-                      className="text-red-500 hover:text-red-700 transition"
-                      title="Khóa tài khoản"
-                    >
-                      <Trash2 size={18} />
-                    </button> */}
+                    {/* <button onClick={() => openUpdateModal(user)} className="text-blue-500 hover:text-blue-700 transition" title="Sửa"><Edit size={18} /></button>
+                    <button onClick={() => handleResetPassword(user._id)} className="text-yellow-500 hover:text-yellow-700 transition" title="Đặt lại mật khẩu"><Key size={18} /></button>
+                    <button onClick={() => handleBanUser(user)} className="text-red-500 hover:text-red-700 transition" title="Khóa tài khoản"><Trash2 size={18} /></button> */}
                   </td>
                 </tr>
               ))}
@@ -826,7 +695,7 @@ export default function ManagerStaff() {
                     >
                       <option value="">Chọn vai trò</option>
                       {roles
-                        .filter((r) => isStaffRole(r.id)) // Only show staff roles
+                        .filter((r) => isStaffRole(r.id)) 
                         .map((role) => (
                           <option key={role._id} value={role._id}>
                             {role.name}

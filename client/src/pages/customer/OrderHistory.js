@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Package, Clock, CheckCircle, ChevronRight, Search, Calendar, Truck } from "lucide-react";
-import axiosClient from "../../api/axiosClient";
+import { Package, Search, Calendar, Truck, ChevronRight } from "lucide-react";
 import CustomerLayout from "../../layouts/CustomerLayout";
+
+// IMPORT TỪ FILE API VỪA TẠO
+import { fetchOrdersApi, confirmOrderApi, reportOrderIssueApi } from "../../api/customer/orderHistory";
 
 export default function OrderHistory() {
     const [orders, setOrders] = useState([]);
@@ -10,18 +12,14 @@ export default function OrderHistory() {
     const user = JSON.parse(localStorage.getItem('user'));
 
     useEffect(() => {
-        const fetchOrders = async () => {
+        const loadOrders = async () => {
             if (!user) return;
-            try {
-                const res = await axiosClient.get(`/orders/user/${user._id}`);
-                setOrders(res.data.data || []);
-            } catch (error) {
-                console.error("Lỗi lấy lịch sử đơn hàng:", error);
-            } finally {
-                setLoading(false);
-            }
+            setLoading(true);
+            const data = await fetchOrdersApi(user._id || user.id);
+            setOrders(data);
+            setLoading(false);
         };
-        fetchOrders();
+        loadOrders();
     }, [user]);
 
     // 🌟 Đã cập nhật đầy đủ các trạng thái mới
@@ -41,18 +39,18 @@ export default function OrderHistory() {
     // 🌟 Hàm gọi API cho 2 nút bấm của khách
     const handleConfirm = async (id) => {
         if (!window.confirm("Xác nhận bạn đã nhận được hàng?")) return;
-        try {
-            await axiosClient.put(`/orders/${id}/customer-confirm`);
+        const success = await confirmOrderApi(id);
+        if (success) {
             window.location.reload();
-        } catch (error) { console.error(error); }
+        }
     };
 
     const handleReport = async (id) => {
         if (!window.confirm("Bạn chắc chắn chưa nhận được hàng? Cửa hàng sẽ liên hệ với bạn ngay lập tức!")) return;
-        try {
-            await axiosClient.put(`/orders/${id}/customer-report-issue`);
+        const success = await reportOrderIssueApi(id);
+        if (success) {
             window.location.reload();
-        } catch (error) { console.error(error); }
+        }
     };
 
     return (

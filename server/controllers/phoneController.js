@@ -2,7 +2,8 @@ const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const QRCode = require('qrcode');
 const InventoryTransaction = require("../models/Inventory_transaction");
-// GET /api/phones/qrcode/:id
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); // <--- THÊM DÒNG NÀY
+
 const generatePhoneQRCode = async (req, res) => {
     try {
         const { id } = req.params;
@@ -10,7 +11,6 @@ const generatePhoneQRCode = async (req, res) => {
 
         if (!phone) return res.status(404).json({ success: false, message: "Phone not found" });
 
-        // Mã hóa QRCode bằng SerialCode
         const qrText = phone.serialCode;
         const qrCodeImage = await QRCode.toBuffer(qrText, {
             type: 'png', width: 200, margin: 1, color: { dark: '#000000', light: '#FFFFFF' }
@@ -24,18 +24,15 @@ const generatePhoneQRCode = async (req, res) => {
     }
 };
 
-// GET /api/phones (Lấy danh sách cho Frontend Admin)
 const getPhonesPaginatedAndSearch = async (req, res) => {
     try {
         const { search = '', status, storeId } = req.query;
         let query = {};
 
-        // Tìm kiếm theo Serial Code
         if (search) query.serialCode = { $regex: search, $options: 'i' };
         if (status) query.status = status;
         if (storeId) query.storeId = storeId;
 
-        // Lấy tất cả để Frontend tự Group thành dạng Cây
         const phones = await Phone.find(query)
             .populate({ path: 'phoneModelId', populate: { path: 'brand', select: 'name' } })
             .populate('storeId', 'name address')
@@ -46,6 +43,8 @@ const getPhonesPaginatedAndSearch = async (req, res) => {
         res.status(500).json({ success: false, message: "Lỗi Server" });
     }
 };
+
+// 🌟 ĐÃ SỬA LOGIC GHI LOG HEADER-DETAIL KHI TECH ĐƯA RA QUYẾT ĐỊNH
 const handleTechDecision = async (req, res) => {
   try {
     const { id } = req.params;
@@ -59,13 +58,20 @@ const handleTechDecision = async (req, res) => {
       phone.status = "in_stock";
       await phone.save();
 
-      await InventoryTransaction.create({
+      const header = await InventoryTransaction.create({
         storeId: phone.storeId,
         transactionType: "INBOUND",
         referenceType: "TRADE_IN_IMPORT",
         referenceId: phone._id,
-        phoneId: phone._id,
+        totalItems: 1,
         note: `Nhập kho nguyên bản máy thu cũ: ${phoneName || phone._id.toString().slice(-6)}`
+      });
+
+      await InventoryTransactionDetail.create({
+        transactionId: header._id,
+        phoneId: phone._id,
+        quantity: 1,
+        note: "Nhập nguyên bản"
       });
 
       return res.status(200).json({ message: "Đã nhập kho nguyên bản" });
@@ -80,53 +86,73 @@ const handleTechDecision = async (req, res) => {
       await phone.save();
 
       // Log nhập kho máy thu cũ (sau khi tân trang)
-      await InventoryTransaction.create({
+      const inHeader = await InventoryTransaction.create({
         storeId: phone.storeId,
         transactionType: "INBOUND",
         referenceType: "TRADE_IN_REFURBISHED",
         referenceId: phone._id,
-        phoneId: phone._id,
+        totalItems: 1,
         note: `Nhập kho máy thu cũ (đã tân trang): ${phoneName || phone._id.toString().slice(-6)}`
+      });
+
+      await InventoryTransactionDetail.create({
+        transactionId: inHeader._id,
+        phoneId: phone._id,
+        quantity: 1,
+        note: "Máy tân trang"
       });
 
       // Trừ kho linh kiện thay thế (nếu có chọn thay)
       if (replacedItems && replacedItems.length > 0) {
-        // Cập nhật trạng thái linh kiện thành 'consumed' (đã tiêu hao)
         await Item.updateMany(
           { _id: { $in: replacedItems } },
           { status: "consumed" } 
         );
 
-        // Tạo log Xuất kho cho từng linh kiện
-        const itemLogs = replacedItems.map(itemId => ({
+        const outHeader = await InventoryTransaction.create({
           storeId: phone.storeId,
-          transactionType: "REPAIR_CONSUMPTION", // Xuất tiêu hao
+          transactionType: "REPAIR_CONSUMPTION", 
           referenceType: "REFURBISH_PHONE",
           referenceId: phone._id,
-          itemId: itemId,
+          totalItems: replacedItems.length,
           note: `Xuất linh kiện để tân trang máy thu cũ: ${phoneName || phone._id.toString().slice(-6)}`
+        });
+
+        const itemLogs = replacedItems.map(itemId => ({
+          transactionId: outHeader._id,
+          itemId: itemId,
+          quantity: 1,
+          note: "Linh kiện thay thế"
         }));
-        await InventoryTransaction.insertMany(itemLogs);
+        await InventoryTransactionDetail.insertMany(itemLogs);
       }
 
       return res.status(200).json({ message: "Đã tân trang và chuyển máy vào kho" });
     } 
     
-    // 3. LUỒNG RÃ XÁC (Giữ nguyên logic của mày, chỉ thêm log)
+    // 3. LUỒNG RÃ XÁC 
     if (decision === "DISMANTLE") {
       phone.status = "defective"; 
       await phone.save();
 
       // Log xuất tiêu hao máy mẹ
-      await InventoryTransaction.create({
+      const outHeader = await InventoryTransaction.create({
         storeId: phone.storeId,
         transactionType: "REPAIR_CONSUMPTION",
         referenceType: "DISMANTLE_PHONE",
         referenceId: phone._id,
-        phoneId: phone._id,
+        totalItems: 1,
         note: `Rã xác máy lấy linh kiện`
       });
 
+      await InventoryTransactionDetail.create({
+        transactionId: outHeader._id,
+        phoneId: phone._id,
+        quantity: 1,
+        note: "Máy mẹ đem rã"
+      });
+
+      // Tạo & Nhập kho linh kiện con
       if (parts && parts.length > 0) {
         const itemsToCreate = parts.map((p) => ({
           name: p.name || `Linh kiện bóc máy`,
@@ -146,16 +172,22 @@ const handleTechDecision = async (req, res) => {
         
         const insertedItems = await Item.insertMany(itemsToCreate);
 
-        // Log nhập kho cho từng linh kiện con
-        const itemLogs = insertedItems.map(item => ({
-            storeId: item.storeId,
+        const inHeader = await InventoryTransaction.create({
+            storeId: phone.storeId,
             transactionType: "INBOUND",
             referenceType: "DISMANTLE_PARTS",
             referenceId: phone._id,
+            totalItems: insertedItems.length,
+            note: `Nhập linh kiện rã từ máy mã: ${phone._id.toString().slice(-6).toUpperCase()}`
+        });
+
+        const itemLogs = insertedItems.map(item => ({
+            transactionId: inHeader._id,
             itemId: item._id,
-            note: `Nhập kho linh kiện rã từ máy mã: ${phone._id.toString().slice(-6).toUpperCase()}`
+            quantity: 1,
+            note: "Linh kiện bóc máy"
         }));
-        await InventoryTransaction.insertMany(itemLogs);
+        await InventoryTransactionDetail.insertMany(itemLogs);
       }
       return res.status(200).json({ message: "Đã rã máy và ghi log nhập/xuất kho" });
     }
@@ -165,7 +197,7 @@ const handleTechDecision = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-// POST /api/phones/create
+
 const createPhone = async (req, res) => {
     try {
         const { serialCode, phoneModelId, colorName, capacity, grade, storeId, status, importPrice, sellingPrice, warrantyPeriod, source, notes } = req.body;
@@ -175,7 +207,6 @@ const createPhone = async (req, res) => {
             specificImages = req.files.map(file => file.path);
         }
 
-        // Tự động sinh mã Serial nếu để trống
         const finalSerialCode = serialCode || `PH-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`;
 
         const newPhone = new Phone({
@@ -196,15 +227,11 @@ const createPhone = async (req, res) => {
     }
 };
 
-// PUT /api/phones/update/:id
 const updatePhone = async (req, res) => {
     try {
         const { id } = req.params;
         let updateData = { ...req.body };
         
-        // Không cho phép tự ý đổi Serial Code để tránh loạn kho, nếu cần thì mở comment
-        // delete updateData.serialCode; 
-
         let specificImages = [];
         if (req.body.retainedImages) {
             specificImages = JSON.parse(req.body.retainedImages);
@@ -225,7 +252,6 @@ const updatePhone = async (req, res) => {
     }
 };
 
-// DELETE /api/phones/:id
 const deletePhone = async (req, res) => {
     try {
         const { id } = req.params;
@@ -237,7 +263,6 @@ const deletePhone = async (req, res) => {
     }
 };
 
-// GET /api/phones/all
 const getAllPhones = async (req, res) => {
     try {
         const phones = await Phone.find()
@@ -249,123 +274,74 @@ const getAllPhones = async (req, res) => {
     }
 };
 
-// POST /api/phones/create (Assembly)
 const createAssembledPhone = async (req, res) => {
     try {
         const { phone_model, items, status, assembled_by, assembled_date, storeId } = req.body;
 
-        // Validate required fields
         if (!phone_model || !items || items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Phone model and items are required"
-            });
+            return res.status(400).json({ success: false, message: "Phone model and items are required" });
         }
 
-        // Check if all items exist and are in stock
         const itemDocs = await Item.find({ '_id': { $in: items } });
         if (itemDocs.length !== items.length) {
-            return res.status(400).json({
-                success: false,
-                message: "Some items not found"
-            });
+            return res.status(400).json({ success: false, message: "Some items not found" });
         }
 
-        // Check if all items are in stock
         const outOfStockItems = itemDocs.filter(item => item.status !== 'in_stock');
         if (outOfStockItems.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Some items are not in stock"
-            });
+            return res.status(400).json({ success: false, message: "Some items are not in stock" });
         }
 
-        // Generate IMEI for assembled phone
         const imei = 'ASM' + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
 
-        // Create the assembled phone
         const newPhone = new Phone({
-            imei,
-            phoneModelId: phone_model,
-            colorName: 'Assembled',
-            capacity: 'N/A',
-            storeId: storeId || "N/A",
-            status: 'in_stock',  // ✅ Valid enum value
-            source: 'assembled',
-            items: items,
-            importPrice: 0,      // ✅ Required field added
-            sellingPrice: 0,     // ✅ Required field added
+            imei, phoneModelId: phone_model, colorName: 'Assembled', capacity: 'N/A',
+            storeId: storeId || "N/A", status: 'in_stock', source: 'assembled',
+            items: items, importPrice: 0, sellingPrice: 0,
             notes: `Assembled by ${assembled_by} on ${new Date(assembled_date).toLocaleDateString()}`
         });
 
-        // Update item statuses to 'consumed'
-        await Item.updateMany(
-            { '_id': { $in: items } },
-            { status: 'consumed' }
-        );
+        await Item.updateMany( { '_id': { $in: items } }, { status: 'consumed' } );
 
         const savedPhone = await newPhone.save();
 
-        // Populate the response with related data
         const populatedPhone = await Phone.findById(savedPhone._id)
             .populate('phoneModelId', 'name brand')
             .populate('items', 'serial_code item_type notes')
             .populate('storeId', 'name address');
 
-        res.status(201).json({
-            success: true,
-            message: "Phone assembled successfully",
-            data: populatedPhone
-        });
+        res.status(201).json({ success: true, message: "Phone assembled successfully", data: populatedPhone });
     } catch (error) {
         console.error("Error assembling phone:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// GET /api/phones/grouped-by-brand (Get phones grouped by brand)
 const getPhonesGroupedByBrand = async (req, res) => {
     try {
         const { status, storeId } = req.query;
-
-        // Build query for phones
         let phoneQuery = {};
         if (status) phoneQuery.status = status;
         if (storeId) phoneQuery.storeId = storeId;
 
-        // Get all phones with populated data
         const phones = await Phone.find(phoneQuery)
-            .populate({
-                path: 'phoneModelId',
-                populate: {
-                    path: 'brand',
-                    select: 'name'
-                }
-            })
+            .populate({ path: 'phoneModelId', populate: { path: 'brand', select: 'name' } })
             .populate('storeId', 'name address')
             .sort({ createdAt: -1 });
 
-        // Group phones by brand
         const phonesByBrand = {};
-
         phones.forEach(phone => {
             const brand = phone.phoneModelId?.brand;
             if (!brand) return;
 
             const brandName = brand.name;
             if (!phonesByBrand[brandName]) {
-                phonesByBrand[brandName] = {
-                    brand: brand,
-                    phones: []
-                };
+                phonesByBrand[brandName] = { brand: brand, phones: [] };
             }
             phonesByBrand[brandName].phones.push(phone);
         });
 
-        res.status(200).json({
-            success: true,
-            data: phonesByBrand
-        });
+        res.status(200).json({ success: true, data: phonesByBrand });
     } catch (error) {
         console.error("Error getting phones grouped by brand:", error);
         res.status(500).json({ success: false, message: "Lỗi Server" });
