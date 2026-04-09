@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { User, Save } from "lucide-react";
 import { toast } from "react-toastify";
+import { createRepairOrderApi } from "../../api/saleStaff/createRepairOrder"; 
 
 export default function SaleCreateRepairOrder() {
   const [customer, setCustomer] = useState({ name: "", phone: "" });
@@ -34,7 +35,6 @@ export default function SaleCreateRepairOrder() {
     }
 
     setLoading(true);
-    const token = localStorage.getItem("token");
 
     const payload = {
       storeId: currentStoreId,
@@ -43,30 +43,16 @@ export default function SaleCreateRepairOrder() {
       createdBy: user._id
     };
 
-    try {
-      const res = await fetch("http://localhost:9999/api/repair-orders", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify(payload)
-      });
+    const result = await createRepairOrderApi(payload);
       
-      const result = await res.json();
-      
-      if (res.ok) {
+    if (result.success) {
         toast.success("Đã tạo đơn sửa chữa thành công!");
-        // Reset form
         setCustomer({ name: "", phone: "" });
-      } else {
-        toast.error(result.message || "Tạo đơn sửa chữa thất bại");
-      }
-    } catch (err) {
-      toast.error("Lỗi kết nối đến server");
-    } finally {
-      setLoading(false);
+    } else {
+        toast.error(result.message);
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -84,7 +70,6 @@ export default function SaleCreateRepairOrder() {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Thông tin khách hàng */}
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
                 <User size={18} className="text-blue-600" />
@@ -118,7 +103,6 @@ export default function SaleCreateRepairOrder() {
               </div>
             </div>
 
-            {/* Nút tạo đơn */}
             <div className="flex justify-end pt-4 border-t">
               <button
                 onClick={handleSubmit}
