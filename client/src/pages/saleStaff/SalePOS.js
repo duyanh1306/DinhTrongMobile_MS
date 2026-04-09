@@ -1,52 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, XCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download } from "lucide-react";
+import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useReactToPrint } from "react-to-print";
 import dayjs from "dayjs";
-import axiosClient from "../../api/axiosClient";
-import html2pdf from "html2pdf.js"; // <--- THÊM IMPORT NÀY
+import html2pdf from "html2pdf.js";
+import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
+import { 
+  fetchInventoryApi, 
+  createPurchaseOrderApi, 
+  confirmOrderPaymentApi, 
+  fetchWarrantyInvoicesApi, 
+  fetchOfflineDetailsApi, 
+  fetchOnlineDetailsApi, 
+  fetchRepairDetailsApi, 
+  createWarrantyOrderApi 
+} from "../../api/saleStaff/pos";
 
-// Hàm hỗ trợ đọc số tiền thành chữ
-const docSoThanhChu = (so) => {
-  if (!so || so === 0) return "Không đồng";
-  const chuSo = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
-  const hang = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
-  let str = so.toString();
-  let result = "";
-  let hangCount = 0;
-
-  while (str.length > 0) {
-    let chunk = str.slice(-3);
-    str = str.slice(0, -3);
-    if (parseInt(chunk) !== 0) {
-      let chunkStr = "";
-      for (let i = 0; i < chunk.length; i++) {
-        let digit = parseInt(chunk[chunk.length - 1 - i]);
-        if (i === 0) chunkStr = chuSo[digit] + " " + chunkStr;
-        if (i === 1) chunkStr = chuSo[digit] + " mươi " + chunkStr;
-        if (i === 2) chunkStr = chuSo[digit] + " trăm " + chunkStr;
-      }
-      chunkStr = chunkStr.replace("không mươi", "lẻ");
-      chunkStr = chunkStr.replace("một mươi", "mười");
-      chunkStr = chunkStr.replace("mươi năm", "mươi lăm");
-      chunkStr = chunkStr.replace("mười năm", "mười lăm");
-      chunkStr = chunkStr.replace("mươi một", "mươi mốt");
-      
-      result = chunkStr.trim() + " " + hang[hangCount] + " " + result;
-    }
-    hangCount++;
-  }
-  
-  result = result.replace(/không trăm lẻ không/g, "");
-  result = result.replace(/không trăm lẻ/g, "lẻ");
-  result = result.trim() + " đồng";
-  return result.charAt(0).toUpperCase() + result.slice(1);
-};
-
-// ==================================================================
-// COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
-// ==================================================================
 const InvoicePrint = ({ order, details, formatCurrency, contentRef, activeTab }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
   if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
@@ -165,11 +135,9 @@ export default function SalePOS() {
   const [inventory, setInventory] = useState([]);
   const [cart, setCart] = useState([]);
   
-  // State Quét mã (Bán hàng)
   const [scanInput, setScanInput] = useState("");
   const scanInputRef = useRef(null);
 
-  // States Hóa Đơn Mới Tạo (Bán hàng)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState([]);
@@ -177,9 +145,6 @@ export default function SalePOS() {
 
   const [tradeInRequest, setTradeInRequest] = useState({ note: "" });
 
-  // =========================================================
-  // STATES DÀNH RIÊNG CHO BẢO HÀNH (WARRANTY)
-  // =========================================================
   const [warrantySearchType, setWarrantySearchType] = useState("PHONE"); 
   const [warrantySearchInput, setWarrantySearchInput] = useState("");
   const [warrantySearchResults, setWarrantySearchResults] = useState([]);
@@ -199,7 +164,7 @@ export default function SalePOS() {
   }, [orderType, isModalOpen]);
 
   useEffect(() => {
-    if (orderType === "SALE") fetchInventory();
+    if (orderType === "SALE") fetchInventoryData();
     setCart([]);
     setScanInput("");
     setWarrantySearchInput("");
@@ -207,25 +172,19 @@ export default function SalePOS() {
     setSelectedWarrantyInvoice(null);
   }, [orderType]);
 
-  const fetchInventory = async () => {
+  const fetchInventoryData = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const [phoneRes, itemRes] = await Promise.allSettled([
-        fetch(`http://localhost:9999/api/phones?status=in_stock`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`http://localhost:9999/api/items?status=in_stock`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-
-      let phonesData = phoneRes.status === 'fulfilled' && phoneRes.value.ok ? await phoneRes.value.json() : [];
-      let itemsData = itemRes.status === 'fulfilled' && itemRes.value.ok ? await itemRes.value.json() : [];
-      
-      const formattedPhones = (Array.isArray(phonesData) ? phonesData : phonesData.data || []).map(p => ({ 
+      const { phonesData, itemsData } = await fetchInventoryApi();
+      const formattedPhones = phonesData.map(p => ({ 
         ...p, isPhone: true, displayPrice: p.sellingPrice, displayName: p.phoneModelId?.name, identifier: p.serialCode 
       }));
-      const formattedItems = (Array.isArray(itemsData) ? itemsData : itemsData.data || []).map(i => ({ 
+      const formattedItems = itemsData.map(i => ({ 
         ...i, isPhone: false, displayPrice: i.price, displayName: i.name || i.item_type?.name, identifier: i.serialCode
       }));
       setInventory([...formattedPhones, ...formattedItems]);
-    } catch (err) { toast.error("Lỗi kết nối kho"); }
+    } catch (err) { 
+      toast.error("Lỗi kết nối kho"); 
+    }
   };
 
   const handleScan = (e) => {
@@ -257,8 +216,14 @@ export default function SalePOS() {
   const calculateTotal = () => cart.reduce((sum, item) => sum + (item.price || 0), 0);
 
   const validateCustomer = () => {
-    if (!customer.name.trim()) return toast.error("Vui lòng nhập tên khách hàng!"), false;
-    if (!/(0[3|5|7|8|9])+([0-9]{8})\b/.test(customer.phone)) return toast.error("Số điện thoại không hợp lệ!"), false;
+    if (!customer.name.trim()) {
+        toast.error("Vui lòng nhập tên khách hàng!");
+        return false;
+    }
+    if (!/(0[3|5|7|8|9])+([0-9]{8})\b/.test(customer.phone)) {
+        toast.error("Số điện thoại không hợp lệ!");
+        return false;
+    }
     return true;
   };
 
@@ -279,7 +244,6 @@ export default function SalePOS() {
     if (!window.confirm("Xác nhận đã nhận đủ tiền từ khách và tạo hóa đơn?")) return;
     
     const currentStoreId = user.storeId?._id || user.storeId;
-    const token = localStorage.getItem("token");
     
     const payload = {
       storeId: currentStoreId, customerName: customer.name, customerPhone: customer.phone,
@@ -288,48 +252,42 @@ export default function SalePOS() {
     };
 
     try {
-      const res = await fetch("http://localhost:9999/api/purchase-orders", {
-        method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
-      });
-      const result = await res.json();
-      
-      if (res.ok) { 
+      const result = await createPurchaseOrderApi(payload);
+      if (result && result.data) { 
         const newOrder = result.data;
         newOrder.createdBy = user; 
-        await fetch(`http://localhost:9999/api/purchase-orders/${newOrder._id}/confirm-payment`, { method: "PATCH" });
+        
+        await confirmOrderPaymentApi(newOrder._id);
 
         toast.success("Thanh toán thành công! Đã xuất kho.");
         setSelectedOrder({...newOrder, status: "Completed"});
         setTimeout(() => handlePrint(), 500); 
 
-        setCart([]); setCustomer({name:"", phone:""}); fetchInventory(); 
-      } else {
-        toast.error(result.message || "Tạo đơn thất bại");
+        setCart([]); setCustomer({name:"", phone:""}); fetchInventoryData(); 
       }
-    } catch (err) { toast.error("Lỗi kết nối"); }
+    } catch (err) { 
+        toast.error("Tạo đơn thất bại: " + (err.response?.data?.message || err.message)); 
+    }
   };
 
   const handleSendToTech = async () => {
     if (!validateCustomer()) return;
     if (!user || !user.storeId) return toast.error("Tài khoản chưa thuộc cửa hàng nào!");
 
-    const token = localStorage.getItem("token");
     const payload = {
       storeId: user.storeId._id || user.storeId, customerName: customer.name, customerPhone: customer.phone,
       totalPrice: 0, createdBy: user._id, orderType: "PURCHASE", status: "Pending_Tech", note: tradeInRequest.note, details: []
     };
 
     try {
-      const res = await fetch("http://localhost:9999/api/purchase-orders", { 
-        method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
-      });
-      if (res.ok) {
+      const result = await createPurchaseOrderApi(payload);
+      if (result) {
         toast.success(`Đã chuyển yêu cầu thu máy sang bộ phận Kỹ Thuật!`);
         setCustomer({name:"", phone:""}); setTradeInRequest({note: ""});
-      } else {
-        toast.error("Tạo yêu cầu thất bại");
       }
-    } catch (err) { toast.error("Lỗi kết nối"); }
+    } catch (err) { 
+        toast.error("Tạo yêu cầu thất bại"); 
+    }
   };
 
   const handleSearchWarranty = async () => {
@@ -339,28 +297,16 @@ export default function SalePOS() {
     
     try {
       const query = warrantySearchInput.trim().toLowerCase().replace('#', '');
-
-      const [offlineRes, onlineRes, repairRes] = await Promise.allSettled([
-        axiosClient.get(`/purchase-orders?orderType=SALE&status=Completed`),
-        axiosClient.get(`/orders/all`), 
-        axiosClient.get(`/repair-orders?status=Completed`)
-      ]);
-
-      const offlineSales = offlineRes.status === 'fulfilled' ? (offlineRes.value.data?.data || offlineRes.value.data || []) : [];
-      const onlineSales = onlineRes.status === 'fulfilled' ? (onlineRes.value.data?.data || onlineRes.value.data || []) : [];
-      const repairSales = repairRes.status === 'fulfilled' ? (repairRes.value.data?.data || repairRes.value.data || []) : [];
+      const data = await fetchWarrantyInvoicesApi();
 
       let allInvoices = [
-        ...offlineSales.map(o => ({ 
+        ...data.offlineSales.map(o => ({ 
             ...o, source: 'OFFLINE', displayId: String(o._id), displayName: o.customerName, displayPhone: o.customerPhone 
         })),
-        ...onlineSales.map(o => ({ 
-            ...o, source: 'ONLINE', 
-            displayId: String(o.orderCode || o._id),
-            displayName: o.shippingInfo?.fullName || o.customerName || "Khách Online", 
-            displayPhone: o.shippingInfo?.phone || o.customerPhone || "" 
+        ...data.onlineSales.map(o => ({ 
+            ...o, source: 'ONLINE', displayId: String(o.orderCode || o._id), displayName: o.shippingInfo?.fullName || o.customerName || "Khách Online", displayPhone: o.shippingInfo?.phone || o.customerPhone || "" 
         })),
-        ...repairSales.map(o => ({ 
+        ...data.repairSales.map(o => ({ 
             ...o, source: 'REPAIR', displayId: String(o._id), displayName: o.customerName, displayPhone: o.customerPhone 
         }))
       ];
@@ -388,9 +334,7 @@ export default function SalePOS() {
         let warrantableItems = [];
 
         if (invoice.source === 'OFFLINE') {
-            const res = await axiosClient.get(`/purchase-orders/${invoice._id}/details`);
-            const details = res.data?.data || res.data || [];
-            
+            const details = await fetchOfflineDetailsApi(invoice._id);
             details.forEach(item => {
                 if (item.phoneId) {
                     warrantableItems.push({
@@ -406,8 +350,7 @@ export default function SalePOS() {
             });
         } 
         else if (invoice.source === 'ONLINE') {
-            const res = await axiosClient.get(`/orders/${invoice._id}`);
-            const orderDetail = res.data?.data || res.data || {};
+            const orderDetail = await fetchOnlineDetailsApi(invoice._id);
             const items = orderDetail.items || invoice.items || [];
 
             if (items.length > 0) {
@@ -427,9 +370,7 @@ export default function SalePOS() {
             }
         } 
         else if (invoice.source === 'REPAIR') {
-            const res = await axiosClient.get(`/repair-orders/${invoice._id}/details`);
-            const details = res.data?.data || res.data || [];
-            
+            const details = await fetchRepairDetailsApi(invoice._id);
             details.forEach(detail => {
                 if (detail.itemIds && detail.itemIds.length > 0) {
                     detail.itemIds.forEach(part => {
@@ -480,8 +421,7 @@ export default function SalePOS() {
     };
 
     try {
-        const res = await axiosClient.post("/warranty/create", payload);
-        
+        const res = await createWarrantyOrderApi(payload);
         if (res.status === 201 || res.status === 200) {
             toast.success("Tạo yêu cầu bảo hành thành công! Vui lòng chuyển máy cho Kỹ thuật.");
             setIsWarrantyModalOpen(false);
@@ -495,11 +435,7 @@ export default function SalePOS() {
   };
 
   const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: `Bill_${selectedOrder?._id?.substring(0, 6) || "Moi"}` });
-  const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
-  // =========================================================
-  // 🌟 HÀM XUẤT FILE PDF TỰ ĐỘNG KHÔNG CẦN QUA MÁY IN
-  // =========================================================
   const handleDownloadPDF = () => {
       const element = printRef.current;
       const opt = {
@@ -523,12 +459,8 @@ export default function SalePOS() {
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="flex h-screen bg-gray-100 p-4 gap-4 overflow-hidden">
         
-        {/* =========================================================== */}
-        {/* NỬA TRÁI: HIỂN THỊ MAIN CONTENT (SALE / PURCHASE / WARRANTY) */}
-        {/* =========================================================== */}
         <div className={`bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border transition-all duration-300 ${orderType === "WARRANTY" ? "w-full" : "w-2/3"}`}>
           
-          {/* TOP BAR */}
           <div className="p-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
             <h2 className="font-bold text-gray-800 flex items-center gap-2"><Settings size={20} /> Điểm bán hàng (POS)</h2>
             <div className="flex bg-white rounded-lg p-1 border shadow-sm">
@@ -538,7 +470,6 @@ export default function SalePOS() {
             </div>
           </div>
 
-          {/* CONTENT THEO TỪNG TAB */}
           {orderType === "SALE" && (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
               <div className="w-full max-w-xl bg-white p-8 rounded-3xl shadow-xl border border-orange-100 text-center">
@@ -571,10 +502,8 @@ export default function SalePOS() {
             </div>
           )}
 
-          {/* TAB BẢO HÀNH */}
           {orderType === "WARRANTY" && (
             <div className="flex-1 flex flex-col md:flex-row bg-blue-50/30 overflow-hidden">
-                {/* CỘT TÌM KIẾM */}
                 <div className="w-full md:w-1/3 bg-white border-r p-6 flex flex-col h-full overflow-y-auto">
                     <h3 className="font-black text-xl text-gray-800 mb-6 flex items-center gap-2">
                         <ShieldCheck className="text-blue-600"/> Tra cứu Bảo Hành
@@ -599,7 +528,6 @@ export default function SalePOS() {
 
                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
                         {warrantySearchResults.map(invoice => {
-                            // Nhãn phân loại Hóa đơn
                             let badgeInfo = { label: "Mua Offline", color: "bg-orange-100 text-orange-700" };
                             if (invoice.source === "ONLINE") badgeInfo = { label: "Mua Online", color: "bg-blue-100 text-blue-700" };
                             else if (invoice.source === "REPAIR") badgeInfo = { label: "Sửa chữa", color: "bg-purple-100 text-purple-700" };
@@ -628,7 +556,6 @@ export default function SalePOS() {
                     </div>
                 </div>
 
-                {/* CỘT CHI TIẾT HÓA ĐƠN & TÌNH TRẠNG BẢO HÀNH */}
                 <div className="w-full md:w-2/3 p-6 overflow-y-auto h-full">
                     {selectedWarrantyInvoice ? (
                         <div className="bg-white border rounded-2xl shadow-sm p-6 animate-in fade-in zoom-in duration-300">
@@ -703,9 +630,6 @@ export default function SalePOS() {
           )}
         </div>
 
-        {/* =========================================================== */}
-        {/* NỬA PHẢI: THÔNG TIN KHÁCH & GIỎ HÀNG (CHỈ HIỂN THỊ KHI SALE/PURCHASE) */}
-        {/* =========================================================== */}
         {orderType !== "WARRANTY" && (
             <div className="w-1/3 flex flex-col gap-4">
             <div className="bg-white p-4 rounded-xl shadow-sm border">
@@ -752,7 +676,6 @@ export default function SalePOS() {
             </div>
         )}
 
-        {/* POP-UP TẠO ĐƠN BẢO HÀNH */}
         {isWarrantyModalOpen && selectedWarrantyItem && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
@@ -806,7 +729,6 @@ export default function SalePOS() {
             </div>
         )}
 
-        {/* POP-UP PREVIEW HÓA ĐƠN BÁN HÀNG */}
         {isModalOpen && selectedOrder && orderType === "SALE" && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
@@ -815,7 +737,6 @@ export default function SalePOS() {
                   <CheckCircle size={24}/> {selectedOrder.status === "Pending" ? "Xác nhận tạo đơn bán" : `Đơn hàng #${selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}`}
                 </h3>
                 
-                {/* 🌟 NÚT TẢI PDF & IN BILL Ở ĐÂY 🌟 */}
                 <div className="flex gap-2">
                   {selectedOrder.status === "Completed" && (
                     <>
@@ -829,7 +750,7 @@ export default function SalePOS() {
                   )}
                   <button onClick={() => {
                       setIsModalOpen(false);
-                      if(selectedOrder.status === "Completed") fetchInventory();
+                      if(selectedOrder.status === "Completed") fetchInventoryData();
                     }} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-lg transition">
                     <X size={20} />
                   </button>
@@ -894,7 +815,6 @@ export default function SalePOS() {
                 )}
               </div>
 
-              {/* 🌟 CHỖ NÀY GIẤU FORM IN BẰNG CSS ĐỂ HTML2PDF CHỤP ĐƯỢC 🌟 */}
               <div className="absolute left-[-9999px] top-[-9999px] opacity-0 pointer-events-none -z-50">
                 <InvoicePrint contentRef={printRef} order={selectedOrder} details={orderDetails} formatCurrency={formatCurrency} activeTab={orderType} />
               </div>
