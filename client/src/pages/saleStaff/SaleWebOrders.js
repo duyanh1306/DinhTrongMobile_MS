@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Package, ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight, AlertCircle } from "lucide-react";
+import { ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight, AlertCircle } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import axiosClient from "../../api/axiosClient"; 
+import { formatCurrency } from "../../utils/formatCurrency";
+import { fetchWebOrdersApi, markDeliveredApi, fulfillOrderApi } from "../../api/saleStaff/webOrder";
 
 export default function SaleWebOrders() {
     const [orders, setOrders] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [loading, setLoading] = useState(true);
-
     const [scanInput, setScanInput] = useState("");
     const [scannedSerials, setScannedSerials] = useState([]);
     const scanInputRef = useRef(null);
 
     useEffect(() => {
-        fetchWebOrders();
+        loadWebOrders();
     }, []);
 
     useEffect(() => {
@@ -23,33 +23,20 @@ export default function SaleWebOrders() {
         }
     }, [selectedOrder]);
 
-    const fetchWebOrders = async () => {
-        try {
-            setLoading(true);
-            const res = await axiosClient.get('/orders/all'); 
-            const allOrders = res.data.data || res.data;
-            // 🌟 Đã thêm trạng thái Delivering vào bộ lọc
-            const pendingOrders = allOrders.filter(o => 
-                ['Pending', 'Processing', 'Delivering'].includes(o.orderStatus)
-            );
-            setOrders(pendingOrders);
-        } catch (error) {
-            toast.error("Không thể tải danh sách đơn hàng!");
-        } finally {
-            setLoading(false);
-        }
+    const loadWebOrders = async () => {
+        setLoading(true);
+        const pendingOrders = await fetchWebOrdersApi();
+        setOrders(pendingOrders);
+        setLoading(false);
     };
 
     const handleMarkDelivered = async () => {
         if (!window.confirm("Bạn xác nhận đơn vị vận chuyển đã giao đơn này thành công?")) return;
-        try {
-            const res = await axiosClient.put(`/orders/${selectedOrder._id}/mark-delivered`);
-            if (res.data.success) {
-                toast.success("Đã đánh dấu giao hàng. Đang chờ khách xác nhận!");
-                setSelectedOrder(null);
-                fetchWebOrders(); 
-            }
-        } catch (error) { toast.error("Lỗi cập nhật trạng thái"); }
+        const success = await markDeliveredApi(selectedOrder._id);
+        if (success) {
+            setSelectedOrder(null);
+            loadWebOrders();
+        }
     };
 
     const handleSelectOrder = (order) => {
@@ -97,23 +84,13 @@ export default function SaleWebOrders() {
     };
 
     const handleFulfillOrder = async () => {
-        try {
-            const res = await axiosClient.put(`/orders/${selectedOrder._id}/fulfill`, {
-                assignedSerials: scannedSerials
-            });
-
-            if (res.data.success) {
-                toast.success("Xuất kho thành công! Đơn hàng đã chuyển sang Đang giao.");
-                setSelectedOrder(null);
-                setScannedSerials([]);
-                fetchWebOrders(); 
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi khi xuất kho!");
+        const success = await fulfillOrderApi(selectedOrder._id, scannedSerials);
+        if (success) {
+            setSelectedOrder(null);
+            setScannedSerials([]);
+            loadWebOrders();
         }
     };
-
-    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
     const requiredList = getRequiredItems(selectedOrder);
     const isReadyToShip = requiredList.length > 0 && scannedSerials.length === requiredList.length;
@@ -122,7 +99,6 @@ export default function SaleWebOrders() {
         <div className="flex h-full gap-6 p-2">
             <ToastContainer autoClose={2000} />
             
-            {/* CỘT TRÁI */}
             <div className="w-1/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                     <h2 className="font-bold text-gray-800 flex items-center gap-2">
@@ -166,7 +142,7 @@ export default function SaleWebOrders() {
                                 </div>
                                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-gray-200">
                                     <span className="text-[11px] text-gray-500 flex items-center gap-1"><Clock size={12}/> {new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
-                                    <span className="font-bold text-orange-600 text-sm">{formatMoney(order.totalAmount)}</span>
+                                    <span className="font-bold text-orange-600 text-sm">{formatCurrency(order.totalAmount)}</span>
                                 </div>
                             </div>
                         ))
@@ -174,11 +150,10 @@ export default function SaleWebOrders() {
                 </div>
             </div>
 
-            {/* CỘT PHẢI */}
             <div className="w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 {!selectedOrder ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-                        <Package size={64} className="mb-4 opacity-20" />
+                        <Globe size={64} className="mb-4 opacity-20" />
                         <p>Chọn một đơn hàng bên trái để bắt đầu xử lý</p>
                     </div>
                 ) : (
@@ -192,7 +167,6 @@ export default function SaleWebOrders() {
 
                         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
                             
-                            {/* 🌟 ẨN Ô QUÉT NẾU ĐƠN ĐÃ GIAO CHO SHIPPER */}
                             {selectedOrder.orderStatus !== 'Delivering' && (
                                 <div className="bg-orange-50/50 p-6 rounded-2xl border border-orange-100 shadow-sm">
                                     <div className="flex justify-between items-end mb-4">
@@ -218,7 +192,7 @@ export default function SaleWebOrders() {
                             )}
 
                             <div>
-                                <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Package size={16} className="text-orange-600"/> Đối chiếu sản phẩm</h3>
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Globe size={16} className="text-orange-600"/> Đối chiếu sản phẩm</h3>
                                 <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-gray-100 text-gray-600 text-[11px] uppercase tracking-wider">
@@ -286,7 +260,6 @@ export default function SaleWebOrders() {
                             </div>
                         </div>
 
-                        {/* 🌟 NÚT HÀNH ĐỘNG THAY ĐỔI THEO TRẠNG THÁI */}
                         <div className="p-4 border-t bg-white">
                             {selectedOrder.orderStatus === 'Delivering' ? (
                                 <button 
