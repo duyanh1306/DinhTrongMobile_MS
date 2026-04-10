@@ -11,7 +11,7 @@ const swaggerDefinition = {
   servers: [
     {
       url: process.env.IP_ADDRESS,
-      description: "Development server"
+      description: "Local"
     },
     {
       url: process.env.IP_ADDRESS + `:9999`,
