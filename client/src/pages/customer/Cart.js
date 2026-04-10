@@ -4,8 +4,8 @@ import { Trash2, ChevronLeft, CreditCard, MapPin, ChevronDown } from "lucide-rea
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Swal from "sweetalert2";
 
-// IMPORT TỪ FILE API MỚI TẠO
 import { fetchCartDataApi, updateCartQuantityApi, removeCartItemApi } from "../../api/customer/cart";
 
 export default function Cart() {
@@ -22,17 +22,34 @@ export default function Cart() {
     const user = JSON.parse(localStorage.getItem('user'));
     const userId = user ? (user._id || user.id) : null;
 
-    // ==============================================================
-    // GỌI API TỪ HÀM ĐÃ TÁCH
-    // ==============================================================
     useEffect(() => {
         if (!userId) {
-            toast.warning("Vui lòng đăng nhập để xem giỏ hàng");
-            navigate('/login');
+            Swal.fire({
+                title: 'Yêu cầu đăng nhập',
+                text: 'Vui lòng đăng nhập hoặc đăng ký tài khoản để xem giỏ hàng của bạn!',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Đăng nhập ngay',
+                cancelButtonText: 'Đăng ký tài khoản',
+                customClass: {
+                    confirmButton: 'bg-[#e01a22] hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                    cancelButton: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                    popup: 'rounded-3xl'
+                },
+                buttonsStyling: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    navigate('/login');
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    navigate('/register');
+                } else {
+                    navigate('/home'); 
+                }
+            });
             return;
         }
         loadCartData();
-    }, [userId, selectedStore]); 
+    }, [userId, selectedStore]);
 
     const loadCartData = async () => {
         setLoading(true);
@@ -53,9 +70,6 @@ export default function Cart() {
         setLoading(false);
     };
 
-    // ==============================================================
-    // LOGIC GIAO DIỆN
-    // ==============================================================
     const handleStoreChange = (e) => {
         const storeId = e.target.value;
         setSelectedStore(storeId);
@@ -75,7 +89,8 @@ export default function Cart() {
             const availableItems = cart.items.filter(item => {
                 if (item.productType === 'CUSTOM_BUILD') return true;
                 const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
-                const stockKey = `${modelId}-${item.capacity}-${item.colorName}`;
+                const grade = item.grade || 'Mới'; 
+                const stockKey = `${modelId}-${item.capacity}-${item.colorName}-${grade}`;
                 return (stockMap[stockKey] || 0) > 0;
             }).map(i => i._id);
             setSelectedItemIds(availableItems); 
@@ -91,7 +106,8 @@ export default function Cart() {
         if (item.productType === 'CUSTOM_BUILD') return toast.warning("Máy tự ráp chỉ được mua số lượng 1 cho mỗi cấu hình!");
 
         const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
-        const key = `${modelId}-${item.capacity}-${item.colorName}`;
+        const grade = item.grade || 'Mới';
+        const key = `${modelId}-${item.capacity}-${item.colorName}-${grade}`; 
         const maxStock = stockMap[key] || 0;
 
         if (newQuantity > maxStock) return toast.warning(`Cửa hàng chỉ còn ${maxStock} sản phẩm cho phân loại này!`);
@@ -103,7 +119,7 @@ export default function Cart() {
         if (isSuccess) {
             window.dispatchEvent(new Event('cartUpdated'));
         } else {
-            loadCartData(); // Load lại nếu lỗi
+            loadCartData(); 
         }
     };
 
@@ -154,9 +170,10 @@ export default function Cart() {
 
                 {cart.items.length === 0 ? (
                     <div className="bg-white rounded-2xl p-10 text-center shadow-sm border border-gray-100 flex flex-col items-center">
-                        <img src="https://cellphones.com.vn/cart/Cart-empty-v2.png" alt="Empty Cart" className="w-48 mb-4 opacity-80" />
-                        <h2 className="text-lg font-bold text-gray-700 mb-2">Giỏ hàng chưa có sản phẩm nào</h2>
-                        <Link to="/home" className="px-6 py-2.5 bg-[#e01a22] text-white font-bold rounded-xl hover:bg-red-700 mt-4 transition">Về trang chủ mua sắm</Link>
+                        <img src="https://res-console.cloudinary.com/dtjfxho13/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/Y2FydC1lbXB0eV9jZ2xwNGk=/template_primary" alt="Empty Cart" className="w-48 mb-4 opacity-80" />
+                        <h2 className="text-lg font-bold text-gray-700 mb-2">Giỏ hàng tại chi nhánh này trống</h2>
+                        <p className="text-sm text-gray-500 mb-4">Vui lòng chọn chi nhánh khác hoặc mua thêm sản phẩm.</p>
+                        <Link to="/home" className="px-6 py-2.5 bg-[#e01a22] text-white font-bold rounded-xl hover:bg-red-700 transition">Về trang chủ mua sắm</Link>
                     </div>
                 ) : (
                     <div className="flex flex-col lg:flex-row gap-6">
@@ -175,7 +192,8 @@ export default function Cart() {
 
                             {cart.items.map((item) => {
                                 const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
-                                const stockKey = `${modelId}-${item.capacity}-${item.colorName}`;
+                                const grade = item.grade || 'Mới';
+                                const stockKey = `${modelId}-${item.capacity}-${item.colorName}-${grade}`; // 🌟 Áp dụng Grade
                                 const maxStock = stockMap[stockKey] || 0;
                                 const isAtMaxStock = item.quantity >= maxStock;
                                 const isOutOfStock = item.productType === 'PHONE' && maxStock === 0;

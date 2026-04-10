@@ -4,8 +4,8 @@ import { Edit, Wrench, CheckCircle, ShoppingCart, ChevronLeft, Search, Plus, X, 
 import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Swal from "sweetalert2";
 
-// IMPORT TỪ FILE API MỚI TẠO
 import { fetchBuildPhoneDataApi, addToCartApi } from "../../api/customer/buildPhone";
 
 export default function BuildPhone() {
@@ -33,9 +33,6 @@ export default function BuildPhone() {
     const [modalPage, setModalPage] = useState(1);
     const itemsPerPage = 5;
 
-    // ==============================================================
-    // GỌI API QUA HÀM ĐÃ TÁCH
-    // ==============================================================
     useEffect(() => {
         loadBuildData();
     }, [selectedStore]);
@@ -71,9 +68,7 @@ export default function BuildPhone() {
         setLoading(false);
     };
 
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ LOGIC UI
-    // ==============================================================
+
     const handleStoreChange = (e) => {
         const storeId = e.target.value;
         setSelectedStore(storeId);
@@ -227,7 +222,30 @@ export default function BuildPhone() {
     const handleAddToCart = async () => {
         if (!isReadyToBuild) return toast.warning("Vui lòng chọn đầy đủ linh kiện bắt buộc!");
         const user = JSON.parse(localStorage.getItem('user'));
-        if (!user) { toast.warning("Vui lòng đăng nhập!"); navigate('/login'); return; }
+        
+        if (!user) { 
+            Swal.fire({
+                title: 'Yêu cầu đăng nhập',
+                text: 'Vui lòng đăng nhập hoặc tạo tài khoản để thêm cấu hình máy này vào giỏ hàng!',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Đăng nhập ngay',
+                cancelButtonText: 'Đăng ký tài khoản',
+                customClass: {
+                    confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                    cancelButton: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                    popup: 'rounded-3xl'
+                },
+                buttonsStyling: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    navigate('/login');
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    navigate('/register');
+                }
+            });
+            return; 
+        }
 
         const currentUserId = user._id || user.id;
         const selectedPartIds = Object.values(selectedParts).map(item => item._id);

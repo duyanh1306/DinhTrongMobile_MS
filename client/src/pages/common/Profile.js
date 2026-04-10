@@ -47,7 +47,7 @@ export default function Profile() {
       if (storedUser.image) {
         setPreview(`http://localhost:9999${storedUser.image}`); 
       } else {
-        setPreview("/avatar-default.jpg");
+        setPreview("https://res-console.cloudinary.com/dtjfxho13/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/ZGVmYXVsdC1hdmF0YXItaWNvbi1vZi1zb2NpYWwtbWVkaWEtdXNlci12ZWN0b3JfaXY1aXB6/template_primary");
       }
     }
   }, []);
@@ -67,7 +67,7 @@ export default function Profile() {
         sName = user.address;
       }
 
-      // Match vào danh sách để lấy code hiển thị cho Select
+   
       const prov = locations.find(l => l.name === pName);
       let pCode = '', dCode = '', wCode = '';
       let currentDistricts = [];
@@ -257,7 +257,7 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       
-      {/* --- PHẦN 1: THÔNG TIN CÁ NHÂN --- */}
+   
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center gap-2">
           <User className="text-primary" /> Thông tin cá nhân
@@ -348,7 +348,7 @@ export default function Profile() {
         </form>
       </div>
 
-      {/* --- PHẦN 2: ĐỔI MẬT KHẨU --- */}
+
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center gap-2">
           <Shield className="text-red-500" /> Bảo mật & Mật khẩu

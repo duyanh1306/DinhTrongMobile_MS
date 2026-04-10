@@ -74,7 +74,7 @@ import ManagerPurchaseHistory from "./pages/manager/ManagerPurchaseHistory";
 
 import Profile from "./pages/common/Profile";
 
-// Giúp chặn người chưa login hoặc sai quyền truy cập vào các trang nội bộ
+
 const PrivateRoute = ({children, allowedRoles}) => {
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user"));
@@ -83,17 +83,17 @@ const PrivateRoute = ({children, allowedRoles}) => {
         return <Navigate to="/login" replace/>;
     }
 
-    // user.roleId.id là do backend trả về (VD: "ADMIN", "SALE_STAFF"...)
+   
     const userRole = user.roleId?.id || user.roleId;
 
     if (allowedRoles && !allowedRoles.includes(userRole)) {
-        return <Navigate to="/" replace/>; // Không đủ quyền thì đá về trang chủ
+        return <Navigate to="/" replace/>; 
     }
 
     return children;
 };
 
-// Tự động bọc Profile bằng Sidebar tương ứng với chức vụ
+
 const RoleBasedLayout = ({children}) => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) return children;
@@ -119,8 +119,8 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-                {/* ================= PUBLIC ROUTES (Ai cũng vào được) ================= */}
-                <Route path="/" element={<Navigate to="/login" replace/>}/>
+              
+                <Route path="/" element={<Navigate to="/home" replace/>}/>
                 <Route path="/login" element={<Login/>}/>
                 <Route path="/register" element={<Register/>}/>
                 <Route path="/verify-otp" element={<VerifyOtp/>}/>
@@ -585,7 +585,7 @@ function App() {
                     }
                 />
 
-                {/* ================= PROFILE CHUNG ================= */}
+               
                 <Route
                     path="/profile"
                     element={
@@ -608,7 +608,7 @@ function App() {
                 />
             </Routes>
 
-            {/* Component hiển thị thông báo (Toast) toàn cục */}
+           
             <ToastContainer 
                 position="top-right" 
                 autoClose={3000}
