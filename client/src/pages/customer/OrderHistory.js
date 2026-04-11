@@ -1,28 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Package, Search, Calendar, Truck, ChevronRight } from "lucide-react";
+import Swal from "sweetalert2"; 
 import CustomerLayout from "../../layouts/CustomerLayout";
 
-// IMPORT TỪ FILE API VỪA TẠO
 import { fetchOrdersApi, confirmOrderApi, reportOrderIssueApi } from "../../api/customer/orderHistory";
 
 export default function OrderHistory() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const user = JSON.parse(localStorage.getItem('user'));
+    
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const userId = user?._id || user?.id;
 
     useEffect(() => {
         const loadOrders = async () => {
-            if (!user) return;
+            if (!userId) return;
             setLoading(true);
-            const data = await fetchOrdersApi(user._id || user.id);
+            const data = await fetchOrdersApi(userId);
             setOrders(data);
             setLoading(false);
         };
         loadOrders();
-    }, [user]);
+    }, [userId]); 
 
-    // 🌟 Đã cập nhật đầy đủ các trạng thái mới
     const getStatusInfo = (status) => {
         switch (status) {
             case 'Pending': return { text: 'Chờ xác nhận', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
@@ -36,20 +38,52 @@ export default function OrderHistory() {
         }
     };
 
-    // 🌟 Hàm gọi API cho 2 nút bấm của khách
     const handleConfirm = async (id) => {
-        if (!window.confirm("Xác nhận bạn đã nhận được hàng?")) return;
-        const success = await confirmOrderApi(id);
-        if (success) {
-            window.location.reload();
+        const result = await Swal.fire({
+            title: 'Bạn đã nhận được hàng?',
+            text: "Cảm ơn bạn đã mua sắm! Hãy xác nhận nếu bạn đã nhận được sản phẩm nguyên vẹn nhé.",
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: 'Đã nhận hàng',
+            cancelButtonText: 'Chưa, quay lại',
+            customClass: {
+                confirmButton: 'bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                cancelButton: 'bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                popup: 'rounded-3xl' 
+            },
+            buttonsStyling: false 
+        });
+
+        if (result.isConfirmed) {
+            const success = await confirmOrderApi(id);
+            if (success) {
+                window.location.reload();
+            }
         }
     };
 
+
     const handleReport = async (id) => {
-        if (!window.confirm("Bạn chắc chắn chưa nhận được hàng? Cửa hàng sẽ liên hệ với bạn ngay lập tức!")) return;
-        const success = await reportOrderIssueApi(id);
-        if (success) {
-            window.location.reload();
+        const result = await Swal.fire({
+            title: 'Chưa nhận được hàng?',
+            text: "Bạn chắc chắn chưa nhận được hàng? Cửa hàng sẽ liên hệ với bạn ngay lập tức để xử lý!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Gửi báo cáo',
+            cancelButtonText: 'Hủy bỏ',
+            customClass: {
+                confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                cancelButton: 'bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded-xl mx-2 transition-all',
+                popup: 'rounded-3xl' 
+            },
+            buttonsStyling: false 
+        });
+
+        if (result.isConfirmed) {
+            const success = await reportOrderIssueApi(id);
+            if (success) {
+                window.location.reload();
+            }
         }
     };
 
@@ -67,7 +101,10 @@ export default function OrderHistory() {
                 </div>
 
                 {loading ? (
-                    <div className="text-center py-20 text-gray-500">Đang tải lịch sử đơn hàng...</div>
+                    <div className="text-center py-20 text-gray-500">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mx-auto mb-3"></div>
+                        Đang tải lịch sử đơn hàng...
+                    </div>
                 ) : orders.length === 0 ? (
                     <div className="bg-white rounded-3xl p-12 text-center shadow-sm border border-gray-100">
                         <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -111,14 +148,13 @@ export default function OrderHistory() {
                                                 </p>
                                             </div>
                                             
-                                            {/* 🌟 NÚT XÁC NHẬN HIỆN RA NẾU TRẠNG THÁI LÀ CHỜ XÁC NHẬN */}
                                             {order.orderStatus === 'Waiting_Confirm' ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <button onClick={() => handleConfirm(order._id)} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg text-sm hover:bg-green-700 transition">Đã nhận hàng</button>
-                                                    <button onClick={() => handleReport(order._id)} className="px-4 py-2 bg-gray-200 text-gray-600 font-bold rounded-lg text-xs hover:bg-gray-300 transition">Chưa nhận được</button>
+                                                    <button onClick={() => handleConfirm(order._id)} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg text-sm hover:bg-green-700 transition shadow-sm shadow-green-500/30">Đã nhận hàng</button>
+                                                    <button onClick={() => handleReport(order._id)} className="px-4 py-2 bg-gray-100 text-gray-600 font-bold rounded-lg text-xs hover:bg-gray-200 transition">Chưa nhận được</button>
                                                 </div>
                                             ) : (
-                                                <Link to={`/order-detail/${order._id}`} className="p-2 bg-gray-50 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                                                <Link to={`/order-detail/${order._id}`} className="p-2 bg-gray-50 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                                     <ChevronRight size={24} />
                                                 </Link>
                                             )}

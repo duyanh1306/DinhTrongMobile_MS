@@ -1,6 +1,6 @@
 const Cart = require("../models/Cart");
 
-// Lấy giỏ hàng của user
+
 const getCartByUser = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -16,7 +16,7 @@ const getCartByUser = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-// Cập nhật số lượng item
+
 const updateItemQuantity = async (req, res) => {
     try {
         const { userId, itemId, quantity } = req.body;
@@ -37,7 +37,7 @@ const updateItemQuantity = async (req, res) => {
     }
 };
 
-// Xóa item khỏi giỏ
+
 const removeCartItem = async (req, res) => {
     try {
         const { userId, itemId } = req.params;
@@ -61,11 +61,14 @@ const addToCart = async (req, res) => {
         if (!cart) {
             cart = new Cart({ userId, items: [], totalPrice: 0 });
         }
+        
         const existingItemIndex = cart.items.findIndex(i => 
-            i.productType === 'PHONE' && 
+            i.productType === item.productType && 
             i.phoneModelId?.toString() === item.phoneModelId && 
             i.colorName === item.colorName && 
-            i.capacity === item.capacity
+            i.capacity === item.capacity &&
+            i.grade === item.grade && 
+            i.storeId?.toString() === item.storeId 
         );
 
         if (existingItemIndex > -1) {
