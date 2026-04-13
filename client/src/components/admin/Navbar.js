@@ -1,12 +1,12 @@
 import { Menu, User, LogOut, Zap } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function Navbar({ user = { name: "Admin" }, onToggleSidebar }) {
-  const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    navigate("/", { replace: true });
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "/";
   };
 
   return (

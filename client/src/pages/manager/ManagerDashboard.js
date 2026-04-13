@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { 
   Users, Package, DollarSign, ClipboardList, 
-  TrendingUp, ArrowRight, Clock, CheckCircle, Calendar
+  TrendingUp, ArrowRight, Clock, CheckCircle, Calendar, Wrench, ShoppingBag
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import dayjs from "dayjs";
-import axiosClient from "../../api/axiosClient";
 import { formatCurrency, formatCompact } from "../../utils/formatCurrency";
-import { fetchManagerUsersApi, fetchManagerSalesApi, fetchManagerRepairsApi } from "../../api/manager/dashboard";
+import { fetchManagerUsersApi, fetchManagerSalesApi, fetchManagerRepairsApi, fetchManagerPhonesApi, fetchManagerItemsApi } from "../../api/manager/dashboard";
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
@@ -17,7 +16,11 @@ export default function ManagerDashboard() {
   const [inventoryCount, setInventoryCount] = useState(0);
   const [pendingTransfers, setPendingTransfers] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
-  const [performanceData, setPerformanceData] = useState([]);
+  
+  const [salePerformanceData, setSalePerformanceData] = useState([]);
+  const [techPerformanceData, setTechPerformanceData] = useState([]);
+  const [activeChartTab, setActiveChartTab] = useState("SALE"); 
+
   const [revenueData, setRevenueData] = useState([]);
   const [totalMonthRevenue, setTotalMonthRevenue] = useState(0);
   const [recentActivities, setRecentActivities] = useState([]);
@@ -40,12 +43,34 @@ export default function ManagerDashboard() {
           
           setStaffCount(storeStaff.length);
 
-          const staffPerformance = {};
+          const saleStaffPerformance = {};
+          const techStaffPerformance = {};
+
           storeStaff.forEach(staff => {
             const nameParts = (staff.fullName || staff.userName).split(" ");
             const shortName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
-            staffPerformance[staff._id] = { name: shortName, fullName: staff.fullName || staff.userName, value: 0 };
+            const role = staff.roleId?.id || staff.roleId;
+
+            if (role === "SALE_STAFF") {
+              saleStaffPerformance[staff._id] = { name: shortName, fullName: staff.fullName || staff.userName, value: 0 };
+            } else if (role === "TECHNICIAN") {
+              techStaffPerformance[staff._id] = { name: shortName, fullName: staff.fullName || staff.userName, value: 0 };
+            }
           });
+
+          const phonesArray = await fetchManagerPhonesApi();
+          const itemsArray = await fetchManagerItemsApi();
+
+          let countInv = 0;
+          phonesArray.forEach(p => {
+            const pStoreId = p.storeId?._id || p.storeId;
+            if (pStoreId === storeId && p.status === "in_stock") countInv++;
+          });
+          itemsArray.forEach(i => {
+            const iStoreId = i.storeId?._id || i.storeId;
+            if (iStoreId === storeId && i.status === "in_stock") countInv++;
+          });
+          setInventoryCount(countInv);
 
           const targetDate = dayjs(`${selectedMonth}-01`);
           const targetMonth = targetDate.month();
@@ -72,7 +97,7 @@ export default function ManagerDashboard() {
             const orderDate = dayjs(order.createdAt);
             
             if (orderStoreId === storeId && isSameMonthYear(orderDate)) {
-              if (staffPerformance[creatorId]) staffPerformance[creatorId].value += 1;
+              if (saleStaffPerformance[creatorId]) saleStaffPerformance[creatorId].value += 1;
               
               if (order.status === "Completed") {
                 const dateStr = orderDate.format('DD/MM');
@@ -92,7 +117,7 @@ export default function ManagerDashboard() {
             const orderDate = dayjs(order.createdAt || order.repairOrderDate);
 
             if (orderStoreId === storeId && isSameMonthYear(orderDate)) {
-              if (staffPerformance[creatorId]) staffPerformance[creatorId].value += 1;
+              if (techStaffPerformance[creatorId]) techStaffPerformance[creatorId].value += 1;
 
               if (order.status === "Completed") {
                 const dateStr = orderDate.format('DD/MM');
@@ -104,8 +129,11 @@ export default function ManagerDashboard() {
             }
           });
 
-          const chartData = Object.values(staffPerformance).filter(s => s.value > 0).sort((a, b) => b.value - a.value);
-          setPerformanceData(chartData);
+          const sChartData = Object.values(saleStaffPerformance).filter(s => s.value > 0).sort((a, b) => b.value - a.value);
+          const tChartData = Object.values(techStaffPerformance).filter(s => s.value > 0).sort((a, b) => b.value - a.value);
+          
+          setSalePerformanceData(sChartData);
+          setTechPerformanceData(tChartData);
 
           const revenueArr = Object.values(dailyRevenue);
           let finalRevenueData = revenueArr;
@@ -131,7 +159,7 @@ export default function ManagerDashboard() {
 
   const stats = [
     { title: "Tổng nhân sự", value: staffCount, icon: <Users size={24} />, color: "bg-blue-500", link: "/manager/staffs" },
-    { title: "Sản phẩm trong kho", value: inventoryCount, icon: <Package size={24} />, color: "bg-indigo-500", link: "/manager/inventory" },
+    { title: "Sản phẩm trong kho", value: inventoryCount.toLocaleString(), icon: <Package size={24} />, color: "bg-indigo-500", link: "/manager/inventory" },
     { title: "Doanh thu tháng chọn", value: formatCompact(totalMonthRevenue), icon: <DollarSign size={24} />, color: "bg-emerald-500", link: "/manager/sales_history" },
     { title: "Yêu cầu chờ duyệt", value: pendingTransfers, icon: <ClipboardList size={24} />, color: "bg-amber-500", link: "/manager/transfer_approvals" },
   ];
@@ -221,14 +249,26 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <TrendingUp className="text-blue-500" size={20} /> Top Nhân Viên
-          </h2>
-          <div className="flex-1 w-full min-h-[250px]">
-            {performanceData.length > 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+          <div className="flex border-b border-gray-100">
+            <button 
+              onClick={() => setActiveChartTab("SALE")}
+              className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeChartTab === "SALE" ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500 hover:bg-gray-50"}`}
+            >
+              <ShoppingBag size={18} /> Đua Top Sale
+            </button>
+            <button 
+              onClick={() => setActiveChartTab("TECH")}
+              className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeChartTab === "TECH" ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50" : "text-gray-500 hover:bg-gray-50"}`}
+            >
+              <Wrench size={18} /> Đua Top Tech
+            </button>
+          </div>
+          
+          <div className="flex-1 w-full min-h-[250px] p-6">
+            {(activeChartTab === "SALE" ? salePerformanceData : techPerformanceData).length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={performanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={activeChartTab === "SALE" ? salePerformanceData : techPerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -238,12 +278,12 @@ export default function ManagerDashboard() {
                     formatter={(value, name, props) => [`${value} đơn`, <span className="font-bold">{props.payload.fullName}</span>]}
                     labelStyle={{ display: 'none' }}
                   />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="value" fill={activeChartTab === "SALE" ? "#3b82f6" : "#f97316"} radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                Không có dữ liệu hiệu suất tháng {dayjs(selectedMonth).format('MM/YYYY')}
+                Chưa có đơn nào trong tháng
               </div>
             )}
           </div>

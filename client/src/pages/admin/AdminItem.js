@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 import { Plus, Edit, Trash2, Package, Search, X, Settings, MapPin, ChevronDown, Tag, QrCode, Eye, ArrowUpDown } from "lucide-react";
-
 
 import { fetchItemTypesApi, fetchStoresApi, fetchItemsPaginatedApi, deleteItemApi, fetchItemQrCodeApi, createItemApi, updateItemApi } from "../../api/admin/item";
 
@@ -18,6 +18,16 @@ const getBaseCodeFromItemTypeCode = (code) => {
     if (BASE_CODES[parts[0]]) return parts[0];
     if (BASE_CODES[code]) return code;
     return 'OTH';
+};
+
+const formatPriceInput = (val) => {
+    if (!val && val !== 0) return '';
+    return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const parsePriceInput = (str) => {
+    if (!str) return '';
+    return str.toString().replace(/\./g, '');
 };
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
@@ -38,48 +48,30 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            handleJumpSubmit();
-        } else if (e.key === 'Escape') {
-            setEditingDots(null);
-            setJumpPage('');
-        }
+        if (e.key === 'Enter') handleJumpSubmit();
+        else if (e.key === 'Escape') { setEditingDots(null); setJumpPage(''); }
     };
 
     const renderInteractiveDots = (position) => {
         if (editingDots === position) {
             return (
                 <input
-                    key={`input-${position}`}
-                    type="number"
-                    autoFocus
-                    min={1}
-                    max={totalPages}
-                    value={jumpPage}
-                    onChange={(e) => setJumpPage(e.target.value)}
-                    onBlur={handleJumpSubmit}
-                    onKeyDown={handleKeyDown}
+                    key={`input-${position}`} type="number" autoFocus min={1} max={totalPages}
+                    value={jumpPage} onChange={(e) => setJumpPage(e.target.value)}
+                    onBlur={handleJumpSubmit} onKeyDown={handleKeyDown}
                     className="w-14 px-1 py-1.5 border-2 border-blue-500 rounded-lg text-center text-sm font-bold text-blue-700 outline-none hide-arrows shadow-sm"
                     placeholder="..."
                 />
             );
         }
         return (
-            <button
-                key={`dots-${position}`}
-                onClick={() => setEditingDots(position)}
-                className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer"
-                title="Nhấn để nhập số trang"
-            >
-                ...
-            </button>
+            <button key={`dots-${position}`} onClick={() => setEditingDots(position)} className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer" title="Nhấn để nhập số trang">...</button>
         );
     };
 
     const renderPageNumbers = () => {
         const pages = [];
         const maxVisible = 5;
-
         let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
         let endPage = startPage + maxVisible - 1;
 
@@ -89,37 +81,21 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
         }
 
         if (startPage > 1) {
-            pages.push(
-                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
-            );
-            if (startPage > 2) {
-                pages.push(renderInteractiveDots('start'));
-            }
+            pages.push(<button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>);
+            if (startPage > 2) pages.push(renderInteractiveDots('start'));
         }
         
         for (let i = startPage; i <= endPage; i++) {
             pages.push(
-                <button
-                    key={i}
-                    onClick={() => onPageChange(i)}
-                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
-                        i === currentPage
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                >
+                <button key={i} onClick={() => onPageChange(i)} className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}>
                     {i}
                 </button>
             );
         }
 
         if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-                pages.push(renderInteractiveDots('end'));
-            }
-            pages.push(
-                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
-            );
+            if (endPage < totalPages - 1) pages.push(renderInteractiveDots('end'));
+            pages.push(<button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>);
         }
 
         return pages;
@@ -127,34 +103,10 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
 
     return (
         <div className="flex gap-1.5 items-center">
-            <button
-                disabled={currentPage <= 1}
-                onClick={() => onPageChange(currentPage - 1)}
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
-            >
-                Trước
-            </button>
-            
+            <button disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)} className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm">Trước</button>
             {renderPageNumbers()}
-            
-            <button
-                disabled={currentPage >= totalPages}
-                onClick={() => onPageChange(currentPage + 1)}
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
-            >
-                Sau
-            </button>
-            
-            <style dangerouslySetInnerHTML={{__html: `
-                .hide-arrows::-webkit-outer-spin-button,
-                .hide-arrows::-webkit-inner-spin-button {
-                    -webkit-appearance: none;
-                    margin: 0;
-                }
-                .hide-arrows {
-                    -moz-appearance: textfield;
-                }
-            `}} />
+            <button disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)} className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm">Sau</button>
+            <style dangerouslySetInnerHTML={{__html: `.hide-arrows::-webkit-outer-spin-button, .hide-arrows::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } .hide-arrows { -moz-appearance: textfield; }`}} />
         </div>
     );
 };
@@ -177,7 +129,6 @@ export default function AdminItem() {
     const [detailCurrentPage, setDetailCurrentPage] = useState(1);
     const detailItemsPerPage = 5;
 
-    
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -192,11 +143,7 @@ export default function AdminItem() {
 
     useEffect(() => { fetchInitialData(); }, []);
     useEffect(() => { fetchItems(); }, [filters.storeId]);
-
-    
     useEffect(() => { setCurrentPage(1); }, [filters.search, selectedBaseFilter]);
-
- 
     useEffect(() => { setDetailCurrentPage(1); }, [detailSearch, detailSortPrice]);
 
     const fetchInitialData = async () => {
@@ -217,10 +164,27 @@ export default function AdminItem() {
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa linh kiện này?")) {
+        const result = await Swal.fire({
+            title: 'Xác nhận xóa?',
+            text: "Hành động này không thể hoàn tác!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy',
+            buttonsStyling: false, 
+            customClass: {
+                confirmButton: 'bg-red-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-600 transition ml-3 shadow-md',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition shadow-md'
+            }
+        });
+
+        if (result.isConfirmed) {
             const isSuccess = await deleteItemApi(id);
             if (isSuccess) {
-                toast.success("Xóa thành công");
+                Swal.fire({
+                    title: 'Thành công!', text: 'Linh kiện đã được xóa khỏi hệ thống.', icon: 'success',
+                    timer: 1500, showConfirmButton: false
+                });
                 fetchItems();
             }
         }
@@ -303,23 +267,31 @@ export default function AdminItem() {
         let isSuccess = false;
         if (isEditing) {
             isSuccess = await updateItemApi(editingId, formData);
-            if (isSuccess) toast.success("Cập nhật linh kiện thành công");
         } else {
             isSuccess = await createItemApi(formData);
-            if (isSuccess) toast.success("Thêm linh kiện thành công");
         }
 
         if (isSuccess) {
             setShowModal(false);
-            fetchItems();
+            Swal.fire({
+                title: 'Thành công!',
+                text: isEditing ? 'Đã cập nhật linh kiện thành công.' : 'Đã nhập kho linh kiện thành công.',
+                icon: 'success',
+                confirmButtonText: 'Đóng',
+                allowOutsideClick: false,
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition shadow-md' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetchItems();
+                }
+            });
         }
     };
-
 
     const groupedBaseData = useMemo(() => {
         const result = {};
         items.forEach(item => {
-           
             if (item.status === 'sold' || item.status === 'assembled_and_sold' || item.status === 'consumed') return;
             
             const typeCode = item.item_type?.code || 'OTH';
@@ -333,7 +305,6 @@ export default function AdminItem() {
         return result;
     }, [items, selectedBaseFilter]);
 
-    
     const filteredGroups = useMemo(() => {
         const entries = Object.entries(groupedBaseData);
         if (!filters.search) return entries;
@@ -354,13 +325,11 @@ export default function AdminItem() {
         return { groups: currentGroups, totalPages: totalPages || 1, totalItemsCount };
     }, [filteredGroups, currentPage, groupsPerPage]);
 
-  
     const detailItemsProcessed = useMemo(() => {
         if (!selectedGroupType) return { items: [], totalPages: 1, totalCount: 0 };
         
         let list = groupedBaseData[selectedGroupType] || [];
 
-     
         if (detailSearch) {
             const keyword = detailSearch.toLowerCase();
             list = list.filter(item => 
@@ -369,7 +338,6 @@ export default function AdminItem() {
             );
         }
 
-      
         if (detailSortPrice === 'asc') {
             list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
         } else if (detailSortPrice === 'desc') {
@@ -398,10 +366,9 @@ export default function AdminItem() {
 
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
-    const selectedItemTypeObj = itemTypes.find(t => t._id === formData.item_type);
-    const selectedItemTypeName = selectedItemTypeObj ? selectedItemTypeObj.name.toLowerCase() : '';
-    const isMainboard = selectedItemTypeName.includes('main');
-    const isColorPart = selectedItemTypeName.includes('vỏ') || selectedItemTypeName.includes('kính') || selectedItemTypeName.includes('màn') || selectedItemTypeName.includes('camera') || selectedItemTypeName.includes('khay sim');
+   
+    const isMainboard = selectedBaseCategory === 'MB'; 
+    const isColorPart = ['HSG', 'BGL', 'FGL'].includes(selectedBaseCategory);
 
     return (
         <div className="flex flex-col h-full space-y-6">
@@ -514,7 +481,6 @@ export default function AdminItem() {
                 </div>
             )}
 
-       
             {showDetailModal && selectedGroupType && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
@@ -526,7 +492,6 @@ export default function AdminItem() {
                             <button onClick={() => setShowDetailModal(false)} className="text-gray-400 hover:text-red-500 bg-white p-1 rounded-lg border border-gray-200 shadow-sm transition"><X size={24}/></button>
                         </div>
                         
-            
                         <div className="p-4 border-b border-gray-100 bg-white flex flex-wrap gap-4 shrink-0">
                             <div className="relative flex-1 min-w-[250px]">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -550,7 +515,6 @@ export default function AdminItem() {
                             </div>
                         </div>
 
-               
                         <div className="p-0 overflow-auto flex-1 bg-white">
                             <table className="w-full table-fixed text-left text-sm whitespace-nowrap">
                                 <thead className="bg-gray-50 text-gray-500 border-b border-gray-200 uppercase text-[11px] sticky top-0 z-10 shadow-sm">
@@ -618,7 +582,6 @@ export default function AdminItem() {
                             </table>
                         </div>
 
-                
                         {detailItemsProcessed.totalCount > 0 && (
                             <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
                                 <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailCurrentPage}</strong> / {detailItemsProcessed.totalPages} (Tổng: {detailItemsProcessed.totalCount} mục)</span>
@@ -633,7 +596,6 @@ export default function AdminItem() {
                 </div>
             )}
 
-
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -643,20 +605,24 @@ export default function AdminItem() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Định danh & Phân loại</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-5">
+                                    <h3 className="font-bold text-blue-800 border-b border-blue-100 pb-2 uppercase text-sm tracking-wide">1. Phân loại & Thông số</h3>
                                     
-                                    <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-3">
+                                    <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-4 shadow-sm">
                                         <div>
-                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 1: Chọn Danh mục chính *</label>
+                                            <label className="block text-sm font-semibold mb-1.5 text-blue-900">Danh mục chính *</label>
                                             <select 
                                                 value={selectedBaseCategory} 
                                                 onChange={(e) => {
-                                                    setSelectedBaseCategory(e.target.value);
-                                                    setFormData({...formData, item_type: '', name: '', serialCode: ''}); 
+                                                    const val = e.target.value;
+                                                    setSelectedBaseCategory(val);
+                                                    const baseName = BASE_CODES[val];
+                                                   
+                                                   
+                                                    setFormData({...formData, item_type: '', name: baseName ? `${baseName} ` : '', serialCode: '', ram: '', capacity: '', color: ''}); 
                                                 }} 
-                                                className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                                className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                                             >
                                                 <option value="">-- Chọn Danh mục (VD: Màn hình, Pin...) --</option>
                                                 {Object.entries(BASE_CODES).map(([code, label]) => (
@@ -665,15 +631,15 @@ export default function AdminItem() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 2: Chọn Phân loại chi tiết *</label>
+                                            <label className="block text-sm font-semibold mb-1.5 text-blue-900">Phân loại chi tiết *</label>
                                             <select 
                                                 required 
                                                 value={formData.item_type} 
                                                 onChange={e => {
                                                     const typeObj = itemTypes.find(t => t._id === e.target.value);
-                                                    setFormData({...formData, item_type: e.target.value, name: typeObj?.name || ''});
+                                                    setFormData({...formData, item_type: e.target.value, name: typeObj ? `${typeObj.name} ` : formData.name});
                                                 }} 
-                                                className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                                 disabled={!selectedBaseCategory}
                                             >
                                                 <option value="">-- Chọn Phân loại (VD: Màn hình IP14) --</option>
@@ -683,107 +649,119 @@ export default function AdminItem() {
                                             </select>
                                         </div>
                                     </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Tên linh kiện *</label>
-                                        <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Hệ thống tự điền, có thể sửa thêm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Mã Serial *</label>
-                                        <div className="flex gap-2">
-                                            <input required type="text" value={formData.serialCode} onChange={e => setFormData({...formData, serialCode: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono" placeholder="Nhập mã vạch hoặc nhấn Tạo mã" />
-                                            <button type="button" onClick={handleGenerateSerial} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 font-bold rounded-lg hover:bg-blue-100 transition whitespace-nowrap">Tạo mã</button>
-                                        </div>
-                                    </div>
 
                                     {(isMainboard || isColorPart) && (
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
-                                            <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Thông số kỹ thuật (Chỉ dành cho Main / Vỏ)</h4>
-                                            <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                            <h4 className="text-[11px] font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2"><Tag size={12}/> Thông số kỹ thuật chi tiết</h4>
+                                            <div className="grid grid-cols-2 gap-4">
                                                 {isMainboard && (
                                                     <>
                                                         <div>
-                                                            <label className="block text-xs font-semibold mb-1">RAM</label>
-                                                            <input type="text" value={formData.ram} onChange={e => setFormData({...formData, ram: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: 6GB" />
+                                                            <label className="block text-sm font-semibold mb-1.5 text-gray-700">RAM</label>
+                                                            <input type="text" value={formData.ram} onChange={e => setFormData({...formData, ram: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="VD: 6GB" />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-xs font-semibold mb-1">ROM (Bộ nhớ)</label>
-                                                            <input type="text" value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: 128GB" />
+                                                            <label className="block text-sm font-semibold mb-1.5 text-gray-700">ROM (Bộ nhớ)</label>
+                                                            <input type="text" value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="VD: 128GB" />
                                                         </div>
                                                     </>
                                                 )}
                                                 {isColorPart && (
                                                     <div className="col-span-2">
-                                                        <label className="block text-xs font-semibold mb-1">Màu sắc</label>
-                                                        <input type="text" value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: Đen Midnight..." />
+                                                        <label className="block text-sm font-semibold mb-1.5 text-gray-700">Màu sắc ngoại quan</label>
+                                                        <input type="text" value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="VD: Đen Midnight, Trắng Ngọc..." />
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     )}
+                                </div>
 
+                                <div className="space-y-5">
+                                    <h3 className="font-bold text-blue-800 border-b border-blue-100 pb-2 uppercase text-sm tracking-wide">2. Nguồn gốc & Giá bán</h3>
+                                    
                                     <div>
-                                        <label className="block text-sm font-semibold mb-1">Cửa hàng / Kho chứa</label>
-                                        <select value={formData.storeId} onChange={e => setFormData({...formData, storeId: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="">-- Chưa phân bổ kho --</option>
+                                        <label className="block text-sm font-semibold mb-2 text-gray-700">Tình trạng linh kiện</label>
+                                        <div className="flex gap-6 bg-gray-50 p-3.5 rounded-xl border border-gray-200">
+                                            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="radio" name="origin" value="new" checked={formData.origin === 'new'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 12})} className="w-4 h-4 text-blue-600" /> Hàng Mới (New)</label>
+                                            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="radio" name="origin" value="disassembled" checked={formData.origin === 'disassembled'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 3})} className="w-4 h-4 text-blue-600" /> Bóc Máy (Zin)</label>
+                                        </div>
+                                    </div>
+
+                                    {formData.origin === 'disassembled' && (
+                                        <div className="bg-purple-50 p-4 rounded-xl space-y-4 border border-purple-100 shadow-sm">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-purple-900 mb-1.5">Bóc từ thiết bị nào?</label>
+                                                <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 bg-white text-sm" placeholder="VD: iPhone 13 chết cam" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-purple-900 mb-1.5">Chất lượng thực tế</label>
+                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 bg-white text-sm" placeholder="VD: Zin nguyên bản 98%" />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="relative">
+                                            <label className="block text-sm font-semibold mb-1.5 text-gray-700">Giá nhập (VNĐ)</label>
+                                            <input type="text" value={formatPriceInput(formData.baseCost)} onChange={e => setFormData({...formData, baseCost: parsePriceInput(e.target.value)})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-medium" placeholder="0" />
+                                        </div>
+                                        <div className="relative">
+                                            <label className="block text-sm font-bold mb-1.5 text-red-600">Giá bán ra (VNĐ)</label>
+                                            <input type="text" value={formatPriceInput(formData.price)} onChange={e => setFormData({...formData, price: parsePriceInput(e.target.value)})} className="w-full border-2 border-red-200 bg-red-50 p-2.5 rounded-lg outline-none focus:border-red-500 font-bold text-red-700" placeholder="0" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5 text-gray-700">Thời gian Bảo hành (Tháng)</label>
+                                        <input type="number" value={formData.warrantyPeriod} onChange={e => setFormData({...formData, warrantyPeriod: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                                    </div>
+                                </div>
+                            </div>
+
+                         
+                            <div className="mt-8 pt-6 border-t border-gray-200 space-y-5">
+                                <h3 className="font-bold text-blue-800 border-b border-blue-100 pb-2 uppercase text-sm tracking-wide">3. Thông tin hiển thị & Quản lý vị trí</h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5 text-gray-800">Tên linh kiện hiển thị *</label>
+                                        <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white font-bold text-blue-900" placeholder="VD: Mainboard iPhone 13 Zin bóc máy..." />
+                                        <p className="text-[11px] text-gray-500 mt-1 italic">Tên này được gợi ý dựa trên Phân loại. Bạn có thể gõ thêm chi tiết tuỳ ý.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5 text-gray-800">Mã Serial / Định danh *</label>
+                                        <div className="flex gap-2">
+                                            <input required type="text" value={formData.serialCode} onChange={e => setFormData({...formData, serialCode: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-wider bg-gray-50" placeholder="Nhập mã vạch hoặc Tạo tự động" />
+                                            <button type="button" onClick={handleGenerateSerial} className="px-5 py-2.5 bg-blue-100 text-blue-700 border border-blue-200 font-bold rounded-lg hover:bg-blue-200 transition whitespace-nowrap shadow-sm">Tạo mã</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5 text-gray-800">Cửa hàng / Kho lưu trữ</label>
+                                        <select value={formData.storeId} onChange={e => setFormData({...formData, storeId: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white">
+                                            <option value="">-- Chưa phân bổ vào kho --</option>
                                             {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
                                         </select>
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-semibold mb-1">Trạng thái</label>
-                                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="in_stock">Trong kho (Sẵn sàng)</option>
-                                            <option value="sold">Đã xuất (Bán/Ráp)</option>
-                                            <option value="defective">Hàng lỗi</option>
+                                        <label className="block text-sm font-semibold mb-1.5 text-gray-800">Trạng thái tồn kho</label>
+                                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white font-medium">
+                                            <option value="in_stock">Trong kho (Sẵn sàng bán/ráp)</option>
+                                            <option value="sold">Đã xuất (Đã bán/Lắp rắp xong)</option>
+                                            <option value="defective">Hàng lỗi / Đang chờ bảo hành</option>
                                         </select>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">2. Nguồn gốc & Giá cả</h3>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-2">Nguồn gốc hàng</label>
-                                        <div className="flex gap-6 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                            <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="origin" value="new" checked={formData.origin === 'new'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 12})} /> Mới (New)</label>
-                                            <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="origin" value="disassembled" checked={formData.origin === 'disassembled'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 3})} /> Bóc Máy (Zin)</label>
-                                        </div>
-                                    </div>
-
-                                    {formData.origin === 'disassembled' && (
-                                        <div className="bg-purple-50/50 p-4 rounded-xl space-y-4 border border-purple-100 shadow-inner">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-purple-900 mb-1">Bóc từ thiết bị nào?</label>
-                                                <input type="text" value={formData.sourceDevice} onChange={e => setFormData({...formData, sourceDevice: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: iPhone 14 Pro vỡ màn" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-semibold text-purple-900 mb-1">Chất lượng (Ngoại hình)</label>
-                                                <input type="text" value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: 98% - Zin nguyên bản" />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 gap-4 mt-2">
-                                        <div>
-                                            <label className="block text-sm font-semibold mb-1">Giá nhập (VNĐ)</label>
-                                            <input type="number" value={formData.baseCost} onChange={e => setFormData({...formData, baseCost: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold mb-1 text-red-600">Giá bán ra (VNĐ)</label>
-                                            <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full border border-red-300 bg-red-50/30 p-2.5 rounded-lg outline-none font-bold" />
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="mt-2">
-                                        <label className="block text-sm font-semibold mb-1">Bảo hành (Tháng)</label>
-                                        <input type="number" value={formData.warrantyPeriod} onChange={e => setFormData({...formData, warrantyPeriod: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-8 pt-5 border-t flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2.5 bg-gray-100 font-bold rounded-xl hover:bg-gray-200 text-gray-700 transition">Hủy</button>
-                                <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition">Lưu Dữ Liệu</button>
+                            <div className="mt-8 pt-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 -mx-6 -mb-6 p-5 rounded-b-2xl">
+                                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2.5 bg-white border border-gray-300 font-bold rounded-xl hover:bg-gray-100 text-gray-700 transition shadow-sm">Hủy bỏ</button>
+                                <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition">{isEditing ? 'Lưu Cập Nhật' : 'Thêm Vào Kho'}</button>
                             </div>
                         </form>
                     </div>

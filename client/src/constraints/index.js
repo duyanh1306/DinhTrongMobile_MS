@@ -51,7 +51,6 @@ export const useTechSidebarItems = () => {
         { text: "Kho", link: "/tech/storage", icon: <Wrench size={20} /> },
         { text: "Hàng chờ", link: "/tech/repair-orders", icon: <List size={20} /> },
         { text: "Bảo hành", link: "/tech/warranty", icon: <Shield size={20} /> },
-        { text: "Yêu cầu linh kiện", link: "/tech/components", icon: <Cpu size={20} /> },
         { 
             text: "Ghép điện thoại", 
             link: "/tech/assemble", 
@@ -60,3 +59,11 @@ export const useTechSidebarItems = () => {
         },
     ];
 };
+
+export const initialChecklist = {
+    screen: { name: "Màn hình", status: "OK", detail: "95%" },
+    battery: { name: "Pin", status: "OK", detail: "95%" },
+    camera: { name: "Camera & FaceID", status: "OK", detail: "95%" },
+    mainboard: { name: "Mainboard", status: "OK", detail: "95%" },
+    casing: { name: "Vỏ / Ngoại hình", status: "OK", detail: "95%" },
+  };

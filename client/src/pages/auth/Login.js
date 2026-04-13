@@ -43,7 +43,7 @@ const Login = () => {
   };
 
 const handleGoogleLogin = () => {
-    // Lấy API URL hiện tại, bỏ chữ /api ở cuối đi để ra đường dẫn gốc
+  
     const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:9999/api').replace('/api', '');
     window.location.href = `${baseUrl}/api/users/auth/google`;
   };

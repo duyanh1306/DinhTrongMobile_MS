@@ -73,9 +73,9 @@ const {
  *           example: true
  *         warrantyType:
  *           type: string
- *           enum: [REPLACEMENT, REPAIR]
+ *           enum: [REPAIR]
  *           description: Type of warranty service
- *           example: "REPLACEMENT"
+ *           example: "REPAIR"
  *         status:
  *           type: string
  *           enum: [Pending, In Progress, Completed, Rejected]
@@ -109,18 +109,6 @@ const {
  *           type: string
  *           description: Additional notes about the warranty request
  *           example: "Customer reported screen issues after dropping the phone"
- *         replacementPhoneId:
- *           type: object
- *           description: Replacement phone information
- *           properties:
- *             _id:
- *               type: string
- *             serialCode:
- *               type: string
- *             colorName:
- *               type: string
- *             capacity:
- *               type: string
  *         repairOrderId:
  *           type: object
  *           description: Associated repair order information
@@ -195,17 +183,13 @@ const {
  *       properties:
  *         action:
  *           type: string
- *           enum: [replace, repair]
+ *           enum: [repair]
  *           description: Action to take on the warranty request
- *           example: "replace"
- *         replacementPhoneId:
- *           type: string
- *           description: Phone ID for replacement (required if action is replace)
- *           example: "507f1f77bcf86cd799439014"
+ *           example: "repair"
  *         notes:
  *           type: string
  *           description: Additional processing notes
- *           example: "Approved for replacement due to manufacturing defect"
+ *           example: "Approved for repair"
  *     UpdateWarrantyRequest:
  *       type: object
  *       properties:
@@ -437,7 +421,7 @@ router.put("/:id", updateWarrantyRequest);
  * /api/warranty/{id}/process:
  *   put:
  *     summary: Process warranty request
- *     description: Process a pending warranty request (approve replacement or create repair order)
+ *     description: Process a pending warranty request (create repair order)
  *     tags: [Warranty]
  *     parameters:
  *       - in: path
@@ -458,24 +442,16 @@ router.put("/:id", updateWarrantyRequest);
  *         content:
  *           application/json:
  *             schema:
- *               oneOf:
- *                 - type: object
- *                   properties:
- *                     message:
- *                       type: string
- *                       example: "Đã phê duyệt thay thế thiết bị mới"
- *                     warranty:
- *                       $ref: '#/components/schemas/Warranty'
- *                 - type: object
- *                   properties:
- *                     message:
- *                       type: string
- *                       example: "Đã tạo đơn sửa chữa bảo hành"
- *                     warranty:
- *                       $ref: '#/components/schemas/Warranty'
- *                     repairOrderId:
- *                       type: string
- *                       description: ID of the created repair order
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Đã tạo đơn sửa chữa bảo hành"
+ *                 warranty:
+ *                   $ref: '#/components/schemas/Warranty'
+ *                 repairOrderId:
+ *                   type: string
+ *                   description: ID of the created repair order
  *       400:
  *         description: Bad request - invalid status or action
  *         content:
@@ -487,7 +463,7 @@ router.put("/:id", updateWarrantyRequest);
  *                   type: string
  *                   example: "Chỉ có thể xử lý yêu cầu đang ở trạng thái chờ xử lý"
  *       404:
- *         description: Warranty request or replacement phone not found
+ *         description: Warranty request not found
  *         content:
  *           application/json:
  *             schema:

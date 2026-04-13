@@ -43,7 +43,6 @@ export default function Warranty() {
 
   const [processData, setProcessData] = useState({
     action: "",
-    replacementPhoneId: "",
     notes: "",
   });
 
@@ -146,7 +145,6 @@ export default function Warranty() {
       setShowProcessModal(false);
       setProcessData({
         action: "",
-        replacementPhoneId: "",
         notes: "",
       });
       setSelectedWarranty(null);
@@ -211,13 +209,11 @@ export default function Warranty() {
   };
 
   const getWarrantyTypeBadge = (type) => {
-    return type === "REPLACEMENT"
-      ? "bg-purple-100 text-purple-700 border-purple-200"
-      : "bg-cyan-100 text-cyan-700 border-cyan-200";
+    return "bg-cyan-100 text-cyan-700 border-cyan-200";
   };
 
   const getWarrantyTypeText = (type) => {
-    return type === "REPLACEMENT" ? "Thay máy" : "Sửa chữa";
+    return "Sửa chữa";
   };
 
   const formatDate = (dateString) => {
@@ -418,8 +414,7 @@ export default function Warranty() {
                             onClick={() => {
                               setSelectedWarranty(warranty);
                               setProcessData({
-                                action: warranty.warrantyType === "REPLACEMENT" ? "replace" : "repair",
-                                replacementPhoneId: "",
+                                action: "repair",
                                 notes: "",
                               });
                               setShowProcessModal(true);
@@ -613,41 +608,17 @@ export default function Warranty() {
                 </div>
               </div>
 
-              {selectedWarranty.warrantyType === "REPLACEMENT" ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Thiết bị thay thế *
-                  </label>
-                  <select
-                    required
-                    value={processData.replacementPhoneId}
-                    onChange={(e) => setProcessData({ ...processData, replacementPhoneId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Chọn thiết bị thay thế</option>
-                    {phones.map((phone) => (
-                      <option key={phone._id} value={phone._id}>
-                        {phone.phoneModelId?.name} - {phone.colorName} - {phone.capacity} - Serial Code: {phone.serialCode}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Thiết bị mới mua sẽ được thay thế bằng thiết bị mới
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <div className="flex items-start gap-2">
-                    <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-yellow-900">Bảo hành sửa chữa</h4>
-                      <p className="text-sm text-yellow-800 mt-1">
-                        Thiết bị cũ sẽ được tạo đơn sửa chữa bảo hành. Đơn sửa chữa sẽ được tạo tự động.
-                      </p>
-                    </div>
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <div className="flex items-start gap-2">
+                  <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-900">Bảo hành sửa chữa</h4>
+                    <p className="text-sm text-yellow-800 mt-1">
+                      Đơn sửa chữa bảo hành sẽ được tạo tự động.
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -667,7 +638,7 @@ export default function Warranty() {
                   onClick={() => {
                     setShowProcessModal(false);
                     setSelectedWarranty(null);
-                    setProcessData({ action: "", replacementPhoneId: "", notes: "" });
+                    setProcessData({ action: "", notes: "" });
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                 >

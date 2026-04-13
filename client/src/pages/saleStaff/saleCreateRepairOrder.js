@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { User, Save } from "lucide-react";
-import { toast } from "react-toastify";
+import { User, Save, FileText, TextSearch } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { createRepairOrderApi } from "../../api/saleStaff/createRepairOrder"; 
 
 export default function SaleCreateRepairOrder() {
   const [customer, setCustomer] = useState({ name: "", phone: "" });
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
 
   const validateCustomer = () => {
@@ -34,44 +37,33 @@ export default function SaleCreateRepairOrder() {
     }
 
     setLoading(true);
-    const token = localStorage.getItem("token");
 
     const payload = {
       storeId: currentStoreId,
       customerName: customer.name,
       customerPhone: customer.phone,
+      technicianId: null,
+      note: note,
       createdBy: user._id
     };
 
-    try {
-      const res = await fetch("http://localhost:9999/api/repair-orders", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify(payload)
-      });
+    const result = await createRepairOrderApi(payload);
       
-      const result = await res.json();
-      
-      if (res.ok) {
+    if (result.success) {
         toast.success("Đã tạo đơn sửa chữa thành công!");
-        // Reset form
         setCustomer({ name: "", phone: "" });
-      } else {
-        toast.error(result.message || "Tạo đơn sửa chữa thất bại");
-      }
-    } catch (err) {
-      toast.error("Lỗi kết nối đến server");
-    } finally {
-      setLoading(false);
+        setNote("");
+    } else {
+        toast.error(result.message);
     }
+    
+    setLoading(false);
   };
 
   return (
     <div className="flex h-screen bg-gray-100 p-4 overflow-hidden">
-      <div className="max-w-2xl mx-auto w-full">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <div className="max-w-2xl mx-auto w-full overflow-y-auto">
         <div className="bg-white rounded-xl shadow-sm border">
           <div className="p-6 border-b bg-gray-50">
             <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2">
@@ -84,7 +76,6 @@ export default function SaleCreateRepairOrder() {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Thông tin khách hàng */}
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
                 <User size={18} className="text-blue-600" />
@@ -118,7 +109,20 @@ export default function SaleCreateRepairOrder() {
               </div>
             </div>
 
-            {/* Nút tạo đơn */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
+                <FileText size={18} className="text-blue-600" />
+                Ghi chú tình trạng khách báo (Tùy chọn)
+              </h3>
+              <textarea
+                rows="4"
+                placeholder="VD: Khách báo vỡ màn hình, liệt cảm ứng..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white resize-none"
+              ></textarea>
+            </div>
+
             <div className="flex justify-end pt-4 border-t">
               <button
                 onClick={handleSubmit}

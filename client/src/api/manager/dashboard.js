@@ -26,3 +26,21 @@ export const fetchManagerRepairsApi = async () => {
     return [];
   }
 };
+
+export const fetchManagerPhonesApi = async () => {
+  try {
+    const res = await axiosClient.get("/phones/all");
+    return Array.isArray(res.data) ? res.data : res.data?.data || [];
+  } catch (error) {
+    return [];
+  }
+};
+
+export const fetchManagerItemsApi = async () => {
+  try {
+    const res = await axiosClient.get("/items/all");
+    return Array.isArray(res.data) ? res.data : res.data?.data || [];
+  } catch (error) {
+    return [];
+  }
+};

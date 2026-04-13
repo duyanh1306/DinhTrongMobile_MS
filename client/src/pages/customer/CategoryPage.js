@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Smartphone, HardDrive, Filter, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
+import { Smartphone, HardDrive, Filter, CheckCircle2, ChevronDown, MapPin, ArrowUpDown } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import CustomerLayout from "../../layouts/CustomerLayout";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API VỪA TẠO
 import { fetchCategoryDataApi } from "../../api/customer/category";
 
 export default function CategoryPage() {
@@ -16,25 +15,22 @@ export default function CategoryPage() {
     const [brands, setBrands] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Filters
+
     const [filterBrand, setFilterBrand] = useState("");
     const [filterInStock, setFilterInStock] = useState(false);
     const [sortBy, setSortBy] = useState("default");
 
-    // Price Filter
+
     const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
     const [minPriceInput, setMinPriceInput] = useState("");
     const [maxPriceInput, setMaxPriceInput] = useState("");
     const [appliedMinPrice, setAppliedMinPrice] = useState(null);
     const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
 
-    // Store Info
+
     const [stores, setStores] = useState([]);
     const [selectedStore, setSelectedStore] = useState(localStorage.getItem('selectedStoreId') || "");
 
-    // ==============================================================
-    // GỌI API QUA HÀM ĐÃ TÁCH
-    // ==============================================================
     useEffect(() => {
         loadCategoryData();
     }, [type, selectedStore]);
@@ -54,9 +50,6 @@ export default function CategoryPage() {
         setLoading(false);
     };
 
-    // ==============================================================
-    // LOGIC XỬ LÝ UI & BỘ LỌC
-    // ==============================================================
     const handleStoreChange = (e) => {
         const storeId = e.target.value;
         setSelectedStore(storeId);
@@ -88,8 +81,11 @@ export default function CategoryPage() {
 
     const processedProducts = useMemo(() => {
         let result = [...allProducts];
+        
         if (filterBrand) result = result.filter(p => p.brandId === filterBrand);
+        
         if (filterInStock) result = result.filter(p => p.stockCount > 0);
+        
         if (appliedMinPrice !== null || appliedMaxPrice !== null) {
             result = result.filter(p => {
                 if (p.price === 0) return false; 
@@ -98,8 +94,11 @@ export default function CategoryPage() {
                 return meetsMin && meetsMax;
             });
         }
+        
+   
         if (sortBy === "price_asc") result.sort((a, b) => (a.price === 0 ? 1 : b.price === 0 ? -1 : a.price - b.price));
         else if (sortBy === "price_desc") result.sort((a, b) => b.price - a.price);
+        
         return result;
     }, [allProducts, filterBrand, filterInStock, appliedMinPrice, appliedMaxPrice, sortBy]);
 
@@ -112,11 +111,15 @@ export default function CategoryPage() {
             <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
                 {product.isUsedCard && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
                 {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
+                
                 <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
                     <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
                 </Link>
+                
                 <div className="flex-1 flex flex-col">
-                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4></Link>
+                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard }}>
+                        <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4>
+                    </Link>
                     <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
                     <div className="flex flex-wrap gap-2 mt-auto mb-4">
                         <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><Smartphone size={12} className="text-gray-400" /> {specs.screenSize || "N/A"}</div>
@@ -153,16 +156,22 @@ export default function CategoryPage() {
                     <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-semibold">{processedProducts.length} sản phẩm</span>
                 </div>
 
+      
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8 space-y-5">
                     <div className="flex flex-wrap gap-4 items-center">
-                        <div className="flex items-center gap-2 font-semibold text-gray-700 mr-2"><Filter size={18} /> Lọc theo:</div>
-                        <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="border border-gray-300 text-sm rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white cursor-pointer transition">
-                            <option value="">Tất cả các Hãng</option>
-                            {brands.map(b => (<option key={b._id} value={b._id}>{b.name}</option>))}
-                        </select>
+                        <div className="flex items-center gap-2 font-semibold text-gray-700 mr-2"><Filter size={18} /> Lọc & Sắp xếp:</div>
+                        
+                  
+                        <div className="relative">
+                            <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="appearance-none border border-gray-300 text-sm rounded-lg pl-4 pr-10 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white cursor-pointer transition font-medium text-gray-700">
+                                <option value="">Tất cả các Hãng</option>
+                                {brands.map(b => (<option key={b._id} value={b._id}>{b.name}</option>))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
 
                         <div className="relative">
-                            <button onClick={() => setIsPriceDropdownOpen(!isPriceDropdownOpen)} className={`flex items-center gap-2 border text-sm rounded-lg px-4 py-2 outline-none transition cursor-pointer ${(appliedMinPrice !== null || appliedMaxPrice !== null) || isPriceDropdownOpen ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium' : 'border-gray-300 bg-gray-50 hover:bg-white text-gray-700'}`}>
+                            <button onClick={() => setIsPriceDropdownOpen(!isPriceDropdownOpen)} className={`flex items-center justify-between min-w-[160px] gap-2 border text-sm rounded-lg px-4 py-2.5 outline-none transition cursor-pointer ${(appliedMinPrice !== null || appliedMaxPrice !== null) || isPriceDropdownOpen ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium' : 'border-gray-300 bg-gray-50 hover:bg-white text-gray-700 font-medium'}`}>
                                 {getPriceButtonLabel()} <ChevronDown size={16} className={`transition-transform duration-200 ${isPriceDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {isPriceDropdownOpen && (
@@ -184,7 +193,22 @@ export default function CategoryPage() {
                             )}
                         </div>
 
-                        <label className="flex items-center gap-2 cursor-pointer ml-auto bg-green-50 text-green-700 px-4 py-2 rounded-lg border border-green-200 hover:bg-green-100 transition text-sm font-medium">
+                     
+                        <div className="relative">
+                            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                            <select 
+                                value={sortBy} 
+                                onChange={(e) => setSortBy(e.target.value)} 
+                                className="appearance-none border border-gray-300 text-sm rounded-lg pl-9 pr-10 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white cursor-pointer transition font-medium text-gray-700"
+                            >
+                                <option value="default">Sắp xếp: Nổi bật</option>
+                                <option value="price_asc">Giá: Thấp đến Cao</option>
+                                <option value="price_desc">Giá: Cao đến Thấp</option>
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer ml-auto bg-green-50 text-green-700 px-4 py-2.5 rounded-lg border border-green-200 hover:bg-green-100 transition text-sm font-medium">
                             <input type="checkbox" checked={filterInStock} onChange={(e) => setFilterInStock(e.target.checked)} className="hidden" />
                             <CheckCircle2 size={18} className={filterInStock ? "text-green-600" : "text-gray-400"} /> Chỉ hiển thị hàng có sẵn
                         </label>
@@ -198,7 +222,7 @@ export default function CategoryPage() {
                 ) : (
                     <div className="text-center bg-white rounded-2xl py-20 border border-dashed border-gray-300">
                         <Smartphone size={48} className="mx-auto text-gray-300 mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-700 mb-1">Cửa hàng này chưa có sản phẩm nào!</h3>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-1">Không tìm thấy sản phẩm phù hợp!</h3>
                     </div>
                 )}
             </div>
