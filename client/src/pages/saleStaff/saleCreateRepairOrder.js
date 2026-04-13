@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Save, FileText } from "lucide-react";
+import { User, Save, FileText, TextSearch } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { createRepairOrderApi } from "../../api/saleStaff/createRepairOrder"; 
@@ -42,6 +42,7 @@ export default function SaleCreateRepairOrder() {
       storeId: currentStoreId,
       customerName: customer.name,
       customerPhone: customer.phone,
+      technicianId: null,
       note: note,
       createdBy: user._id
     };

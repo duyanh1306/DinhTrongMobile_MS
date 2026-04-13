@@ -74,7 +74,7 @@ const RepairOrderList = () => {
   const [viewMode, setViewMode] = useState("PENDING");
   const [showMyOrdersOnly, setShowMyOrdersOnly] = useState(false);
   const [filters, setFilters] = useState({
-    status: "Pending",
+    status: ["Pending", "In Progress"],
     type: "ALL",
     storeId: "ALL",
     customerName: "",
@@ -280,25 +280,20 @@ const RepairOrderList = () => {
       setStores([]);
     }
   };
-  const fetchRepairOrders = async () => {
-    try {
-      setLoading(true);
-      const response = await axiosClient.get("/repair-orders");
-      setOrders(response.data);
-      setFilteredOrders(response.data);
-      setError(null);
-    } catch (err) {
-      setError("Lỗi tải đơn");
-    } finally {
-      setLoading(false);
-    }
-  };
+
   const fetchFilteredOrders = async () => {
     try {
       setFilterLoading(true);
       const queryParams = new URLSearchParams();
-      if (filters.status !== "ALL")
-        queryParams.append("status", filters.status);
+      
+      if (filters.status !== "ALL") {
+        if (Array.isArray(filters.status)) {
+          filters.status.forEach(status => queryParams.append("status", status));
+        } else {
+          queryParams.append("status", filters.status);
+        }
+      }
+      
       if (filters.type !== "ALL") queryParams.append("type", filters.type);
       if (filters.storeId !== "ALL")
         queryParams.append("storeId", filters.storeId);
@@ -349,7 +344,7 @@ const RepairOrderList = () => {
   const toggleViewMode = (mode) => {
     setViewMode(mode);
     if (mode === "PENDING") {
-      setFilters({ status: "Pending", type: "ALL", storeId: "ALL", customerName: "" });
+      setFilters({ status: ["Pending", "In Progress"], type: "ALL", storeId: "ALL", customerName: "" });
     }
   };
   const toggleMyOrders = () => {
@@ -381,6 +376,22 @@ const RepairOrderList = () => {
       toast.error("Lỗi nhận đơn");
     }
   };
+
+  const completeRepairOrder = async (orderId) => {
+    try {
+      await axiosClient.put(`/repair-orders/${orderId}/complete`);
+      const updateOrderStatus = (orderList) =>
+        orderList.map((order) =>
+          order._id === orderId ? { ...order, status: "Completed" } : order,
+        );
+      setOrders(updateOrderStatus(orders));
+      setFilteredOrders(updateOrderStatus(filteredOrders));
+      toast.success("Đã hoàn thành đơn");
+    } catch (error) {
+      toast.error("Lỗi hoàn thành đơn");
+    }
+  };
+
   const cancelRepairOrder = async (orderId) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/cancel`);
@@ -538,7 +549,7 @@ const RepairOrderList = () => {
             onViewDetails={handleViewDetails}
             onAccept={acceptRepairOrder}
             onCancel={cancelRepairOrder}
-            onComplete={fetchRepairOrders}
+            onComplete={completeRepairOrder}
             onCloseDetailsModal={() => setShowDetailsModal(false)}
           />
         </div>

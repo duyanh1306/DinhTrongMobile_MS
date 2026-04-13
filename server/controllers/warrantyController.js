@@ -46,7 +46,6 @@ const getAllWarrantyRequests = async (req, res) => {
     const warranties = await query
       .populate("storeId", "name code")
       .populate("phoneId", "serialCode colorName capacity")
-      .populate("replacementPhoneId", "serialCode colorName capacity")
       .populate("createdBy", "fullName")
       .populate("processedBy", "fullName")
       .populate("repairOrderId", "customerName status")
@@ -66,7 +65,6 @@ const getWarrantyRequestById = async (req, res) => {
     const warranty = await Warranty.findById(id)
       .populate("storeId", "name code")
       .populate("phoneId", "serialCode colorName capacity")
-      .populate("replacementPhoneId", "serialCode colorName capacity")
       .populate("createdBy", "fullName")
       .populate("processedBy", "fullName")
       .populate("repairOrderId", "customerName status");
@@ -110,7 +108,7 @@ const createWarrantyRequest = async (req, res) => {
     
 
     const isNewDevice = phone.source === 'supplier';
-    const warrantyType = isNewDevice ? "REPLACEMENT" : "REPAIR";
+    const warrantyType = "REPAIR";
 
     const newWarranty = new Warranty({
       storeId,
@@ -125,9 +123,9 @@ const createWarrantyRequest = async (req, res) => {
       warrantyType,
       status: "Pending",
       createdBy,
-      notes: isNewDevice 
-        ? `Máy mới chính hãng (Nguồn: Nhập từ NCC). Đã mua ${daysSincePurchase} ngày. Hỗ trợ đổi/thay máy.` 
-        : `Máy cũ/Lắp ráp (Nguồn: ${phone.source === 'assembled' ? 'Tự ráp' : 'Thu cũ'}). Đã mua ${daysSincePurchase} ngày. Chỉ bảo hành sửa chữa.`
+      notes: isNewDevice
+        ? `Máy mới chính hãng (Nguồn: Nhập từ NCC). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`
+        : `Máy cũ/Lắp ráp (Nguồn: ${phone.source === 'assembled' ? 'Tự ráp' : 'Thu cũ'}). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`
     });
 
     await newWarranty.save();
@@ -177,7 +175,7 @@ const updateWarrantyRequest = async (req, res) => {
 const processWarrantyRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { action, replacementPhoneId, notes } = req.body;
+    const { action, notes } = req.body;
     
     const warranty = await Warranty.findById(id);
     
@@ -189,42 +187,13 @@ const processWarrantyRequest = async (req, res) => {
       return res.status(400).json({ message: "Chỉ có thể xử lý yêu cầu đang ở trạng thái chờ xử lý" });
     }
     
-    if (warranty.warrantyType === "REPLACEMENT" && action !== "replace") {
-      return res.status(400).json({ 
-        message: "Thiết bị mới mua chỉ hỗ trợ thay máy. Vui lòng chọn hành động thay thế." 
+    if (action !== "repair") {
+      return res.status(400).json({
+        message: "Chỉ hỗ trợ bảo hành sửa chữa. Vui lòng chọn hành động sửa chữa."
       });
     }
     
-    if (warranty.warrantyType === "REPAIR" && action !== "repair") {
-      return res.status(400).json({ 
-        message: "Thiết bị cũ chỉ hỗ trợ bảo hành sửa chữa. Vui lòng chọn hành động sửa chữa." 
-      });
-    }
-    
-    if (action === "replace") {
-      if (!replacementPhoneId) {
-        return res.status(400).json({ message: "Vui lòng chọn thiết bị thay thế" });
-      }
-      
-      const replacementPhone = await Phone.findById(replacementPhoneId);
-      if (!replacementPhone) {
-        return res.status(404).json({ message: "Không tìm thấy thiết bị thay thế" });
-      }
-      
-      warranty.replacementPhoneId = replacementPhoneId;
-      warranty.status = "In Progress";
-      warranty.processedBy = req.user.id;
-      warranty.processedAt = new Date();
-      warranty.notes = notes || warranty.notes;
-      
-      await warranty.save();
-      
-      res.status(200).json({ 
-        message: "Đã phê duyệt thay thế thiết bị mới", 
-        warranty 
-      });
-      
-    } else if (action === "repair") {
+    if (action === "repair") {
       const newRepairOrder = new RepairOrder({
         storeId: warranty.storeId,
         customerName: warranty.customerName,

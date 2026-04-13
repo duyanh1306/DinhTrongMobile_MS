@@ -13,7 +13,7 @@ const warrantySchema = new mongoose.Schema(
     isNewDevice: { type: Boolean, required: true },
     warrantyType: { 
       type: String, 
-      enum: ["REPLACEMENT", "REPAIR"], 
+      enum: [ "REPAIR"], 
       required: true 
     },
     status: {
@@ -26,7 +26,6 @@ const warrantySchema = new mongoose.Schema(
     processedAt: { type: Date },
     completedAt: { type: Date },
     notes: { type: String, default: "" },
-    replacementPhoneId: { type: mongoose.Schema.Types.ObjectId, ref: "Phone" },
     repairOrderId: { type: mongoose.Schema.Types.ObjectId, ref: "Repair_order" },
   },
   { timestamps: true }
