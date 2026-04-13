@@ -4,6 +4,7 @@ const repairOrderSchema = new mongoose.Schema(
   {
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true },
     customerName: { type: String, required: true },
+    technicianId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     customerPhone: { type: String },
     totalPrice: { type: Number, default: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

@@ -66,7 +66,7 @@ const getAllRepairOrders = async (req, res) => {
     }
     
     if (technicianId) {
-      query = query.where({ createdBy: technicianId });
+      query = query.where({ technicianId: technicianId });
     }
 
     const orders = await query
@@ -148,7 +148,6 @@ const getFilteredRepairOrders = async (req, res) => {
       
       // First, let's see all stores
       const allStores = await Store.find({});
-      console.log('=== ALL STORES IN DATABASE (FILTERED) ===');
       allStores.forEach((store, index) => {
         console.log(`Store ${index + 1}: ${store.name} (${store._id})`);
         console.log(`Staff array:`, store.staff);
@@ -157,20 +156,14 @@ const getFilteredRepairOrders = async (req, res) => {
       });
       
       const userStore = await Store.findOne({ staff: userId });
-      console.log('=== FILTERED STORE LOOKUP RESULT ===');
-      console.log('Found user store:', userStore);
       
       if (userStore) {
         userStoreId = userStore._id;
-        console.log('User store ID from staff lookup:', userStoreId);
       } else {
         console.log('User not found in any store staff array');
       }
       console.log('=== FILTERED STORE LOOKUP DEBUG END ===');
     }
-    
-    console.log('Filtered orders - User ID:', req.user?.id);
-    console.log('Filtered orders - User store ID:', userStoreId);
     
     // Build base query
     let query = RepairOrder.find();
@@ -269,6 +262,7 @@ const acceptRepairOrder = async (req, res) => {
     }
     
     order.status = "In Progress";
+    order.technicianId = req.user.id;
     await order.save();
     
     res.status(200).json({ message: "Đơn sửa chữa đã được chấp nhận", order });
@@ -356,7 +350,6 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
     const { id } = req.params;
     const { itemIds, items, serviceId } = req.body;
 
-    console.log('=== UPDATE REPAIR ORDER DETAILS DEBUG ===');
     console.log('Request body:', req.body);
     console.log('Extracted values:', {
       itemIds: itemIds ? `${itemIds.length} items` : 'undefined',
@@ -377,9 +370,6 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy chi tiết đơn sửa chữa" });
     }
 
-    console.log('Current repair order details before update:');
-    console.log('- Current serviceId:', details.serviceId);
-    console.log('- Current itemIds count:', details.itemIds ? details.itemIds.length : 0);
 
     // Update itemIds if provided
     if (itemIds !== undefined) {
@@ -417,15 +407,10 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
       serviceId: details.serviceId,
       itemIds: details.itemIds
     });
-    console.log('Repair order details saved successfully');
-    console.log('=== END DEBUG ===');
 
     // Create transfer requests for items not in current store
     let transferRequests = [];
     if (items && items.length > 0) {
-      console.log('Items received for transfer request creation:', items);
-      console.log('Current store ID:', repairOrder.storeId);
-
       // Check which items need transfer
       const itemsNeedingTransfer = items.filter(item => {
         const itemStoreId = item.storeId?._id || item.storeId;
@@ -505,7 +490,7 @@ const completeRepairOrder = async (req, res) => {
 
 const createRepairOrder = async (req, res) => {
   try {
-    const { storeId, customerName, customerPhone, repairServiceId, customerNote, createdBy } = req.body;
+    const { storeId, customerName, customerPhone, repairServiceId, technicianId, customerNote, createdBy } = req.body;
 
     // Validate required fields
     if (!storeId || !customerName || !createdBy) {
@@ -519,7 +504,8 @@ const createRepairOrder = async (req, res) => {
       customerPhone: customerPhone || "",
       totalPrice: 0,
       createdBy,
-      status: "Pending"
+      status: "Pending",
+      technicianId: null
     });
 
     await newRepairOrder.save();
