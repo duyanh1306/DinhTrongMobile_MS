@@ -3,7 +3,7 @@ import { ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight,
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { formatCurrency } from "../../utils/formatCurrency";
-import { fetchWebOrdersApi, markDeliveredApi, fulfillOrderApi } from "../../api/saleStaff/webOrder";
+import { fetchWebOrdersApi, fulfillOrderApi } from "../../api/saleStaff/webOrder"
 
 export default function SaleWebOrders() {
     const [orders, setOrders] = useState([]);
@@ -18,30 +18,24 @@ export default function SaleWebOrders() {
     }, []);
 
     useEffect(() => {
-        if (selectedOrder && scanInputRef.current && selectedOrder.orderStatus !== 'Delivering') {
+        if (selectedOrder && scanInputRef.current) {
             scanInputRef.current.focus();
         }
     }, [selectedOrder]);
 
     const loadWebOrders = async () => {
         setLoading(true);
-        const pendingOrders = await fetchWebOrdersApi();
-        setOrders(pendingOrders);
+        const data = await fetchWebOrdersApi(); 
+        setOrders(data.filter(o => ['Pending', 'Processing'].includes(o.orderStatus)));
         setLoading(false);
-    };
-
-    const handleMarkDelivered = async () => {
-        if (!window.confirm("Bạn xác nhận đơn vị vận chuyển đã giao đơn này thành công?")) return;
-        const success = await markDeliveredApi(selectedOrder._id);
-        if (success) {
-            setSelectedOrder(null);
-            loadWebOrders();
-        }
     };
 
     const handleSelectOrder = (order) => {
         setSelectedOrder(order);
-        setScannedSerials([]);
+        const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
+        const existingScansForThisOrder = savedDrafts[order._id] || [];
+        setScannedSerials(existingScansForThisOrder);
+        
         setScanInput("");
     };
 
@@ -65,6 +59,7 @@ export default function SaleWebOrders() {
     const handleScan = (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
+
             const code = scanInput.trim().toUpperCase();
             if (!code) return;
 
@@ -72,12 +67,18 @@ export default function SaleWebOrders() {
             const matchedItem = requiredItems.find(item => item.serial === code);
 
             if (!matchedItem) {
-                toast.error(`❌ MÃ SAI: ${code} không thuộc đơn hàng này!`);
+                toast.error(` MÃ SAI: ${code} không thuộc đơn hàng này!`);
             } else if (scannedSerials.includes(code)) {
-                toast.warning(`⚠️ Mã ${code} đã được quét rồi!`);
+                toast.warning(` Mã ${code} đã được quét rồi!`);
             } else {
-                setScannedSerials([...scannedSerials, code]);
-                toast.success(`✅ Đã nhận: ${matchedItem.name}`);
+                const newScannedSerials = [...scannedSerials, code];
+                setScannedSerials(newScannedSerials);
+                
+                const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
+                savedDrafts[selectedOrder._id] = newScannedSerials;
+                localStorage.setItem('scannedOrdersDraft', JSON.stringify(savedDrafts));
+
+                toast.success(` Đã nhận: ${matchedItem.name}`);
             }
             setScanInput("");
         }
@@ -85,10 +86,15 @@ export default function SaleWebOrders() {
 
     const handleFulfillOrder = async () => {
         const success = await fulfillOrderApi(selectedOrder._id, scannedSerials);
+    
         if (success) {
+            const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
+            delete savedDrafts[selectedOrder._id];
+            localStorage.setItem('scannedOrdersDraft', JSON.stringify(savedDrafts));
+    
             setSelectedOrder(null);
             setScannedSerials([]);
-            loadWebOrders();
+            loadWebOrders(); 
         }
     };
 
@@ -98,7 +104,7 @@ export default function SaleWebOrders() {
     return (
         <div className="flex h-full gap-6 p-2">
             <ToastContainer autoClose={2000} />
-            
+       
             <div className="w-1/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                     <h2 className="font-bold text-gray-800 flex items-center gap-2">
@@ -125,31 +131,50 @@ export default function SaleWebOrders() {
                             <p className="text-sm">Không có đơn hàng nào cần xử lý</p>
                         </div>
                     ) : (
-                        orders.map(order => (
-                            <div 
-                                key={order._id} 
-                                onClick={() => handleSelectOrder(order)}
-                                className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedOrder?._id === order._id ? 'border-orange-500 bg-orange-50/50 shadow-md' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className="font-bold text-sm text-gray-800">#{order.orderCode || order._id.substring(order._id.length-6).toUpperCase()}</span>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${order.orderStatus === 'Delivering' ? 'bg-blue-100 text-blue-700' : order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                        {order.orderStatus === 'Delivering' ? 'ĐANG ĐI GIAO' : order.paymentStatus === 'Paid' ? 'Đã Thanh Toán' : 'COD'}
-                                    </span>
+                        orders.map(order => {
+                            const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
+                            const scannedCount = savedDrafts[order._id] ? savedDrafts[order._id].length : 0;
+                            const totalRequired = getRequiredItems(order).length;
+
+                            return (
+                                <div 
+                                    key={order._id} 
+                                    onClick={() => handleSelectOrder(order)}
+                                    className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedOrder?._id === order._id ? 'border-orange-500 bg-orange-50/50 shadow-md' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="font-bold text-sm text-gray-800">#{order.orderCode || order._id.substring(order._id.length-6).toUpperCase()}</span>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            {order.paymentStatus === 'Paid' ? 'Đã Thanh Toán' : 'COD'}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-gray-600 mb-2">
+                                        <span className="font-medium text-gray-800">{order.shippingInfo?.fullName || 'Khách hàng'}</span> - {order.shippingInfo?.phone}
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-200">
+                                        <span className="text-[11px] text-gray-500 flex items-center gap-1"><Clock size={12}/> {new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
+                                        
+                                        {scannedCount > 0 && scannedCount < totalRequired && (
+                                            <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold animate-pulse">
+                                                Đang quét ({scannedCount}/{totalRequired})
+                                            </span>
+                                        )}
+                                        {scannedCount > 0 && scannedCount === totalRequired && (
+                                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
+                                                Sẵn sàng xuất
+                                            </span>
+                                        )}
+                                        
+                                        <span className="font-bold text-orange-600 text-sm">{formatCurrency(order.totalAmount)}</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-gray-600 mb-1">
-                                    <span className="font-medium text-gray-800">{order.shippingInfo?.fullName || 'Khách hàng'}</span> - {order.shippingInfo?.phone}
-                                </div>
-                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-gray-200">
-                                    <span className="text-[11px] text-gray-500 flex items-center gap-1"><Clock size={12}/> {new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
-                                    <span className="font-bold text-orange-600 text-sm">{formatCurrency(order.totalAmount)}</span>
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
 
+   
             <div className="w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 {!selectedOrder ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
@@ -167,29 +192,27 @@ export default function SaleWebOrders() {
 
                         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
                             
-                            {selectedOrder.orderStatus !== 'Delivering' && (
-                                <div className="bg-orange-50/50 p-6 rounded-2xl border border-orange-100 shadow-sm">
-                                    <div className="flex justify-between items-end mb-4">
-                                        <h3 className="text-sm font-bold text-gray-800 uppercase flex items-center gap-2"><ScanLine size={16} className="text-orange-600"/> Quét Serial đóng gói</h3>
-                                        <div className="text-sm font-bold">
-                                            Tiến độ: <span className={isReadyToShip ? 'text-green-600' : 'text-orange-600'}>{scannedSerials.length} / {requiredList.length}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="relative">
-                                        <input 
-                                            ref={scanInputRef}
-                                            type="text" 
-                                            placeholder="Tít mã vạch / Nhập Serial Code vào đây..." 
-                                            value={scanInput}
-                                            onChange={(e) => setScanInput(e.target.value)}
-                                            onKeyDown={handleScan}
-                                            className="w-full pl-4 pr-12 py-4 bg-white border-2 border-orange-200 rounded-xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 text-lg font-mono tracking-wider transition-all uppercase shadow-sm"
-                                        />
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold">Enter</div>
+                            <div className="bg-orange-50/50 p-6 rounded-2xl border border-orange-100 shadow-sm">
+                                <div className="flex justify-between items-end mb-4">
+                                    <h3 className="text-sm font-bold text-gray-800 uppercase flex items-center gap-2"><ScanLine size={16} className="text-orange-600"/> Quét Serial đóng gói</h3>
+                                    <div className="text-sm font-bold">
+                                        Tiến độ: <span className="text-green-600">{scannedSerials.length} / {requiredList.length}</span>
                                     </div>
                                 </div>
-                            )}
+                                
+                                <div className="relative">
+                                    <input 
+                                        ref={scanInputRef}
+                                        type="text" 
+                                        placeholder="Tít mã vạch / Nhập Serial Code vào đây..." 
+                                        value={scanInput}
+                                        onChange={(e) => setScanInput(e.target.value)}
+                                        onKeyDown={handleScan}
+                                        className="w-full pl-4 pr-12 py-4 bg-white border-2 border-orange-200 rounded-xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 text-lg font-mono tracking-wider transition-all uppercase shadow-sm"
+                                    />
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold">Enter</div>
+                                </div>
+                            </div>
 
                             <div>
                                 <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Globe size={16} className="text-orange-600"/> Đối chiếu sản phẩm</h3>
@@ -214,8 +237,8 @@ export default function SaleWebOrders() {
                                                             <td className="p-3 text-center font-bold">1</td>
                                                             <td className="p-3 text-right">
                                                             {item.phoneId?.serialCode ? (
-                                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${selectedOrder.orderStatus === 'Delivering' || scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-                                                                    {selectedOrder.orderStatus === 'Delivering' || scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
+                                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                                    {scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
                                                                     {item.phoneId.serialCode}
                                                                 </span>
                                                             ) : (
@@ -240,8 +263,8 @@ export default function SaleWebOrders() {
                                                                     <td className="p-3 text-center text-gray-500 text-[13px]">1</td>
                                                                     <td className="p-3 text-right">
                                                                         {part.serialCode ? (
-                                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${selectedOrder.orderStatus === 'Delivering' || scannedSerials.includes(part.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-                                                                                {selectedOrder.orderStatus === 'Delivering' || scannedSerials.includes(part.serialCode.toUpperCase()) ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
+                                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${scannedSerials.includes(part.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                                                {scannedSerials.includes(part.serialCode.toUpperCase()) ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
                                                                                 {part.serialCode}
                                                                             </span>
                                                                         ) : (
@@ -259,28 +282,20 @@ export default function SaleWebOrders() {
                                 </div>
                             </div>
                         </div>
-
+                        
+            
                         <div className="p-4 border-t bg-white">
-                            {selectedOrder.orderStatus === 'Delivering' ? (
-                                <button 
-                                    onClick={handleMarkDelivered}
-                                    className="w-full py-4 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2 transition-all"
-                                >
-                                    <CheckCircle size={20}/> XÁC NHẬN BƯU TÁ ĐÃ GIAO HÀNG (GỬI MAIL CHO KHÁCH)
-                                </button>
-                            ) : (
-                                <button 
-                                    onClick={handleFulfillOrder}
-                                    disabled={!isReadyToShip}
-                                    className={`w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 transition-all ${isReadyToShip ? 'bg-green-600 hover:bg-green-700 shadow-lg hover:-translate-y-0.5' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                                >
-                                    {isReadyToShip ? (
-                                        <><Truck size={20}/> ĐÃ QUÉT ĐỦ - XÁC NHẬN XUẤT KHO & GIAO HÀNG</>
-                                    ) : (
-                                        <><ScanLine size={20}/> VUI LÒNG QUÉT ĐỦ MÃ SERIAL ĐỂ XUẤT KHO ({scannedSerials.length}/{requiredList.length})</>
-                                    )}
-                                </button>
-                            )}
+                            <button 
+                                onClick={handleFulfillOrder}
+                                disabled={!isReadyToShip}
+                                className={`w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 transition-all ${isReadyToShip ? 'bg-green-600 hover:bg-green-700 shadow-lg hover:-translate-y-0.5' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                            >
+                                {isReadyToShip ? (
+                                    <><Truck size={20}/> ĐÃ QUÉT ĐỦ - XÁC NHẬN XUẤT KHO & GIAO HÀNG</>
+                                ) : (
+                                    <><ScanLine size={20}/> VUI LÒNG QUÉT ĐỦ MÃ SERIAL ĐỂ XUẤT KHO ({scannedSerials.length}/{requiredList.length})</>
+                                )}
+                            </button>
                         </div>
                     </>
                 )}

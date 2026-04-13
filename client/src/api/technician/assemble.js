@@ -22,9 +22,13 @@ export const fetchAssembleDataApi = async () => {
     }
 };
 
-export const submitAssemblePhoneApi = async (phoneData) => {
+export const submitAssemblePhoneApi = async (formData) => {
     try {
-        const res = await axiosClient.post("/phones/assemble", phoneData);
+        const res = await axiosClient.post("/phones/assemble", formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
         return res.data;
     } catch (error) {
         toast.error(error.response?.data?.message || "Dựng máy thất bại.");

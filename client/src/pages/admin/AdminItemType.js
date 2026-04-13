@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, Tag } from "lucide-react";
-
+import Swal from 'sweetalert2';
 import { fetchItemTypesPaginatedApi, fetchAllRecipesApi, deleteItemTypeApi, createItemTypeApi, updateItemTypeApi } from "../../api/admin/itemType";
 
 const BASE_CODES = {
@@ -157,7 +157,6 @@ export default function AdminItemType() {
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedBaseFilter, setSelectedBaseFilter] = useState(''); 
 
-   
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10; 
 
@@ -178,7 +177,6 @@ export default function AdminItemType() {
 
     useEffect(() => { fetchRecipes(); fetchItemType(); }, []);
 
-   
     useEffect(() => {
         setCurrentPage(1);
     }, [searchKeyword, selectedBaseFilter]);
@@ -198,11 +196,32 @@ export default function AdminItemType() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
-        const isSuccess = await deleteItemTypeApi(id);
-        if (isSuccess) {
-            toast.success("Xóa thành công!");
-            fetchItemType();
+        const result = await Swal.fire({
+            title: 'Xác nhận xóa?',
+            text: "Hành động này không thể hoàn tác!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy',
+            buttonsStyling: false, 
+            customClass: {
+                confirmButton: 'bg-red-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-600 transition ml-3 shadow-md',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition shadow-md'
+            }
+        });
+    
+        if (result.isConfirmed) {
+            const isSuccess = await deleteItemTypeApi(id);
+            if (isSuccess) {
+                Swal.fire({
+                    title: 'Thành công!',
+                    text: 'Danh mục đã được xóa.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                fetchItemType();
+            }
         }
     };
 
@@ -226,7 +245,7 @@ export default function AdminItemType() {
             setFormData({ name: itemType.name, baseCode: base, subCode: sub, image: itemType.image || '', linkedRecipes: existingLinks });
         } else {
             setIsEditing(false); setEditingId(null);
-            setFormData({ name: '', baseCode: 'MB', subCode: '', image: '', linkedRecipes: [] });
+            setFormData({ name: 'Mainboard ', baseCode: 'MB', subCode: '', image: '', linkedRecipes: [] });
         }
         setShowModal(true);
     };
@@ -271,7 +290,6 @@ export default function AdminItemType() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-   
         if (formData.linkedRecipes.length === 0 && !tempLink.recipeId) {
             return toast.error("Bắt buộc phải thêm ít nhất 1 Cấu hình máy ráp tương thích!");
         }
@@ -305,7 +323,22 @@ export default function AdminItemType() {
 
         if (isSuccess) {
             setShowModal(false);
-            fetchItemType();
+            
+            Swal.fire({
+                title: 'Thành công!',
+                text: isEditing ? 'Đã cập nhật danh mục thành công.' : 'Đã thêm danh mục mới thành công.',
+                icon: 'success',
+                confirmButtonText: 'Đóng',
+                allowOutsideClick: false,
+                buttonsStyling: false,
+                customClass: {
+                    confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition shadow-md'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.reload(); 
+                }
+            });
         }
     };
 
@@ -445,6 +478,7 @@ export default function AdminItemType() {
                     />
                 </div>
             )}
+            
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
@@ -454,35 +488,33 @@ export default function AdminItemType() {
                         </div>
 
                         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-5">
+                       
                             <div>
-                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Tên danh mục hiển thị *</label>
-                                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg focus:border-blue-500 outline-none text-sm" placeholder="VD: Pin iPhone 13..." />
-                            </div>
-                            <div>
-                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Mã Code (Tự động nhóm) *</label>
+                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Chọn Linh kiện (Mã Code) *</label>
                                 <div className="flex gap-2">
-                                    <select value={formData.baseCode} onChange={e => setFormData({...formData, baseCode: e.target.value})} className="w-1/2 border border-gray-300 p-2.5 rounded-lg focus:border-blue-500 outline-none bg-white text-gray-700 text-sm">
+                                    <select 
+                                        value={formData.baseCode} 
+                                        onChange={e => {
+                                            const newBaseCode = e.target.value;
+                                            const baseName = BASE_CODES[newBaseCode];
+                                            setFormData({
+                                                ...formData, 
+                                                baseCode: newBaseCode,
+                                       
+                                                name: baseName ? `${baseName} ` : ''
+                                            });
+                                        }} 
+                                        className="w-1/2 border border-gray-300 p-2.5 rounded-lg focus:border-blue-500 outline-none bg-white text-gray-700 text-sm"
+                                    >
                                         {Object.entries(BASE_CODES).map(([code, label]) => <option key={code} value={code}>{label} ({code})</option>)}
                                     </select>
                                     <input type="text" value={formData.subCode} onChange={e => setFormData({...formData, subCode: e.target.value.toUpperCase()})} className="w-1/2 border border-gray-300 p-2.5 rounded-lg focus:border-blue-500 outline-none uppercase font-mono text-sm" placeholder={formData.baseCode === 'OTH' ? "Nhập mã..." : "Đuôi (VD: IP13)"} />
                                 </div>
                                 <p className="text-[12px] text-gray-500 mt-2">Mã hệ thống: <strong className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded ml-1 border border-blue-200">{formData.baseCode === 'OTH' ? formData.subCode.toUpperCase() : (formData.subCode ? `${formData.baseCode}-${formData.subCode.toUpperCase()}` : formData.baseCode)}</strong></p>
                             </div>
-                            <div>
-                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Ảnh đại diện chung</label>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden relative group">
-                                        {formData.image ? <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" /> : <ImageIcon size={28} className="text-gray-300" />}
-                                        <div onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"><UploadCloud size={24} className="text-white" /></div>
-                                    </div>
-                                    <div className="flex-1">
-                                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
-                                        <button type="button" onClick={() => fileInputRef.current.click()} className="px-4 py-2 text-sm border border-blue-500 text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition w-full flex items-center justify-center gap-2"><UploadCloud size={18} /> Tải ảnh lên</button>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="pt-5 border-t border-gray-100 mt-3">
+                         
+                            <div className="pt-2">
                                 <label className="block text-[13px] font-bold mb-3 text-indigo-700 flex items-center gap-2">
                                     <LinkIcon size={18}/> Linh kiện máy tương thích <span className="text-red-500">*</span>
                                 </label>
@@ -512,6 +544,27 @@ export default function AdminItemType() {
                                         })}
                                     </div>
                                 )}
+                            </div>
+
+                           
+                            <div className="pt-3 border-t border-gray-100">
+                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Tên danh mục hiển thị *</label>
+                                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg focus:border-blue-500 outline-none text-sm" placeholder="VD: Pin iPhone 13..." />
+                            </div>
+                            
+                          
+                            <div>
+                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Ảnh đại diện chung</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden relative group">
+                                        {formData.image ? <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" /> : <ImageIcon size={28} className="text-gray-300" />}
+                                        <div onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"><UploadCloud size={24} className="text-white" /></div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
+                                        <button type="button" onClick={() => fileInputRef.current.click()} className="px-4 py-2 text-sm border border-blue-500 text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition w-full flex items-center justify-center gap-2"><UploadCloud size={18} /> Tải ảnh lên</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

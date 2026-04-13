@@ -48,11 +48,10 @@ export default function CustomerLayout({ children }) {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setIsMenuOpen(false);
-        navigate('/login');
-    };
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/";
+      };
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
@@ -69,7 +68,6 @@ export default function CustomerLayout({ children }) {
 
                     const keyword = searchQuery.trim().toLowerCase();
                     
-                    // SỬA LỖI Ở ĐÂY: Xử lý an toàn trường hợp m.brand là một Object
                     const filteredModels = allModels.filter(m => {
                         const matchName = m.name?.toLowerCase().includes(keyword);
                         const brandName = m.brand?.name || m.brand || "";
@@ -244,15 +242,6 @@ export default function CustomerLayout({ children }) {
                                         </Link>
                                         <Link to="/order-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
                                             <Package size={18} /> <span className="text-sm font-medium">Đơn hàng của tôi</span>
-                                        </Link>
-                                        <Link to="/repair-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
-                                            <Wrench size={18} /> <span className="text-sm font-medium">Lịch sử sửa chữa</span>
-                                        </Link>
-                                        <Link to="/addresses" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
-                                            <MapPin size={18} /> <span className="text-sm font-medium">Sổ địa chỉ</span>
-                                        </Link>
-                                        <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
-                                            <Heart size={18} /> <span className="text-sm font-medium">Sản phẩm yêu thích</span>
                                         </Link>
                                     </div>
                                     

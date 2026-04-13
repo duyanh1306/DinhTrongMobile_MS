@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {BrowserRouter, Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -57,7 +57,6 @@ import RepairInProgressDetail from "./pages/technician/RepairInProgressDetail";
 import SaleOrders from "./pages/saleStaff/SaleOrders";
 import SalePOS from "./pages/saleStaff/SalePOS";
 import TechStorage from "./pages/technician/TechStorage";
-import TechRequest from "./pages/technician/TechRequest";
 import Warranty from "./pages/technician/Warranty";
 import SaleTransferExportList from "./pages/saleStaff/SaleTransferExportList";
 import SaleTransferExportDetail from "./pages/saleStaff/SaleTransferExportDetail";
@@ -75,6 +74,33 @@ import ManagerPurchaseHistory from "./pages/manager/ManagerPurchaseHistory";
 import Profile from "./pages/common/Profile";
 
 
+const RootRedirect = () => {
+    const userStr = localStorage.getItem("user");
+    if (!userStr) {
+        return <Navigate to="/home" replace />;
+    }
+
+    try {
+        const user = JSON.parse(userStr);
+        const role = user.roleId?.id || user.roleId;
+
+        switch (role) {
+            case "ADMIN":
+                return <Navigate to="/admin/dashboard" replace />;
+            case "MANAGER":
+                return <Navigate to="/manager/dashboard" replace />;
+            case "SALE_STAFF":
+                return <Navigate to="/sale/dashboard" replace />;
+            case "TECHNICIAN":
+                return <Navigate to="/tech/dashboard" replace />;
+            case "CUSTOMER":
+            default:
+                return <Navigate to="/home" replace />;
+        }
+    } catch (error) {
+        return <Navigate to="/home" replace />;
+    }
+};
 const PrivateRoute = ({children, allowedRoles}) => {
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user"));
@@ -116,11 +142,12 @@ const RoleBasedLayout = ({children}) => {
 };
 
 function App() {
+    
     return (
         <BrowserRouter>
             <Routes>
               
-                <Route path="/" element={<Navigate to="/home" replace/>}/>
+                <Route path="/" element={<RootRedirect />} />
                 <Route path="/login" element={<Login/>}/>
                 <Route path="/register" element={<Register/>}/>
                 <Route path="/verify-otp" element={<VerifyOtp/>}/>
@@ -460,16 +487,7 @@ function App() {
                         </PrivateRoute>
                     }
                 />
-                <Route
-                    path="/tech/components"
-                    element={
-                        <PrivateRoute allowedRoles={["TECHNICIAN"]}>
-                            <TechLayout>
-                                <TechRequest/>
-                            </TechLayout>
-                        </PrivateRoute>
-                    }
-                />
+            
                 <Route
                     path="/tech/warranty"
                     element={

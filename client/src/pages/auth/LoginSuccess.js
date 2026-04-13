@@ -11,15 +11,15 @@ const LoginSuccess = () => {
     const userString = searchParams.get('user');
 
     if (token && userString) {
-      // 1. Lưu dữ liệu vào máy
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', decodeURIComponent(userString));
-      
+      sessionStorage.setItem('is_tab_alive', 'true');
+
       try {
         const decoded = jwtDecode(token);
         const role = decoded.roleName; 
 
-        // 2. PHÂN QUYỀN ĐIỀU HƯỚNG 
         if (role === 'ADMIN') {
           navigate('/admin/dashboard');
         } else if (role === 'SALE_STAFF') {
@@ -27,7 +27,6 @@ const LoginSuccess = () => {
         } else if (role === 'TECHNICIAN') {
           navigate('/tech/dashboard');
         } else {
-          
           navigate('/home');
         }
       } catch (error) {

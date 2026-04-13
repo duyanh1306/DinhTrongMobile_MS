@@ -12,20 +12,6 @@ export const fetchWebOrdersApi = async () => {
   }
 };
 
-export const markDeliveredApi = async (orderId) => {
-  try {
-    const res = await axiosClient.put(`/orders/${orderId}/mark-delivered`);
-    if (res.data.success) {
-      toast.success("Đã đánh dấu giao hàng. Đang chờ khách xác nhận!");
-      return true;
-    }
-    return false;
-  } catch (error) {
-    toast.error("Lỗi cập nhật trạng thái");
-    return false;
-  }
-};
-
 export const fulfillOrderApi = async (orderId, scannedSerials) => {
   try {
     const res = await axiosClient.put(`/orders/${orderId}/fulfill`, {
