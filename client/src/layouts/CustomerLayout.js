@@ -243,15 +243,6 @@ export default function CustomerLayout({ children }) {
                                         <Link to="/order-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
                                             <Package size={18} /> <span className="text-sm font-medium">Đơn hàng của tôi</span>
                                         </Link>
-                                        <Link to="/repair-history" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
-                                            <Wrench size={18} /> <span className="text-sm font-medium">Lịch sử sửa chữa</span>
-                                        </Link>
-                                        <Link to="/addresses" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
-                                            <MapPin size={18} /> <span className="text-sm font-medium">Sổ địa chỉ</span>
-                                        </Link>
-                                        <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50 hover:text-red-600 transition">
-                                            <Heart size={18} /> <span className="text-sm font-medium">Sản phẩm yêu thích</span>
-                                        </Link>
                                     </div>
                                     
                                     <div className="border-t border-gray-100 p-2">

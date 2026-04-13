@@ -44,7 +44,7 @@ export const updateWarrantyRequest = async (id, warrantyData) => {
   }
 };
 
-// Process warranty request (approve replacement or repair)
+// Process warranty request (create repair order)
 export const processWarrantyRequest = async (id, processData) => {
   try {
     const response = await axiosClient.put(`/warranty/${id}/process`, processData);

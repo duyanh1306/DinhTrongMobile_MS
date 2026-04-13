@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { User, Save } from "lucide-react";
-import { toast } from "react-toastify";
+import { User, Save, FileText, TextSearch } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { createRepairOrderApi } from "../../api/saleStaff/createRepairOrder"; 
 
 export default function SaleCreateRepairOrder() {
   const [customer, setCustomer] = useState({ name: "", phone: "" });
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
 
   const validateCustomer = () => {
@@ -40,6 +42,8 @@ export default function SaleCreateRepairOrder() {
       storeId: currentStoreId,
       customerName: customer.name,
       customerPhone: customer.phone,
+      technicianId: null,
+      note: note,
       createdBy: user._id
     };
 
@@ -48,6 +52,7 @@ export default function SaleCreateRepairOrder() {
     if (result.success) {
         toast.success("Đã tạo đơn sửa chữa thành công!");
         setCustomer({ name: "", phone: "" });
+        setNote("");
     } else {
         toast.error(result.message);
     }
@@ -57,7 +62,8 @@ export default function SaleCreateRepairOrder() {
 
   return (
     <div className="flex h-screen bg-gray-100 p-4 overflow-hidden">
-      <div className="max-w-2xl mx-auto w-full">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <div className="max-w-2xl mx-auto w-full overflow-y-auto">
         <div className="bg-white rounded-xl shadow-sm border">
           <div className="p-6 border-b bg-gray-50">
             <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2">
@@ -101,6 +107,20 @@ export default function SaleCreateRepairOrder() {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
+                <FileText size={18} className="text-blue-600" />
+                Ghi chú tình trạng khách báo (Tùy chọn)
+              </h3>
+              <textarea
+                rows="4"
+                placeholder="VD: Khách báo vỡ màn hình, liệt cảm ứng..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white resize-none"
+              ></textarea>
             </div>
 
             <div className="flex justify-end pt-4 border-t">

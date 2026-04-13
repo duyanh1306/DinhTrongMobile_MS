@@ -13,7 +13,7 @@ const CountdownTimer = ({ updatedAt }) => {
         if (!updatedAt) return;
         
         const calculateTime = () => {
-            const soNgayDemNguoc = 1/24/6; 
+            const soNgayDemNguoc = 7; 
             const deadline = new Date(updatedAt).getTime() + soNgayDemNguoc * 24 * 60 * 60 * 1000;
             const now = new Date().getTime();
             const diff = deadline - now;

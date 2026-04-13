@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Package, ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight, AlertCircle } from "lucide-react";
+import { ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight, AlertCircle } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import axiosClient from "../../api/axiosClient"; 
+import { formatCurrency } from "../../utils/formatCurrency";
+import { fetchWebOrdersApi, fulfillOrderApi } from "../../api/saleStaff/webOrder"
 
 export default function SaleWebOrders() {
     const [orders, setOrders] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [loading, setLoading] = useState(true);
-
     const [scanInput, setScanInput] = useState("");
     const [scannedSerials, setScannedSerials] = useState([]);
     const scanInputRef = useRef(null);
 
     useEffect(() => {
-        fetchWebOrders();
+        loadWebOrders();
     }, []);
 
     useEffect(() => {
@@ -23,20 +23,11 @@ export default function SaleWebOrders() {
         }
     }, [selectedOrder]);
 
-    const fetchWebOrders = async () => {
-        try {
-            setLoading(true);
-            const res = await axiosClient.get('/orders/all'); 
-            const allOrders = res.data.data || res.data;
-            const pendingOrders = allOrders.filter(o => 
-                ['Pending', 'Processing'].includes(o.orderStatus)
-            );
-            setOrders(pendingOrders);
-        } catch (error) {
-            toast.error("Không thể tải danh sách đơn hàng!");
-        } finally {
-            setLoading(false);
-        }
+    const loadWebOrders = async () => {
+        setLoading(true);
+        const data = await fetchWebOrdersApi(); 
+        setOrders(data.filter(o => ['Pending', 'Processing'].includes(o.orderStatus)));
+        setLoading(false);
     };
 
     const handleSelectOrder = (order) => {
@@ -94,28 +85,18 @@ export default function SaleWebOrders() {
     };
 
     const handleFulfillOrder = async () => {
-        try {
-            const res = await axiosClient.put(`/orders/${selectedOrder._id}/fulfill`, {
-                assignedSerials: scannedSerials
-            });
-
-            if (res.data.success) {
-                toast.success("Xuất kho thành công! Đơn hàng đang được giao cho bưu tá.");
-                
-                const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
-                delete savedDrafts[selectedOrder._id];
-                localStorage.setItem('scannedOrdersDraft', JSON.stringify(savedDrafts));
-
-                setSelectedOrder(null);
-                setScannedSerials([]);
-                fetchWebOrders(); 
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi khi xuất kho!");
+        const success = await fulfillOrderApi(selectedOrder._id, scannedSerials);
+    
+        if (success) {
+            const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
+            delete savedDrafts[selectedOrder._id];
+            localStorage.setItem('scannedOrdersDraft', JSON.stringify(savedDrafts));
+    
+            setSelectedOrder(null);
+            setScannedSerials([]);
+            loadWebOrders(); 
         }
     };
-
-    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
     const requiredList = getRequiredItems(selectedOrder);
     const isReadyToShip = requiredList.length > 0 && scannedSerials.length === requiredList.length;
@@ -184,7 +165,7 @@ export default function SaleWebOrders() {
                                             </span>
                                         )}
                                         
-                                        <span className="font-bold text-orange-600 text-sm">{formatMoney(order.totalAmount)}</span>
+                                        <span className="font-bold text-orange-600 text-sm">{formatCurrency(order.totalAmount)}</span>
                                     </div>
                                 </div>
                             );
@@ -197,7 +178,7 @@ export default function SaleWebOrders() {
             <div className="w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 {!selectedOrder ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-                        <Package size={64} className="mb-4 opacity-20" />
+                        <Globe size={64} className="mb-4 opacity-20" />
                         <p>Chọn một đơn hàng bên trái để bắt đầu xử lý</p>
                     </div>
                 ) : (
@@ -234,7 +215,7 @@ export default function SaleWebOrders() {
                             </div>
 
                             <div>
-                                <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Package size={16} className="text-orange-600"/> Đối chiếu sản phẩm</h3>
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Globe size={16} className="text-orange-600"/> Đối chiếu sản phẩm</h3>
                                 <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-gray-100 text-gray-600 text-[11px] uppercase tracking-wider">

@@ -16,22 +16,29 @@ const payos = new PayOS({
 });
 
 const autoCompleteOverdueOrders = async () => {
-    try {
-        const tenMinutesAgo = new Date();
-        tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
 
+    try {
+
+        const sevenDaysAgo = new Date();
+
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         await Order.updateMany(
+
             {
                 orderStatus: 'Delivering',
-                updatedAt: { $lte: tenMinutesAgo } 
+                shippedAt: { $lte: sevenDaysAgo }
+
             },
             {
                 $set: { orderStatus: 'Completed' }
             }
         );
     } catch (error) {
-        console.error("Lỗi cập nhật thụ động 10 phút:", error);
+
+        console.error("Lỗi cập nhật thụ động 7 ngày:", error);
+
     }
+
 };
 const createOrder = async (req, res) => {
     try {
