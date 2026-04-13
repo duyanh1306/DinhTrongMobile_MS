@@ -1,5 +1,4 @@
 import { useState } from "react";
-// Import Navbar chung hoặc Navbar riêng nếu bạn copy ra
 import Navbar from "../components/admin/Navbar"; 
 import SaleSidebar from "../components/saleStaff/SaleSidebar";
 
