@@ -60,3 +60,11 @@ export const useTechSidebarItems = () => {
         },
     ];
 };
+
+export const initialChecklist = {
+    screen: { name: "Màn hình", status: "OK", detail: "95%" },
+    battery: { name: "Pin", status: "OK", detail: "95%" },
+    camera: { name: "Camera & FaceID", status: "OK", detail: "95%" },
+    mainboard: { name: "Mainboard", status: "OK", detail: "95%" },
+    casing: { name: "Vỏ / Ngoại hình", status: "OK", detail: "95%" },
+  };

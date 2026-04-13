@@ -72,7 +72,7 @@ const getAllRepairOrders = async (req, res) => {
     const orders = await query
       .populate("storeId", "name code")
       .populate("createdBy", "fullName")
-      .sort({ repairOrderDate: 1 });
+      .sort({ repairOrderDate: -1 });
 
     // Add repair type to each order
     const ordersWithType = await Promise.all(

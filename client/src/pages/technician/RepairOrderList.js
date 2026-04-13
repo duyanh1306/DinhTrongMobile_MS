@@ -8,13 +8,11 @@ import TabNavigation from "../../components/technician/TabNavigation";
 import TradeInTab from "../../components/technician/trade-in/TradeInTab";
 import WaitingDecisionTab from "../../components/technician/waiting-decision/WaitingDecisionTab";
 import RepairOrdersTab from "../../components/technician/repair-orders/RepairOrdersTab";
+import { initialChecklist } from "../../constraints";
 
 const RepairOrderList = () => {
   const [activeTab, setActiveTab] = useState("TRADE_IN");
 
-  // =========================================================================
-  // STATE: TRADE IN (ĐỊNH GIÁ THU MUA)
-  // =========================================================================
   const [tradeInRequests, setTradeInRequests] = useState([]);
   const [selectedTradeIn, setSelectedTradeIn] = useState(null);
   const [phoneModels, setPhoneModels] = useState([]);
@@ -27,13 +25,6 @@ const RepairOrderList = () => {
     ram: "",
   });
 
-  const initialChecklist = {
-    screen: { name: "Màn hình", status: "OK", detail: "95%" },
-    battery: { name: "Pin", status: "OK", detail: "95%" },
-    camera: { name: "Camera & FaceID", status: "OK", detail: "95%" },
-    mainboard: { name: "Mainboard", status: "OK", detail: "95%" },
-    casing: { name: "Vỏ / Ngoại hình", status: "OK", detail: "95%" },
-  };
   const [checklist, setChecklist] = useState(initialChecklist);
   const isBasicInfoFilled =
     valuation.phoneModelId &&
@@ -41,9 +32,6 @@ const RepairOrderList = () => {
     valuation.capacity &&
     valuation.ram;
 
-  // =========================================================================
-  // STATE: WAITING DECISION (XỬ LÝ MÁY THU CŨ)
-  // =========================================================================
   const [waitingPhones, setWaitingPhones] = useState([]);
   const [selectedDecisionPhone, setSelectedDecisionPhone] = useState(null);
   const [decision, setDecision] = useState("DIRECT_IMPORT");
@@ -55,13 +43,8 @@ const RepairOrderList = () => {
   });
   const [dismantleParts, setDismantleParts] = useState([]);
 
-  // STATE MỚI QUẢN LÝ THAY THẾ LINH KIỆN
   const [replacementParts, setReplacementParts] = useState([]);
   const [availablePartsInStock, setAvailablePartsInStock] = useState([]);
-
-  // =========================================================================
-  // STATE: REPAIR ORDERS
-  // =========================================================================
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [stores, setStores] = useState([]);
@@ -80,9 +63,6 @@ const RepairOrderList = () => {
     customerName: "",
   });
 
-  // =========================================================================
-  // EFFECTS ĐIỀU HƯỚNG TABS
-  // =========================================================================
   useEffect(() => {
     if (activeTab === "TRADE_IN") {
       fetchTradeInRequests();
@@ -268,9 +248,6 @@ const RepairOrderList = () => {
     }
   };
 
-  // =========================================================================
-  // FUNCTIONS: REPAIR (KHÁCH CHỜ SỬA CHỮA)
-  // =========================================================================
   const fetchStores = async () => {
     try {
       const response = await axiosClient.get("/stores");
