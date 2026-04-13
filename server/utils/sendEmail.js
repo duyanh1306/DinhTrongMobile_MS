@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 const Order = require("../models/Order"); 
 
-// Hàm 1: Gửi email thông báo chung
+
 const sendEmail = async (email, subject, text) => {
   try {
     const transporter = nodemailer.createTransport({
@@ -23,7 +23,7 @@ const sendEmail = async (email, subject, text) => {
   }
 };
 
-// Hàm 2: Gửi hóa đơn điện tử siêu chi tiết
+
 const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
     try {
         const transporter = nodemailer.createTransport({
@@ -191,35 +191,34 @@ const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
     }
 };
 const sendConfirmRequestEmail = async (customerEmail, orderData, customerName) => {
-  try {
-      const transporter = nodemailer.createTransport({
-          service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
-      });
+    try {
+        const transporter = nodemailer.createTransport({
+            service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
+        });
+  
+        const historyLink = `http://localhost:3000/order-history`;
+  
+        await transporter.sendMail({
+            from: '"Dinh Trong Mobile" <tominhthanh75@gmail.com>',
+            to: customerEmail,
+            subject: `[DinhTrongMobile] Đơn hàng #${orderData.orderCode || orderData._id.toString().substring(18)} đang trên đường giao đến bạn!`,
+            html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <h2 style="color: #d70018;">Đơn hàng đã xuất kho!</h2>
+                <p>Xin chào <strong>${customerName}</strong>,</p>
+                <p>Đơn hàng của bạn đã rời kho và đang được đơn vị vận chuyển giao đến cho bạn.</p>
+                <p>Sau khi nhận được sản phẩm, vui lòng truy cập vào tài khoản của bạn trên Website và bấm xác nhận đã nhận hàng.</p>
+                <div style="text-align: center; margin: 25px 0;">
+                    <a href="${historyLink}" style="background-color: #d70018; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">XÁC NHẬN ĐÃ NHẬN HÀNG</a>
+                </div>
+                <p style="color: #666; font-size: 13px;"><em>* Lưu ý: Nếu sau 7 ngày kể từ lúc nhận được email này, bạn không phản hồi xác nhận hoặc báo cáo sự cố (chưa nhận được hàng), hệ thống sẽ tự động chuyển đơn hàng sang trạng thái "Đã hoàn thành".</em></p>
+            </div>
+            `
+        });
+        return true;
+    } catch (error) { console.error("Lỗi gửi mail nhắc:", error); return false; }
+  };
 
-      const historyLink = `http://localhost:3000/order-history`;
-
-      await transporter.sendMail({
-          from: '"Dinh Trong Mobile" <tominhthanh75@gmail.com>',
-          to: customerEmail,
-          subject: `[DinhTrongMobile] Đơn hàng #${orderData.orderCode || orderData._id.toString().substring(18)} đã được giao thành công!`,
-          html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-              <h2 style="color: #d70018;">Đơn hàng đã giao thành công!</h2>
-              <p>Xin chào <strong>${customerName}</strong>,</p>
-              <p>Theo thông tin từ đơn vị vận chuyển, đơn hàng của bạn đã được giao đến nơi.</p>
-              <p>Vui lòng truy cập vào tài khoản của bạn trên Website và xác nhận đã nhận hàng.</p>
-              <div style="text-align: center; margin: 25px 0;">
-                  <a href="${historyLink}" style="background-color: #d70018; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">XÁC NHẬN ĐÃ NHẬN HÀNG</a>
-              </div>
-              <p style="color: #666; font-size: 13px;"><em>* Lưu ý: Nếu sau 3 ngày bạn không có phản hồi, hệ thống sẽ tự động chuyển đơn hàng sang trạng thái Đã hoàn thành. Nếu bạn chưa nhận được hàng, vui lòng bấm báo cáo trong Lịch sử đơn hàng.</em></p>
-          </div>
-          `
-      });
-      return true;
-  } catch (error) { console.error("Lỗi gửi mail nhắc:", error); return false; }
-};
-
-// 2. Email báo động cho TẤT CẢ Sale của Cửa hàng khi khách bấm "Chưa nhận được hàng"
 const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, customerPhone) => {
   try {
       const toEmails = staffEmailsArray.length > 0 ? staffEmailsArray.join(',') : "tominhthanh75@gmail.com";
@@ -247,7 +246,7 @@ const sendIssueReportEmail = async (staffEmailsArray, orderData, customerName, c
       return true;
   } catch (error) {  return false; }
 };
-// 3. Email báo cho Manager B khi có người xin hàng
+
 const sendTransferRequestCreatedEmail = async (managerEmailsArray, requestData, fromStoreName, toStoreName) => {
     try {
         const toEmails = managerEmailsArray.length > 0 ? managerEmailsArray.join(',') : "tominhthanh75@gmail.com";
@@ -277,7 +276,7 @@ const sendTransferRequestCreatedEmail = async (managerEmailsArray, requestData, 
     } catch (error) {  return false; }
 };
 
-// 4. Email báo cho Sale B khi Manager B duyệt, yêu cầu Sale xuất kho
+
 const sendTransferRequestApprovedEmail = async (saleEmailsArray, requestData, fromStoreName, toStoreName) => {
     try {
         const toEmails = saleEmailsArray.length > 0 ? saleEmailsArray.join(',') : "tominhthanh75@gmail.com";

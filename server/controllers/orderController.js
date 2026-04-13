@@ -4,6 +4,7 @@ const Phone = require("../models/Phone");
 const Item = require("../models/Item");
 const User = require("../models/User");
 const InventoryTransaction = require("../models/Inventory_transaction");
+const InventoryTransactionDetail = require("../models/Inventory_transaction_detail"); 
 const { sendConfirmRequestEmail, sendIssueReportEmail } = require("../utils/sendEmail");
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -14,6 +15,24 @@ const payos = new PayOS({
     checksumKey: process.env.PAYOS_CHECKSUM_KEY.trim()
 });
 
+const autoCompleteOverdueOrders = async () => {
+    try {
+        const tenMinutesAgo = new Date();
+        tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
+
+        await Order.updateMany(
+            {
+                orderStatus: 'Delivering',
+                updatedAt: { $lte: tenMinutesAgo } 
+            },
+            {
+                $set: { orderStatus: 'Completed' }
+            }
+        );
+    } catch (error) {
+        console.error("Lỗi cập nhật thụ động 10 phút:", error);
+    }
+};
 const createOrder = async (req, res) => {
     try {
         const { userId, storeId, items, totalAmount, shippingInfo, paymentMethod } = req.body;
@@ -78,6 +97,9 @@ const payosWebhook = async (req, res) => {
 
 const getOrdersByUser = async (req, res) => {
     try {
+        
+        await autoCompleteOverdueOrders();
+
         const { userId } = req.params;
         const orders = await Order.find({ userId })
             .populate('storeId', 'name address')
@@ -90,6 +112,9 @@ const getOrdersByUser = async (req, res) => {
 
 const getOrderById = async (req, res) => {
     try {
+       
+        await autoCompleteOverdueOrders();
+
         const { id } = req.params;
         const order = await Order.findById(id)
             .populate('items.selectedParts', 'name price serialCode warrantyPeriod') 
@@ -113,10 +138,20 @@ const fulfillOnlineOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: "Vui lòng quét ít nhất 1 mã Serial để xuất kho!" });
         }
 
-        const order = await Order.findById(id);
+        const order = await Order.findById(id).populate('userId', 'name email');
         if (!order) return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng" });
 
-        const transactionLogs = [];
+        const newTransaction = new InventoryTransaction({
+            storeId: order.storeId,
+            transactionType: "OUTBOUND",
+            referenceType: "WEB_ORDER",
+            referenceId: order._id,
+            totalItems: assignedSerials.length,
+            note: `Xuất kho giao đơn Web: ${order.orderCode || order._id}`
+        });
+        await newTransaction.save();
+
+        const transactionDetails = [];
 
         for (let serial of assignedSerials) {
             let foundPhone = await Phone.findOne({ serialCode: serial, status: "reserved" });
@@ -128,40 +163,42 @@ const fulfillOnlineOrder = async (req, res) => {
             }
 
             if (!foundPhone && !foundItem) {
+                await InventoryTransaction.findByIdAndDelete(newTransaction._id);
                 return res.status(400).json({ success: false, message: `Mã Serial ${serial} không tồn tại hoặc đã bị xuất kho!` });
             }
 
             if (foundPhone) {
                 foundPhone.status = 'sold';
                 await foundPhone.save();
-                transactionLogs.push({
-                    storeId: foundPhone.storeId || order.storeId,
-                    transactionType: "OUTBOUND",
-                    referenceType: "WEB_ORDER",
-                    referenceId: order._id,
+                transactionDetails.push({
+                    transactionId: newTransaction._id,
                     phoneId: foundPhone._id,
-                    note: `Xuất kho giao đơn Web: ${order.orderCode}`
+                    quantity: 1,
+                    note: "Xuất điện thoại"
                 });
             } else if (foundItem) {
                 foundItem.status = 'assembled_and_sold'; 
                 await foundItem.save();
-                transactionLogs.push({
-                    storeId: foundItem.storeId || order.storeId,
-                    transactionType: "OUTBOUND",
-                    referenceType: "WEB_ORDER",
-                    referenceId: order._id,
+                transactionDetails.push({
+                    transactionId: newTransaction._id,
                     itemId: foundItem._id,
-                    note: `Xuất linh kiện ráp máy cho đơn Web: ${order.orderCode}`
+                    quantity: 1,
+                    note: "Xuất linh kiện"
                 });
             }
         }
 
-        if (transactionLogs.length > 0) {
-            await InventoryTransaction.insertMany(transactionLogs);
+        if (transactionDetails.length > 0) {
+            await InventoryTransactionDetail.insertMany(transactionDetails);
         }
 
         order.orderStatus = 'Delivering';
+        order.shippedAt = new Date(); 
         await order.save();
+
+        const customerEmail = order.userId?.email || order.shippingInfo?.email || "email_khach@gmail.com";
+        const customerName = order.shippingInfo?.fullName || order.userId?.name || "Quý khách";
+        sendConfirmRequestEmail(customerEmail, order, customerName);
 
         res.status(200).json({ success: true, message: "Xuất kho đi ship thành công!", data: order });
     } catch (error) {
@@ -172,6 +209,9 @@ const fulfillOnlineOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
     try {
+    
+        await autoCompleteOverdueOrders();
+
         const orders = await Order.find({})
             .populate('storeId', 'name address location phone')
             .populate('items.selectedParts', 'name serialCode') 
@@ -182,27 +222,6 @@ const getAllOrders = async (req, res) => {
     } catch (error) {
         console.error("Lỗi lấy danh sách tất cả đơn hàng:", error);
         res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-const markAsDeliveredBySale = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const order = await Order.findById(id).populate('userId', 'name email');
-        if (!order) return res.status(404).json({ success: false, message: "Không tìm thấy đơn" });
-
-        order.orderStatus = 'Waiting_Confirm';
-        order.deliveredAt = new Date(); 
-        await order.save();
-
-        const customerEmail = order.userId?.email || "email_khach@gmail.com";
-        const customerName = order.shippingInfo?.fullName || order.userId?.name || "Quý khách";
-        sendConfirmRequestEmail(customerEmail, order, customerName);
-
-        res.status(200).json({ success: true, message: "Đã đánh dấu Đã giao, đang chờ khách xác nhận." });
-    } catch (error) { 
-        console.error("Lỗi markAsDeliveredBySale:", error);
-        res.status(500).json({ success: false, message: error.message }); 
     }
 };
 
@@ -248,5 +267,5 @@ const customerReportIssue = async (req, res) => {
 
 module.exports = { 
     createOrder, getOrdersByUser, getOrderById, payosWebhook, fulfillOnlineOrder, getAllOrders,
-    markAsDeliveredBySale, customerConfirmReceipt, customerReportIssue
+    customerConfirmReceipt, customerReportIssue
 };

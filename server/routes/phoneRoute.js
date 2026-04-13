@@ -491,7 +491,7 @@ router.delete("/:id", authInternal, deletePhone);
  *       500:
  *         description: Internal server error
  */
-router.post('/assemble', authTechnician, createAssembledPhone);
+router.post('/assemble', authTechnician, uploadCloud.array("images", 5), createAssembledPhone);
 
 /**
  * @swagger

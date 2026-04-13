@@ -48,11 +48,10 @@ export default function CustomerLayout({ children }) {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setIsMenuOpen(false);
-        navigate('/login');
-    };
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/";
+      };
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
@@ -69,7 +68,6 @@ export default function CustomerLayout({ children }) {
 
                     const keyword = searchQuery.trim().toLowerCase();
                     
-                    // SỬA LỖI Ở ĐÂY: Xử lý an toàn trường hợp m.brand là một Object
                     const filteredModels = allModels.filter(m => {
                         const matchName = m.name?.toLowerCase().includes(keyword);
                         const brandName = m.brand?.name || m.brand || "";

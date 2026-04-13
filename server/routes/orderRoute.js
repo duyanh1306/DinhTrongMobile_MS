@@ -536,40 +536,6 @@ router.post('/payos-webhook', orderController.payosWebhook);
  */
 router.put('/:id/fulfill', orderController.fulfillOnlineOrder);
 
-/**
- * @swagger
- * /api/orders/{id}/mark-delivered:
- *   put:
- *     summary: Mark order as delivered
- *     description: Mark order as delivered by sale staff and send confirmation email to customer
- *     tags: [Orders]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Order ID
- *     responses:
- *       200:
- *         description: Order marked as delivered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Đã đánh dấu Đã giao, đang chờ khách xác nhận."
- *       404:
- *         description: Order not found
- *       500:
- *         description: Internal server error
- */
-router.put('/:id/mark-delivered', orderController.markAsDeliveredBySale);
 
 /**
  * @swagger

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Wrench, CheckCircle, Search, Plus, X, Filter, Trash2, Package, Edit, Bell, AlertCircle, Info, Eye, ArrowLeft, RefreshCw } from "lucide-react";
+import { Wrench, CheckCircle, Search, Plus, X, Filter, Package, Eye, ArrowLeft, RefreshCw, Camera, UploadCloud } from "lucide-react";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 
-// 🌟 IMPORT API
 import { fetchAssembleDataApi, submitAssemblePhoneApi } from "../../api/technician/assemble";
 
 export default function AssemblePhone() {
@@ -11,18 +11,17 @@ export default function AssemblePhone() {
     const [itemTypesMap, setItemTypesMap] = useState({}); 
     const [loading, setLoading] = useState(true);
 
-    const [viewMode, setViewMode] = useState('LIST'); // 'LIST' hoặc 'DETAIL'
+    const [viewMode, setViewMode] = useState('LIST'); 
     const [selectedRecipe, setSelectedRecipe] = useState("");
     const [selectedParts, setSelectedParts] = useState({}); 
+    const [assemblyImages, setAssemblyImages] = useState([]); 
 
     const user = JSON.parse(localStorage.getItem('user')) || {};
     const techStoreId = user?.storeId?._id || user?.storeId || "";
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentPartType, setCurrentPartType] = useState(null); 
-    const [showNotifications, setShowNotifications] = useState(false);
-    
-    // Filters trong Modal
+   
     const [modalSearch, setModalSearch] = useState("");
     const [listSearch, setListSearch] = useState(""); 
     const [modalOriginFilter, setModalOriginFilter] = useState(""); 
@@ -57,7 +56,6 @@ export default function AssemblePhone() {
         setLoading(false);
     };
 
-    // 🌟 QUÉT KHO VÀ ĐÁNH DẤU CÁC MÁY ĐỦ ĐIỀU KIỆN RÁP (Cần bù tối đa 2 món mới)
     const notifications = useMemo(() => {
         if (!recipes.length || !allItems.length) return [];
         const notifs = [];
@@ -103,14 +101,12 @@ export default function AssemblePhone() {
         return notifs;
     }, [recipes, allItems]);
 
-    // 🌟 TÍNH TOÁN CÁC MÁY HIỂN THỊ LÊN DANH SÁCH (CHỈ MÁY ĐỦ ĐK)
     const buildableRecipesData = useMemo(() => {
         if (!recipes.length || !allItems.length) return [];
         
         const buildableIds = notifications.filter(n => n.isBuildable).map(n => n.recipeId);
         let result = recipes.filter(r => buildableIds.includes(r._id));
 
-        // Tính toán số lượng máy có thể ráp được dựa trên lượng linh kiện tối thiểu
         result = result.map(recipe => {
             let maxPossibleBuilds = Infinity;
             recipe.requiredParts.forEach(part => {
@@ -127,7 +123,6 @@ export default function AssemblePhone() {
         return result;
     }, [recipes, allItems, listSearch, notifications]);
 
-    // 🌟 KHI TECH BẤM VIEW: TỰ ĐỘNG BỐC ĐỒ VÀ ƯU TIÊN ĐỒ CŨ
     const handleViewRecipe = (recipe) => {
         setSelectedRecipe(recipe._id);
         
@@ -153,6 +148,7 @@ export default function AssemblePhone() {
         setViewMode('LIST');
         setSelectedRecipe("");
         setSelectedParts({});
+        setAssemblyImages([]); 
     };
 
     const openSelectionModal = (partKey, partName, acceptedTypes) => {
@@ -161,22 +157,12 @@ export default function AssemblePhone() {
         setIsModalOpen(true);
     };
 
-    // 🌟 BỎ CHẶN CHỌN ĐỒ MỚI (Tech tự do đổi đồ theo ý thích)
     const handleSelectItem = (itemGroup) => {
         const itemToSelect = itemGroup.itemsList[0]; 
         setSelectedParts(prev => ({ ...prev, [currentPartType.id]: itemToSelect }));
         setIsModalOpen(false);
     };
 
-    const handleRemoveItem = (partKey) => {
-        setSelectedParts(prev => {
-            const newState = { ...prev };
-            delete newState[partKey];
-            return newState;
-        });
-    };
-
-    // QUẢN LÝ LỌC TRONG MODAL
     const availableFilters = useMemo(() => {
         if (!currentPartType || !currentPartType.acceptedTypes) return { capacities: [], colors: [] };
         const itemsInScope = allItems.filter(i => {
@@ -227,41 +213,87 @@ export default function AssemblePhone() {
     const totalBaseCost = Object.values(selectedParts).reduce((sum, item) => sum + (item.baseCost || 0), 0);
     const isReadyToBuild = activeRecipe?.requiredParts?.every(part => !part.isRequired || !!selectedParts[part.name]);
 
+
+    const handleImageChange = (e) => {
+        const files = Array.from(e.target.files);
+        
+        if (assemblyImages.length + files.length > 5) {
+            toast.warning("Bạn chỉ được tải lên tối đa 5 hình ảnh!");
+            return;
+        }
+        
+        setAssemblyImages(prev => [...prev, ...files]);
+    };
+    
+    const removeImage = (index) => {
+        setAssemblyImages(prev => prev.filter((_, i) => i !== index));
+    };
+
+
     const handleAssemblePhone = async () => {
         if (!isReadyToBuild) return toast.warning("Vui lòng chọn đầy đủ linh kiện bắt buộc!");
-        
-        const selectedPartIds = Object.values(selectedParts).map(item => item._id);
-        const phoneData = {
-            phone_model: activeRecipe.phoneModelId._id,
-            items: selectedPartIds,
-            storeId: techStoreId,
-            status: 'in_stock', 
-            assembled_by: user._id || user.id
-        };
+        if (assemblyImages.length === 0) return toast.warning("Bạn chưa tải lên hình ảnh của điện thoại sau khi ráp xong!");
 
-        const result = await submitAssemblePhoneApi(phoneData);
-        if (result) {
-            toast.success("Tuyệt vời! Máy đã được dựng thành công và nhập vào kho.");
-            loadData(); 
-            handleBackToList(); 
+        const result = await Swal.fire({
+            title: 'Xác nhận Ráp Máy?',
+            html: "Hệ thống sẽ tiến hành:<br/><br/> 1. <b>Xuất kho</b> các linh kiện bạn đã chọn<br/>2. <b>Nhập kho</b> máy tự ráp này",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Đồng ý, Lưu vào kho',
+            cancelButtonText: 'Hủy bỏ',
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition shadow-md ml-3',
+                cancelButton: 'bg-gray-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition shadow-md'
+            }
+        });
+
+        if (result.isConfirmed) {
+            const selectedPartIds = Object.values(selectedParts).map(item => item._id);
+            
+            const formData = new FormData();
+            formData.append('phone_model', activeRecipe.phoneModelId._id);
+            formData.append('items', JSON.stringify(selectedPartIds));
+            formData.append('storeId', techStoreId);
+            formData.append('status', 'in_stock');
+            formData.append('assembled_by', user._id || user.id);
+            
+            assemblyImages.forEach(file => {
+                formData.append('images', file); 
+            });
+
+            const res = await submitAssemblePhoneApi(formData);
+            if (res) {
+                // ĐÃ SỬA: Đổi chữ thành Oke và thêm tính năng reload trang
+                Swal.fire({
+                    title: 'Thành công!',
+                    text: 'Máy đã được dựng và đưa vào kho thành công.',
+                    icon: 'success',
+                    confirmButtonText: 'Oke',
+                    buttonsStyling: false,
+                    allowOutsideClick: false, // Bắt buộc click vào nút mới tắt popup
+                    customClass: { confirmButton: 'bg-green-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-md' }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.reload(); 
+                    }
+                });
+            }
         }
+    };
+
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http') || url.startsWith('blob:')) return url;
+        return `http://localhost:9999${url}`;
     };
 
     if (loading) return <div className="py-20 text-center flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div></div>;
     if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bold">Lỗi: Tài khoản kỹ thuật viên chưa được gán cửa hàng!</div>;
 
-const getImageUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http') || url.startsWith('blob:')) return url;
-    return `http://localhost:9999${url}`;
-};
-
-if (loading) return <div className="py-20 text-center flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div></div>;
-if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bold">Lỗi: Tài khoản kỹ thuật viên chưa được gán cửa hàng!</div>;
     return (
         <div className="flex flex-col h-full space-y-6 p-2 md:p-6">
             
-            {/* HEADER */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-200 pb-4 gap-4">
                 <div className="flex items-center space-x-3">
                     <div className="p-2 bg-blue-100 rounded-lg"><Wrench className="text-blue-700" size={28} /></div>
@@ -271,10 +303,6 @@ if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bol
                     </div>
                 </div>
             </div>
-
-            {/* ========================================================= */}
-            {/* VIEW 1: MÀN HÌNH DANH SÁCH (LIST) */}
-            {/* ========================================================= */}
             {viewMode === 'LIST' && (
                 <div className="space-y-4">
                     <div className="bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center border border-gray-100">
@@ -314,7 +342,7 @@ if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bol
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <button onClick={() => handleViewRecipe(recipe)} className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition shadow-sm">
-                                                        <Eye size={16}/> View
+                                                        <Eye size={16}/> Ráp ngay
                                                     </button>
                                                 </td>
                                             </tr>
@@ -327,9 +355,7 @@ if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bol
                 </div>
             )}
 
-            {/* ========================================================= */}
-            {/* VIEW 2: MÀN HÌNH CHI TIẾT (DETAIL) */}
-            {/* ========================================================= */}
+
             {viewMode === 'DETAIL' && activeRecipe && (
                 <div className="space-y-4 animate-in fade-in duration-300">
                     
@@ -342,7 +368,7 @@ if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bol
                         </div>
                     </div>
 
-                    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
                         <div className="overflow-x-auto">
                             <table className="w-full table-fixed text-left text-sm whitespace-nowrap">
                                 <thead className="bg-gray-100 text-gray-600 border-b border-gray-200 uppercase text-xs">
@@ -396,7 +422,30 @@ if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bol
                             </table>
                         </div>
 
-                        {/* TỔNG KẾT VÀ XÁC NHẬN BÊN DƯỚI BẢNG */}
+                        <div className="bg-white p-6 border-t border-gray-200">
+                            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Camera className="text-blue-600" size={20}/> 
+                                Ảnh chụp điện thoại sau khi lắp ráp <span className="text-red-500">*</span>
+                            </h3>
+                            <div className="flex flex-wrap gap-4">
+                                {assemblyImages.map((file, idx) => (
+                                    <div key={idx} className="relative w-28 h-28 border rounded-lg overflow-hidden group shadow-sm">
+                                        <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                                        <button type="button" onClick={() => removeImage(idx)} className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-lg">
+                                            <X size={14}/>
+                                        </button>
+                                    </div>
+                                ))}
+                                <label className="w-28 h-28 border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 cursor-pointer transition">
+                                    <UploadCloud size={28} className="mb-2"/>
+                                    <span className="text-xs font-semibold">Tải ảnh lên</span>
+                                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange} />
+                                </label>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-3 italic">** Yêu cầu tải lên hình ngoại quan rõ ràng của chiếc máy đã dựng xong.</p>
+                        </div>
+
+            
                         <div className="bg-gray-50 p-5 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="text-lg">
                                 <span className="text-gray-600">Tổng giá vốn linh kiện: </span>
@@ -404,19 +453,16 @@ if (!techStoreId) return <div className="py-20 text-center text-red-500 font-bol
                             </div>
                             <button 
                                 onClick={handleAssemblePhone} 
-                                disabled={!isReadyToBuild} 
-                                className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all ${isReadyToBuild ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                disabled={!isReadyToBuild || assemblyImages.length === 0} 
+                                className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all ${isReadyToBuild && assemblyImages.length > 0 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                             >
-                                <Wrench size={20} /> {isReadyToBuild ? 'XÁC NHẬN DỰNG MÁY' : 'CHƯA CHỌN ĐỦ ĐỒ (*)'}
+                                <Wrench size={20} /> XÁC NHẬN DỰNG MÁY
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL CHỌN LINH KIỆN */}
-            {/* ========================================================= */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-5xl h-[85vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">

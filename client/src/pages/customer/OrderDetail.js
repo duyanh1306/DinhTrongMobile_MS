@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, MapPin, CreditCard, Calendar } from "lucide-react";
 import CustomerLayout from "../../layouts/CustomerLayout";
 
-// IMPORT API VỪA TẠO
 import { fetchOrderDetailApi } from "../../api/customer/orderDetail";
 
 export default function OrderDetail() {
@@ -72,7 +71,6 @@ export default function OrderDetail() {
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {/* CỘT TRÁI: DANH SÁCH SẢN PHẨM */}
                     <div className="lg:w-2/3 flex flex-col gap-4">
                         <h2 className="font-bold text-lg text-gray-800 mb-2">Sản phẩm đã mua</h2>
                         
@@ -116,9 +114,8 @@ export default function OrderDetail() {
                         ))}
                     </div>
 
-                    {/* CỘT PHẢI: THÔNG TIN GIAO HÀNG & THANH TOÁN */}
                     <div className="lg:w-1/3 space-y-4">
-                        {/* Box Thông tin nhận hàng */}
+              
                         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                             <h2 className="font-bold text-lg text-gray-800 mb-4 pb-3 border-b border-gray-100 flex items-center gap-2">
                                 <MapPin size={20} className="text-blue-500" /> Thông tin nhận hàng
@@ -135,7 +132,7 @@ export default function OrderDetail() {
                             </div>
                         </div>
 
-                        {/* Box Tổng tiền & Thanh toán */}
+                   
                         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                             <h2 className="font-bold text-lg text-gray-800 mb-4 pb-3 border-b border-gray-100 flex items-center gap-2">
                                 <CreditCard size={20} className="text-green-500" /> Thanh toán

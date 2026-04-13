@@ -3,7 +3,6 @@ const { Schema } = mongoose;
 
 const phoneSchema = new Schema(
     {
-        
         serialCode: { type: String, required: true, unique: true }, 
         
         phoneModelId: { type: Schema.Types.ObjectId, ref: 'Phone_model', required: true }, 
@@ -11,14 +10,14 @@ const phoneSchema = new Schema(
         capacity: { type: String, required: true },  
         grade: { 
             type: String, 
-            enum: ['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn'], 
+            enum: ['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn', 'Máy dựng'], 
             default: 'Mới' 
         },
         storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true }, 
         
         status: { 
             type: String, 
-            enum: ['in_stock', 'sold', 'repairing', 'defective','waiting_for_tech_decision'], 
+            enum: ['in_stock', 'sold', 'repairing', 'defective', 'waiting_for_tech_decision'], 
             default: 'in_stock' 
         },
         
@@ -32,7 +31,10 @@ const phoneSchema = new Schema(
             default: 'supplier' 
         }, 
         notes: { type: String },
-        specificImages: [{ type: String }] 
+        specificImages: [{ type: String }],
+        
+        items: [{ type: Schema.Types.ObjectId, ref: 'Item' }], 
+        assembled_by: { type: Schema.Types.ObjectId, ref: 'User' } 
     },
     { timestamps: true }
 );

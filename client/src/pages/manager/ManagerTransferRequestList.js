@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, Check, X, Package, Calendar, Store, User, ArrowLeft, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { Search, Eye, Check, X, Package, Calendar, Store, User, ArrowLeft, ChevronDown, ChevronUp, Filter, Clock, Archive } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from 'sweetalert2';
@@ -19,6 +19,9 @@ export default function ManagerTransferRequestList() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState({});
   
+
+  const [activeTab, setActiveTab] = useState("ACTIVE"); 
+
   const [searchQuery, setSearchQuery] = useState("");
   const [storeFilter, setStoreFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL"); 
@@ -40,10 +43,10 @@ export default function ManagerTransferRequestList() {
     loadTransferRequests();
   }, [selectedDate]);
 
- 
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, storeFilter, statusFilter, selectedDate]);
+  }, [searchQuery, storeFilter, statusFilter, selectedDate, activeTab]);
 
   const fetchStoresAndSetUserStore = async (userId) => {
     const storesArray = await fetchStoresApi();
@@ -147,9 +150,16 @@ export default function ManagerTransferRequestList() {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+
   const filteredRequests = requests.filter((req) => {
     const involvesUserStore = req.fromStoreId?._id === userStoreId || req.toStoreId?._id === userStoreId;
     if (!involvesUserStore) return false;
+
+ 
+    const validActiveStatuses = ['PENDING', 'APPROVED', 'DELIVERING'];
+    const validHistoryStatuses = ['COMPLETED', 'REJECTED'];
+    if (activeTab === "ACTIVE" && !validActiveStatuses.includes(req.status)) return false;
+    if (activeTab === "HISTORY" && !validHistoryStatuses.includes(req.status)) return false;
 
     const searchLower = searchQuery.toLowerCase();
     const matchSearch = 
@@ -162,7 +172,6 @@ export default function ManagerTransferRequestList() {
       (storeFilter === "SENT" && req.fromStoreId?._id === userStoreId) ||
       (storeFilter === "RECEIVED" && req.toStoreId?._id === userStoreId);
 
-   
     const matchStatus = statusFilter === "ALL" || req.status === statusFilter;
 
     const matchDate = !selectedDate || 
@@ -235,33 +244,62 @@ export default function ManagerTransferRequestList() {
           </button>
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
-       
+        <div className="flex border-b border-gray-200 mb-6 bg-white px-2 pt-2 rounded-t-xl shadow-sm">
+            <button
+                onClick={() => { setActiveTab("ACTIVE"); setStatusFilter("ALL"); }}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === "ACTIVE"
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+            >
+                <Clock size={18} /> Đang xử lý (Chờ duyệt / Đang giao)
+            </button>
+            <button
+                onClick={() => { setActiveTab("HISTORY"); setStatusFilter("ALL"); }}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === "HISTORY"
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+            >
+                <Archive size={18} /> Lịch sử (Đã hoàn thành / Từ chối)
+            </button>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 rounded-tl-none">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input type="text" placeholder="Tìm theo tên người yêu cầu, ghi chú..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+              <input type="text" placeholder="Tìm theo tên, ghi chú..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
             </div>
+            
             <div className="relative">
               <Store className="absolute left-3 top-2.5 text-gray-400" size={18} />
               <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer text-sm font-semibold text-gray-700">
-                <option value="ALL">Tất cả giao dịch (Gửi & Nhận)</option>
+                <option value="ALL">Tất cả (Gửi & Nhận)</option>
                 <option value="SENT">Gửi đi (Xin xuất kho)</option>
                 <option value="RECEIVED">Nhận về (Xin nhập kho)</option>
               </select>
               <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
             </div>
             
-           
             <div className="relative">
               <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer text-sm font-semibold text-gray-700">
                 <option value="ALL">Tất cả trạng thái</option>
-                <option value="PENDING">Chờ duyệt</option>
-                <option value="APPROVED">Đã duyệt (Chờ xuất)</option>
-                <option value="DELIVERING">Đang vận chuyển</option>
-                <option value="COMPLETED">Đã hoàn thành</option>
-                <option value="REJECTED">Đã từ chối</option>
+                {activeTab === "ACTIVE" ? (
+                    <>
+                        <option value="PENDING">Chờ duyệt</option>
+                        <option value="APPROVED">Đã duyệt (Chờ xuất)</option>
+                        <option value="DELIVERING">Đang vận chuyển</option>
+                    </>
+                ) : (
+                    <>
+                        <option value="COMPLETED">Đã hoàn thành</option>
+                        <option value="REJECTED">Đã từ chối</option>
+                    </>
+                )}
               </select>
               <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
             </div>
@@ -288,7 +326,6 @@ export default function ManagerTransferRequestList() {
               <thead>
                 <tr className="bg-gray-50 border-y border-gray-200 uppercase text-xs text-gray-500">
                   <th className="p-4 font-bold text-center w-12 align-middle">STT</th>
-               
                   <th className="p-4 font-bold text-center w-24 align-middle">Loại phiếu</th>
                   <th className="p-4 font-bold w-[30%] align-middle">Danh sách sản phẩm</th>
                   <th className="p-4 font-bold text-center w-20 align-middle">Tổng SL</th>
@@ -302,7 +339,7 @@ export default function ManagerTransferRequestList() {
                 {loading ? (
                   <tr><td colSpan="8" className="p-10 text-center text-gray-500 align-middle"><div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div></td></tr>
                 ) : currentRequests.length === 0 ? (
-                  <tr><td colSpan="8" className="p-10 text-center text-gray-500 font-medium align-middle">Không tìm thấy yêu cầu chuyển kho nào.</td></tr>
+                  <tr><td colSpan="8" className="p-10 text-center text-gray-500 font-medium align-middle">Không có dữ liệu trong mục này.</td></tr>
                 ) : (
                   currentRequests.map((req, index) => {
                     const itemTypes = req.itemType || [];
@@ -314,7 +351,6 @@ export default function ManagerTransferRequestList() {
 
                     const isExpanded = expandedRows[req._id];
 
-                  
                     const allItems = [
                       ...phoneModels.map(p => p.phoneModels?.name || "Máy điện thoại"),
                       ...itemTypes.map(it => it.itemTypes?.name || "Linh kiện")
@@ -323,14 +359,12 @@ export default function ManagerTransferRequestList() {
                     const displayNames = allItems.slice(0, 2).join(', ');
                     const hasMore = allItems.length > 2;
 
-                
                     const isExport = req.fromStoreId?._id === userStoreId;
 
                     return (
                       <tr key={req._id} className="border-b border-gray-100 hover:bg-blue-50/20 transition">
                         <td className="p-4 text-sm text-gray-600 text-center font-bold align-middle">{indexOfFirstItem + index + 1}</td>
                         
-                      
                         <td className="p-4 text-center align-middle">
                             {isExport ? (
                                 <span className="px-2.5 py-1 bg-orange-100 text-orange-800 text-xs rounded-md font-bold border border-orange-200 whitespace-nowrap">Xuất đi</span>

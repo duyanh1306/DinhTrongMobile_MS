@@ -276,47 +276,123 @@ const getAllPhones = async (req, res) => {
 
 const createAssembledPhone = async (req, res) => {
     try {
-        const { phone_model, items, status, assembled_by, assembled_date, storeId } = req.body;
+        let { phone_model, items, storeId, assembled_by } = req.body;
 
-        if (!phone_model || !items || items.length === 0) {
-            return res.status(400).json({ success: false, message: "Phone model and items are required" });
+        if (typeof items === 'string') {
+            try {
+                items = JSON.parse(items);
+            } catch (e) {
+                return res.status(400).json({ success: false, message: "Dữ liệu linh kiện không hợp lệ." });
+            }
         }
 
-        const itemDocs = await Item.find({ '_id': { $in: items } });
+        if (!phone_model || !items || items.length === 0) {
+            return res.status(400).json({ success: false, message: "Thiếu thông tin model máy hoặc linh kiện" });
+        }
+
+        let specificImages = [];
+        if (req.files && req.files.length > 0) {
+            specificImages = req.files.map(file => file.path);
+        }
+
+        const itemDocs = await Item.find({ '_id': { $in: items } }).populate('item_type');
         if (itemDocs.length !== items.length) {
-            return res.status(400).json({ success: false, message: "Some items not found" });
+            return res.status(400).json({ success: false, message: "Một số linh kiện không tồn tại trong hệ thống" });
         }
 
         const outOfStockItems = itemDocs.filter(item => item.status !== 'in_stock');
         if (outOfStockItems.length > 0) {
-            return res.status(400).json({ success: false, message: "Some items are not in stock" });
+            return res.status(400).json({ success: false, message: "Một số linh kiện đã bị sử dụng hoặc không có sẵn" });
         }
 
-        const imei = 'ASM' + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
+        let phoneColor = "Mặc định";
+        let phoneCapacity = "N/A";
+        let phoneRam = "";
+        let totalImportPrice = 0;
+
+        for (const item of itemDocs) {
+            totalImportPrice += (item.baseCost || item.price || 0);
+
+            const typeNameRaw = item.item_type?.name || "";
+            const itemNameRaw = item.name || "";
+            const combinedNameString = `${typeNameRaw} ${itemNameRaw}`.toUpperCase();
+
+            if (combinedNameString.includes('MB') || combinedNameString.includes('MAIN')) {
+                if (item.capacity) phoneCapacity = item.capacity;
+                if (item.ram) phoneRam = item.ram;
+            }
+
+            if (combinedNameString.includes('HSG') || combinedNameString.includes('HOUSING') || combinedNameString.includes('VỎ')) {
+                if (item.color) phoneColor = item.color;
+            }
+        }
+
+        const serialCode = `ASM-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
         const newPhone = new Phone({
-            imei, phoneModelId: phone_model, colorName: 'Assembled', capacity: 'N/A',
-            storeId: storeId || "N/A", status: 'in_stock', source: 'assembled',
-            items: items, importPrice: 0, sellingPrice: 0,
-            notes: `Assembled by ${assembled_by} on ${new Date(assembled_date).toLocaleDateString()}`
+            serialCode, 
+            phoneModelId: phone_model, 
+            colorName: phoneColor, 
+            capacity: phoneCapacity,
+            grade: "Máy dựng", 
+            storeId: storeId || "N/A", 
+            status: 'in_stock', 
+            source: 'assembled',
+            items: items, 
+            importPrice: totalImportPrice, 
+            sellingPrice: totalImportPrice, 
+            specificImages: specificImages, 
+            notes: `Máy tự ráp bởi KTV trên hệ thống.`
         });
-
-        await Item.updateMany( { '_id': { $in: items } }, { status: 'consumed' } );
 
         const savedPhone = await newPhone.save();
 
+        await Item.updateMany( { '_id': { $in: items } }, { status: 'consumed' } );
+
+        const outHeader = await InventoryTransaction.create({
+            storeId: storeId,
+            transactionType: "REPAIR_CONSUMPTION",
+            referenceType: "CUSTOM_BUILD",
+            referenceId: savedPhone._id,
+            totalItems: itemDocs.length,
+            note: `Xuất linh kiện để dựng máy: ${serialCode}`
+        });
+
+        const outDetails = itemDocs.map(item => ({
+            transactionId: outHeader._id,
+            itemId: item._id,
+            quantity: 1,
+            note: "Linh kiện ráp máy"
+        }));
+        await InventoryTransactionDetail.insertMany(outDetails);
+
+        const inHeader = await InventoryTransaction.create({
+            storeId: storeId,
+            transactionType: "INBOUND",
+            referenceType: "CUSTOM_BUILD",
+            referenceId: savedPhone._id,
+            totalItems: 1,
+            note: `Nhập kho máy tự ráp: ${serialCode}`
+        });
+
+        await InventoryTransactionDetail.create({
+            transactionId: inHeader._id,
+            phoneId: savedPhone._id,
+            quantity: 1,
+            note: "Máy dựng (Tân trang)"
+        });
+
         const populatedPhone = await Phone.findById(savedPhone._id)
             .populate('phoneModelId', 'name brand')
-            .populate('items', 'serial_code item_type notes')
+            .populate('items', 'serialCode name')
             .populate('storeId', 'name address');
 
-        res.status(201).json({ success: true, message: "Phone assembled successfully", data: populatedPhone });
+        res.status(201).json({ success: true, message: "Dựng máy và lưu kho thành công!", data: populatedPhone });
     } catch (error) {
         console.error("Error assembling phone:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
 const getPhonesGroupedByBrand = async (req, res) => {
     try {
         const { status, storeId } = req.query;
