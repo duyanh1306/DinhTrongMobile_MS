@@ -21,20 +21,26 @@ export const fetchHomeDataApi = async (selectedStore) => {
 
         const newList = [];
         const usedList = [];
+        const assembledList = [];
 
         phoneModels.forEach(model => {
-            // Lấy tất cả máy vật lý của model này trong kho đang chọn
+            
             const allModelPhones = phones.filter(p => {
                 const pStoreId = p.storeId?._id || p.storeId;
                 const pModelId = p.phoneModelId?._id || p.phoneModelId;
-                return (String(pModelId) === String(model._id)) && (String(pStoreId) === String(activeStore));
+                return (
+                    (p.status === 'in_stock' || p.status === 'sold') && 
+                    String(pModelId) === String(model._id) && 
+                    String(pStoreId) === String(activeStore)
+                );
             });
 
             if (allModelPhones.length === 0) return;
 
-            // Bóc tách Mới / Cũ
-            const newPhonesPhysical = allModelPhones.filter(p => p.grade === 'Mới');
-            const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới');
+           
+            const newPhonesPhysical = allModelPhones.filter(p => !p.grade || p.grade === 'Mới');
+            const assembledPhonesPhysical = allModelPhones.filter(p => p.grade === 'Máy dựng' || p.grade === 'Máy ráp');
+            const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới' && p.grade !== 'Máy dựng' && p.grade !== 'Máy ráp');
 
             const getStartingPrice = (physicalList) => {
                 const validPrices = physicalList.map(p => p.sellingPrice || (p.importPrice * 1.15)).filter(price => !isNaN(price) && price > 0);
@@ -46,25 +52,36 @@ export const fetchHomeDataApi = async (selectedStore) => {
                 return phoneWithImg ? phoneWithImg.specificImages[0] : model.image;
             };
 
-            // Nếu có hàng Mới -> Tạo 1 Card cho mục Hàng Mới
             if (newPhonesPhysical.length > 0) {
                 newList.push({
                     ...model,
                     image: getDisplayImage(newPhonesPhysical),
                     price: getStartingPrice(newPhonesPhysical),
-                    stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                    isUsedCard: false
+                    stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length, // CHỈ TÍNH MÁY IN_STOCK ĐỂ CHO PHÉP MUA
+                    isUsedCard: false,
+                    isAssembledCard: false
                 });
             }
 
-            // Nếu có hàng Cũ -> Tạo 1 Card cho mục Hàng Cũ
             if (usedPhonesPhysical.length > 0) {
                 usedList.push({
                     ...model,
                     image: getDisplayImage(usedPhonesPhysical),
                     price: getStartingPrice(usedPhonesPhysical),
                     stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                    isUsedCard: true
+                    isUsedCard: true,
+                    isAssembledCard: false
+                });
+            }
+
+            if (assembledPhonesPhysical.length > 0) {
+                assembledList.push({
+                    ...model,
+                    image: getDisplayImage(assembledPhonesPhysical),
+                    price: getStartingPrice(assembledPhonesPhysical),
+                    stockCount: assembledPhonesPhysical.filter(p => p.status === 'in_stock').length,
+                    isUsedCard: false,
+                    isAssembledCard: true
                 });
             }
         });
@@ -73,7 +90,8 @@ export const fetchHomeDataApi = async (selectedStore) => {
             stores: storeData,
             activeStore,
             newPhones: newList,
-            usedPhones: usedList
+            usedPhones: usedList,
+            assembledPhones: assembledList 
         };
     } catch (error) {
         console.error("Lỗi lấy dữ liệu Home:", error);

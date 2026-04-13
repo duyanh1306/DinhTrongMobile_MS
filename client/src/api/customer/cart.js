@@ -1,7 +1,6 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
-// Lấy thông tin Giỏ hàng, Tồn kho và Cửa hàng
 export const fetchCartDataApi = async (userId, activeStore) => {
     try {
         const [cartRes, phonesRes, storesRes] = await Promise.all([
@@ -19,16 +18,16 @@ export const fetchCartDataApi = async (userId, activeStore) => {
 
         const fetchedCart = cartRes.data?.data || { items: [], totalPrice: 0 };
         
-        // Lọc giỏ hàng theo Store
         const storeSpecificItems = fetchedCart.items.filter(item => {
             const iStoreId = item.storeId?._id || item.storeId;
             if (!iStoreId) {
+              
                 return storeData.length > 0 && String(finalActiveStore) === String(storeData[0]._id);
             }
             return String(iStoreId) === String(finalActiveStore);
         });
 
-        // Tạo Map tồn kho
+     
         const allPhones = phonesRes.data?.data || [];
         const newStockMap = {};
         
@@ -36,7 +35,8 @@ export const fetchCartDataApi = async (userId, activeStore) => {
             const pStoreId = p.storeId?._id || p.storeId;
             if (p.status === 'in_stock' && String(pStoreId) === String(finalActiveStore)) {
                 const modelId = typeof p.phoneModelId === 'object' ? p.phoneModelId._id : p.phoneModelId;
-                const key = `${modelId}-${p.capacity}-${p.colorName}`;
+                const grade = p.grade || 'Mới'; // 🌟 Yếu tố quan trọng nhất
+                const key = `${modelId}-${p.capacity}-${p.colorName}-${grade}`;
                 newStockMap[key] = (newStockMap[key] || 0) + 1;
             }
         });
@@ -55,7 +55,7 @@ export const fetchCartDataApi = async (userId, activeStore) => {
     }
 };
 
-// Cập nhật số lượng sản phẩm trong giỏ
+
 export const updateCartQuantityApi = async (payload) => {
     try {
         await axiosClient.put('/cart/update-quantity', payload);
@@ -66,7 +66,7 @@ export const updateCartQuantityApi = async (payload) => {
     }
 };
 
-// Xóa 1 sản phẩm khỏi giỏ
+
 export const removeCartItemApi = async (userId, itemId) => {
     try {
         await axiosClient.delete(`/cart/remove/${userId}/${itemId}`);
