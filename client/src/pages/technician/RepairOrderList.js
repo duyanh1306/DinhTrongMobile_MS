@@ -12,6 +12,7 @@ import { initialChecklist } from "../../constraints";
 
 const RepairOrderList = () => {
   const [activeTab, setActiveTab] = useState("TRADE_IN");
+  const [counts, setCounts] = useState({ TRADE_IN: 0, WAITING_DECISION: 0, REPAIR: 0 });
 
   const [tradeInRequests, setTradeInRequests] = useState([]);
   const [selectedTradeIn, setSelectedTradeIn] = useState(null);
@@ -63,7 +64,25 @@ const RepairOrderList = () => {
     customerName: "",
   });
 
+  const fetchAllCounts = async () => {
+    try {
+      const [tradeInRes, waitingRes, repairRes] = await Promise.all([
+        axiosClient.get("/purchase-orders?orderType=PURCHASE&status=Pending_Tech"),
+        axiosClient.get("/phones?status=waiting_for_tech_decision"),
+        axiosClient.get("/repair-orders")
+      ]);
+
+      const tCount = (Array.isArray(tradeInRes.data) ? tradeInRes.data : tradeInRes.data?.data || []).length;
+      const wCount = (Array.isArray(waitingRes.data) ? waitingRes.data : waitingRes.data?.data || []).length;
+      const rList = Array.isArray(repairRes.data) ? repairRes.data : repairRes.data?.data || [];
+      const rCount = rList.filter(o => o.status === "Pending" || o.status === "In Progress").length;
+
+      setCounts({ TRADE_IN: tCount, WAITING_DECISION: wCount, REPAIR: rCount });
+    } catch (err) {}
+  };
+
   useEffect(() => {
+    fetchAllCounts();
     if (activeTab === "TRADE_IN") {
       fetchTradeInRequests();
       fetchPhoneModels();
@@ -80,27 +99,18 @@ const RepairOrderList = () => {
     }
   }, [activeTab, viewMode, showMyOrdersOnly]);
 
-  // =========================================================================
-  // FUNCTIONS: TRADE IN (ĐỊNH GIÁ)
-  // =========================================================================
   const fetchPhoneModels = async () => {
     try {
       const res = await axiosClient.get("/phone_models/all");
       setPhoneModels(Array.isArray(res.data) ? res.data : res.data.data || []);
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) {}
   };
 
   const fetchTradeInRequests = async () => {
     try {
       setLoading(true);
-      const res = await axiosClient.get(
-        "/purchase-orders?orderType=PURCHASE&status=Pending_Tech",
-      );
-      setTradeInRequests(
-        Array.isArray(res.data) ? res.data : res.data.data || [],
-      );
+      const res = await axiosClient.get("/purchase-orders?orderType=PURCHASE&status=Pending_Tech");
+      setTradeInRequests(Array.isArray(res.data) ? res.data : res.data.data || []);
       setError(null);
     } catch (err) {
       setError("Lỗi lấy danh sách");
@@ -117,20 +127,12 @@ const RepairOrderList = () => {
   };
 
   const submitValuationDetailed = async (req) => {
-    if (
-      !valuation.phoneModelId ||
-      !valuation.colorName ||
-      !valuation.capacity ||
-      !valuation.ram
-    )
+    if (!valuation.phoneModelId || !valuation.colorName || !valuation.capacity || !valuation.ram)
       return toast.error("Vui lòng điền đủ thông tin cấu hình!");
     if (!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
 
     const checklistStr = Object.values(checklist)
-      .map(
-        (item) =>
-          `- ${item.name}: ${item.status === "OK" ? "Hoạt động tốt" : `Kém/Hỏng (${item.detail})`}`,
-      )
+      .map((item) => `- ${item.name}: ${item.status === "OK" ? "Hoạt động tốt" : `Kém/Hỏng (${item.detail})`}`)
       .join("\n");
     const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM\n${checklistStr}\n- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
 
@@ -150,23 +152,17 @@ const RepairOrderList = () => {
       toast.success("Đã lưu báo cáo định giá!");
       setSelectedTradeIn(null);
       fetchTradeInRequests();
+      fetchAllCounts();
     } catch (err) {
       toast.error("Lỗi cập nhật");
     }
   };
 
-  // =========================================================================
-  // FUNCTIONS: WAITING DECISION
-  // =========================================================================
   const fetchWaitingPhones = async () => {
     try {
       setLoading(true);
-      const res = await axiosClient.get(
-        "/phones?status=waiting_for_tech_decision",
-      );
-      setWaitingPhones(
-        Array.isArray(res.data) ? res.data : res.data.data || [],
-      );
+      const res = await axiosClient.get("/phones?status=waiting_for_tech_decision");
+      setWaitingPhones(Array.isArray(res.data) ? res.data : res.data.data || []);
       setError(null);
     } catch (err) {
       setError("Lỗi lấy danh sách chờ quyết định");
@@ -179,40 +175,29 @@ const RepairOrderList = () => {
     try {
       const res = await axiosClient.get("/item_types");
       setItemTypes(Array.isArray(res.data) ? res.data : res.data.data || []);
-    } catch (err) {
-      console.log(err);
-    }
+    } catch (err) {}
   };
 
-  // LẤY LINH KIỆN TRONG KHO ĐỂ THAY THẾ
   const fetchAvailablePartsForReplacement = async () => {
     try {
       const res = await axiosClient.get("/items?status=in_stock");
-      setAvailablePartsInStock(
-        Array.isArray(res.data) ? res.data : res.data.data || [],
-      );
+      setAvailablePartsInStock(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
       toast.error("Không thể lấy kho linh kiện");
     }
   };
 
-  const addPartRow = () =>
+  const addPartRow = (prefill = null) =>
     setDismantleParts([
       ...dismantleParts,
-      {
-        itemTypeId: "",
-        name: "",
-        serialCode: "",
-        quality: "Zin bóc máy",
-        ram: "",
-        capacity: "",
-        color: "",
-        baseCost: "",
-        price: "",
+      prefill && prefill.name ? prefill : {
+        itemTypeId: "", name: "", serialCode: "", quality: "Zin bóc máy",
+        ram: "", capacity: "", color: "", baseCost: "", price: ""
       },
     ]);
-  const removePartRow = (index) =>
-    setDismantleParts(dismantleParts.filter((_, i) => i !== index));
+    
+  const removePartRow = (index) => setDismantleParts(dismantleParts.filter((_, i) => i !== index));
+  
   const handlePartChange = (index, field, value) => {
     const newParts = [...dismantleParts];
     newParts[index][field] = value;
@@ -220,14 +205,10 @@ const RepairOrderList = () => {
   };
 
   const handleDecisionSubmit = async () => {
-    if (decision === "SELL" && !sellForm.sellingPrice)
-      return toast.error("Vui lòng nhập giá bán!");
-    if (
-      decision === "DISMANTLE" &&
-      (dismantleParts.length === 0 ||
-        dismantleParts.some((p) => !p.itemTypeId || !p.name))
-    )
+    if (decision === "SELL" && !sellForm.sellingPrice) return toast.error("Vui lòng nhập giá bán!");
+    if (decision === "DISMANTLE" && (dismantleParts.length === 0 || dismantleParts.some((p) => !p.itemTypeId || !p.name)))
       return toast.error("Vui lòng nhập đủ thông tin rã xác!");
+      
     try {
       const payload = {
         decision,
@@ -236,13 +217,11 @@ const RepairOrderList = () => {
         replacedItems: replacementParts.map((p) => p._id),
         phoneName: selectedDecisionPhone.phoneModelId?.name,
       };
-      await axiosClient.put(
-        `/phones/${selectedDecisionPhone._id}/tech-decision`,
-        payload,
-      );
+      await axiosClient.put(`/phones/${selectedDecisionPhone._id}/tech-decision`, payload);
       toast.success("Xử lý thành công! Máy/Linh kiện đã được luân chuyển kho.");
       setSelectedDecisionPhone(null);
       fetchWaitingPhones();
+      fetchAllCounts();
     } catch (err) {
       toast.error("Lỗi cập nhật quyết định");
     }
@@ -272,11 +251,9 @@ const RepairOrderList = () => {
       }
       
       if (filters.type !== "ALL") queryParams.append("type", filters.type);
-      if (filters.storeId !== "ALL")
-        queryParams.append("storeId", filters.storeId);
-      const url = queryParams.toString()
-        ? `/repair-orders/filter?${queryParams.toString()}`
-        : "/repair-orders";
+      if (filters.storeId !== "ALL") queryParams.append("storeId", filters.storeId);
+      
+      const url = queryParams.toString() ? `/repair-orders/filter?${queryParams.toString()}` : "/repair-orders";
       const response = await axiosClient.get(url);
       setFilteredOrders(response.data);
       setError(null);
@@ -298,9 +275,7 @@ const RepairOrderList = () => {
         queryParams.append("technicianId", currentUserId);
       }
       
-      const url = queryParams.toString()
-        ? `/repair-orders?${queryParams.toString()}`
-        : "/repair-orders";
+      const url = queryParams.toString() ? `/repair-orders?${queryParams.toString()}` : "/repair-orders";
       const response = await axiosClient.get(url);
       setFilteredOrders(response.data);
       setError(null);
@@ -311,44 +286,45 @@ const RepairOrderList = () => {
     }
   };
 
-  const handleFilterChange = (filterType, value) =>
-    setFilters((prev) => ({ ...prev, [filterType]: value }));
+  const handleFilterChange = (filterType, value) => setFilters((prev) => ({ ...prev, [filterType]: value }));
+  
   const applyFilters = () => fetchFilteredOrders();
+  
   const resetFilters = () => {
     setFilters({ status: "ALL", type: "ALL", storeId: "ALL" });
     setFilteredOrders(orders);
   };
+  
   const toggleViewMode = (mode) => {
     setViewMode(mode);
     if (mode === "PENDING") {
       setFilters({ status: ["Pending", "In Progress"], type: "ALL", storeId: "ALL", customerName: "" });
     }
   };
+  
   const toggleMyOrders = () => {
     setShowMyOrdersOnly(!showMyOrdersOnly);
   };
+  
   const handleViewDetails = async (order) => {
     setSelectedOrder(order);
     setShowDetailsModal(true);
     try {
-      const response = await axiosClient.get(
-        `/repair-orders/${order._id}/details`,
-      );
+      const response = await axiosClient.get(`/repair-orders/${order._id}/details`);
       setOrderDetails(response.data);
     } catch (err) {
       setOrderDetails([]);
     }
   };
+  
   const acceptRepairOrder = async (orderId) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/accept`);
-      const updateOrderStatus = (orderList) =>
-        orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "In Progress" } : order,
-        );
+      const updateOrderStatus = (orderList) => orderList.map((order) => order._id === orderId ? { ...order, status: "In Progress" } : order);
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã nhận đơn");
+      fetchAllCounts();
     } catch (error) {
       toast.error("Lỗi nhận đơn");
     }
@@ -357,13 +333,11 @@ const RepairOrderList = () => {
   const completeRepairOrder = async (orderId) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/complete`);
-      const updateOrderStatus = (orderList) =>
-        orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "Completed" } : order,
-        );
+      const updateOrderStatus = (orderList) => orderList.map((order) => order._id === orderId ? { ...order, status: "Completed" } : order);
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã hoàn thành đơn");
+      fetchAllCounts();
     } catch (error) {
       toast.error("Lỗi hoàn thành đơn");
     }
@@ -372,24 +346,17 @@ const RepairOrderList = () => {
   const cancelRepairOrder = async (orderId) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/cancel`);
-      const updateOrderStatus = (orderList) =>
-        orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "Cancelled" } : order,
-        );
+      const updateOrderStatus = (orderList) => orderList.map((order) => order._id === orderId ? { ...order, status: "Cancelled" } : order);
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã hủy đơn");
+      fetchAllCounts();
     } catch (error) {
       toast.error("Lỗi hủy đơn");
     }
   };
 
-  if (
-    loading &&
-    orders.length === 0 &&
-    waitingPhones.length === 0 &&
-    tradeInRequests.length === 0
-  )
+  if (loading && orders.length === 0 && waitingPhones.length === 0 && tradeInRequests.length === 0)
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="md" text="Đang tải..." />
@@ -398,16 +365,12 @@ const RepairOrderList = () => {
 
   return (
     <div className="p-6">
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-      />
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-2">
         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Wrench className="text-blue-600" /> Quản lý Hàng chờ Kỹ thuật
         </h2>
-        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
       </div>
 
       {activeTab === "TRADE_IN" && (
@@ -421,14 +384,7 @@ const RepairOrderList = () => {
           isBasicInfoFilled={isBasicInfoFilled}
           onValuate={(req) => {
             setSelectedTradeIn(req);
-            setValuation({
-              price: "",
-              techNote: "",
-              phoneModelId: "",
-              capacity: "",
-              colorName: "",
-              ram: "",
-            });
+            setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
             setChecklist(initialChecklist);
           }}
           onCloseModal={() => setSelectedTradeIn(null)}
@@ -447,7 +403,6 @@ const RepairOrderList = () => {
           sellForm={sellForm}
           dismantleParts={dismantleParts}
           itemTypes={itemTypes}
-          // Truyền Prop lấy kho linh kiện
           replacementParts={replacementParts}
           availablePartsInStock={availablePartsInStock}
           onFetchAvailableParts={fetchAvailablePartsForReplacement}
@@ -455,11 +410,7 @@ const RepairOrderList = () => {
           onProcess={(phone) => {
             setSelectedDecisionPhone(phone);
             setDecision("DIRECT_IMPORT");
-            setSellForm({
-              sellingPrice: "",
-              capacity: phone.capacity || "",
-              colorName: phone.colorName || "",
-            });
+            setSellForm({ sellingPrice: "", capacity: phone.capacity || "", colorName: phone.colorName || "" });
             setDismantleParts([]);
             setReplacementParts([]);
           }}
@@ -479,21 +430,13 @@ const RepairOrderList = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => toggleViewMode("PENDING")}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  viewMode === "PENDING"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${viewMode === "PENDING" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 Đơn chờ xử lý
               </button>
               <button
                 onClick={() => toggleViewMode("HISTORY")}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  viewMode === "HISTORY"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${viewMode === "HISTORY" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 Lịch sử đơn sửa chữa
               </button>
@@ -501,11 +444,7 @@ const RepairOrderList = () => {
             {viewMode === "HISTORY" && (
               <button
                 onClick={toggleMyOrders}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  showMyOrdersOnly
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${showMyOrdersOnly ? "bg-green-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 {showMyOrdersOnly ? "Hiện tất cả đơn" : "Chỉ hiện đơn của tôi"}
               </button>
