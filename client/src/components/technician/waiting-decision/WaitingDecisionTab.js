@@ -227,7 +227,12 @@ const WaitingDecisionTab = ({
                     </div>
                     <div>
                       <label className="block font-black text-gray-800 mb-2">GIÁ BÁN SAU TÂN TRANG (VNĐ) <span className="text-red-500">*</span></label>
-                      <input type="number" value={sellForm.sellingPrice || ''} onChange={e => onSellFormChange({...sellForm, sellingPrice: e.target.value})} className="w-full p-4 border-2 border-green-300 rounded-lg outline-none focus:border-green-600 text-2xl font-black text-green-700"/>
+                      <input 
+                        type="text" 
+                        value={sellForm.sellingPrice ? new Intl.NumberFormat('vi-VN').format(sellForm.sellingPrice) : ''} 
+                        onChange={e => onSellFormChange({...sellForm, sellingPrice: e.target.value.replace(/\D/g, '')})} 
+                        className="w-full p-4 border-2 border-green-300 rounded-lg outline-none focus:border-green-600 text-2xl font-black text-green-700"
+                      />
                     </div>
                   </div>
                 </div>
@@ -339,11 +344,23 @@ const WaitingDecisionTab = ({
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Giá vốn nhập</label>
-                                      <input type="number" placeholder="0" value={part.baseCost} onChange={(e) => onPartChange(idx, "baseCost", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm font-bold text-gray-700 bg-white focus:ring-2 focus:ring-red-500"/>
+                                      <input 
+                                        type="text" 
+                                        placeholder="0" 
+                                        value={part.baseCost ? new Intl.NumberFormat('vi-VN').format(part.baseCost) : ''} 
+                                        onChange={(e) => onPartChange(idx, "baseCost", e.target.value.replace(/\D/g, ''))} 
+                                        className="w-full p-2.5 border rounded-lg outline-none text-sm font-bold text-gray-700 bg-white focus:ring-2 focus:ring-red-500"
+                                      />
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-red-600 uppercase mb-1">Giá bán lẻ (VND) *</label>
-                                      <input type="number" placeholder="0" value={part.price} onChange={(e) => onPartChange(idx, "price", e.target.value)} className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none text-sm font-bold text-red-600 bg-white focus:border-red-500"/>
+                                      <input 
+                                        type="text" 
+                                        placeholder="0" 
+                                        value={part.price ? new Intl.NumberFormat('vi-VN').format(part.price) : ''} 
+                                        onChange={(e) => onPartChange(idx, "price", e.target.value.replace(/\D/g, ''))} 
+                                        className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none text-sm font-bold text-red-600 bg-white focus:border-red-500"
+                                      />
                                   </div>
                               </div>
                           </div>

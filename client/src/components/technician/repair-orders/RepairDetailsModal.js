@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, User, Phone, Store, Check, Wrench, Package, Search, XCircle } from "lucide-react";
+import { X, User, Phone, Store, Check, Wrench, Package, Search, XCircle, Smartphone } from "lucide-react";
 import dayjs from "dayjs";
 import { getAllRepairServices } from "../../../api/repairOrder";
 import { getAllItems } from "../../../api/item";
@@ -42,7 +42,7 @@ const RepairDetailsModal = ({
       const response = await getAllRepairServices();
       setRepairServices(Array.isArray(response) ? response : response.data || []);
     } catch (error) {
-      console.error('Error fetching repair services:', error);
+      console.error(error);
     } finally {
       setLoadingServices(false);
     }
@@ -54,7 +54,7 @@ const RepairDetailsModal = ({
       const response = await getAllItems();
       setItems(Array.isArray(response) ? response : response.data || []);
     } catch (error) {
-      console.error('Error fetching items:', error);
+      console.error(error);
     } finally {
       setLoadingItems(false);
     }
@@ -93,13 +93,6 @@ const RepairDetailsModal = ({
       .reduce((total, service) => total + (service.price || 0), 0);
   };
 
-  const getSelectedItemNames = () => {
-    return items
-      .filter(item => selectedItems.includes(item._id))
-      .map(item => item.name)
-      .join(', ');
-  };
-
   const getSelectedItemTotal = () => {
     return items
       .filter(item => selectedItems.includes(item._id))
@@ -112,6 +105,13 @@ const RepairDetailsModal = ({
 
   if (!showDetailsModal || !selectedOrder) return null;
 
+  const detailWithPhone = orderDetails?.find(d => d.targetPhoneId) || null;
+  const targetPhone = detailWithPhone?.targetPhoneId;
+
+  const deviceName = targetPhone?.phoneModelId?.name || "Chưa xác định";
+  const deviceId = targetPhone?.phoneModelId?._id || targetPhone?.phoneModelId || "";
+  const deviceSerial = targetPhone?.imei || targetPhone?.serialCode || "";
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -121,7 +121,7 @@ const RepairDetailsModal = ({
               Chi tiết đơn sửa chữa #{selectedOrder._id.substring(selectedOrder._id.length - 6).toUpperCase()}
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              {dayjs(selectedOrder.repairOrderDate).format('DD/MM/YYYY HH:mm')}
+              {dayjs(selectedOrder.repairOrderDate || selectedOrder.createdAt).format('DD/MM/YYYY HH:mm')}
             </p>
           </div>
           <button 
@@ -133,13 +133,13 @@ const RepairDetailsModal = ({
         </div>
         
         <div className="p-6 overflow-y-auto flex-1">
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
               <h4 className="font-semibold text-gray-700 mb-2">Thông tin khách hàng</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-400" /> 
-                  <span>{selectedOrder.customerName}</span>
+                  <span className="font-medium">{selectedOrder.customerName}</span>
                 </div>
                 {selectedOrder.customerPhone && (
                   <div className="flex items-center gap-2">
@@ -149,6 +149,23 @@ const RepairDetailsModal = ({
                 )}
               </div>
             </div>
+            
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-2">Thông tin thiết bị</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-gray-400" /> 
+                  <span className="font-bold text-blue-700">{deviceName}</span>
+                </div>
+                {deviceSerial && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">S/N:</span> 
+                    <span className="font-mono">{deviceSerial}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <h4 className="font-semibold text-gray-700 mb-2">Thông tin cửa hàng</h4>
               <div className="space-y-2 text-sm">
@@ -227,10 +244,10 @@ const RepairDetailsModal = ({
             )}
           </div>
 
-          <div className="border-t pt-6">
+          <div className="border-t pt-6 mt-6">
             <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <Package className="w-4 h-4 text-green-600" />
-              Chọn linh kiện thay thế
+              Chọn linh kiện thay thế {deviceName !== "Chưa xác định" && `cho ${deviceName}`}
             </h4>
             
             {loadingItems ? (
@@ -259,9 +276,16 @@ const RepairDetailsModal = ({
 
                 <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
                   {items
-                    .filter(item => 
-                      item.name.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
+                    .filter(item => {
+                      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+                      let matchesDevice = true;
+                      if (deviceId && (item.phoneModelId?._id || item.phoneModelId)) {
+                        matchesDevice = (item.phoneModelId?._id || item.phoneModelId) === deviceId;
+                      } else if (deviceName && deviceName !== "Chưa xác định") {
+                        matchesDevice = item.name.toLowerCase().includes(deviceName.toLowerCase());
+                      }
+                      return matchesSearch && matchesDevice;
+                    })
                     .map((item) => (
                       <div
                         key={item._id}
@@ -294,11 +318,18 @@ const RepairDetailsModal = ({
                         </div>
                       </div>
                     ))}
-                  {items.filter(item => 
-                    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-                  ).length === 0 && (
+                  {items.filter(item => {
+                    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+                    let matchesDevice = true;
+                    if (deviceId && (item.phoneModelId?._id || item.phoneModelId)) {
+                      matchesDevice = (item.phoneModelId?._id || item.phoneModelId) === deviceId;
+                    } else if (deviceName && deviceName !== "Chưa xác định") {
+                      matchesDevice = item.name.toLowerCase().includes(deviceName.toLowerCase());
+                    }
+                    return matchesSearch && matchesDevice;
+                  }).length === 0 && (
                     <div className="text-center py-8 text-gray-500">
-                      Không tìm thấy linh kiện nào
+                      Không tìm thấy linh kiện nào phù hợp với thiết bị này
                     </div>
                   )}
                 </div>
@@ -340,8 +371,9 @@ const RepairDetailsModal = ({
             )}
           </div>
         </div>
+        
         {(selectedServices.length > 0 || selectedItems.length > 0) && (
-          <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300 flex justify-between items-center">
+          <div className="mt-auto p-4 bg-gray-100 border-t border-gray-300 flex justify-between items-center">
             <div>
               <span className="font-bold text-gray-800 text-lg">Tổng thanh toán:</span>
             </div>
