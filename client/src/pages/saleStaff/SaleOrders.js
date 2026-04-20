@@ -12,9 +12,6 @@ import html2pdf from "html2pdf.js";
 import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi, pollNewPurchaseOrdersApi } from "../../api/saleStaff/saleOrders";
 import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
 
-// ==================================================================
-// COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
-// ==================================================================
 const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
   if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
@@ -144,9 +141,6 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
 };
 
 
-// ==================================================================
-// MAIN COMPONENT
-// ==================================================================
 export default function SaleOrders() {
   const [activeTab, setActiveTab] = useState("SALE"); 
   
@@ -157,6 +151,7 @@ export default function SaleOrders() {
   const [isLoading, setIsLoading] = useState(false);
 
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set());
+  const isInitialLoadRef = useRef(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); 
@@ -178,6 +173,10 @@ export default function SaleOrders() {
     setCurrentPage(1);
     setSearchQuery("");
     setStatusFilter("ALL");
+    
+    if (activeTab === "PURCHASE") {
+      isInitialLoadRef.current = true;
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -185,6 +184,14 @@ export default function SaleOrders() {
     if (activeTab === "PURCHASE" && !isModalOpen) {
       interval = setInterval(async () => {
         const data = await pollNewPurchaseOrdersApi();
+        
+        if (isInitialLoadRef.current) {
+            const initialPendingIds = data.filter(o => o.status === "Pending").map(o => o._id);
+            setNotifiedOrderIds(new Set(initialPendingIds));
+            isInitialLoadRef.current = false;
+            return;
+        }
+
         const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
 
         if (newlyValuatedOrder) {

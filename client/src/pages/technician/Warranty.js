@@ -29,7 +29,6 @@ export default function Warranty() {
     search: "",
   });
 
-  // Form state for creating warranty
   const [formData, setFormData] = useState({
     storeId: "",
     customerName: "",
@@ -59,7 +58,8 @@ export default function Warranty() {
   const fetchWarranties = async () => {
     try {
       setLoading(true);
-      const data = await fetchWarrantiesApi();
+      const response = await fetchWarrantiesApi();
+      const data = Array.isArray(response) ? response : response?.data || [];
       setWarranties(data);
       setFilteredWarranties(data);
       setError(null);
@@ -72,16 +72,28 @@ export default function Warranty() {
   };
 
   const fetchStores = async () => {
-    const data = await fetchStoresApi();
-    setStores(data);
+    try {
+      const response = await fetchStoresApi();
+      const data = Array.isArray(response) ? response : response?.data || [];
+      setStores(data);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchPhones = async () => {
-    const data = await fetchPhonesApi();
-    setPhones(data);
+    try {
+      const response = await fetchPhonesApi();
+      const data = Array.isArray(response) ? response : response?.data || [];
+      setPhones(data);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const applyFilters = () => {
+    if (!Array.isArray(warranties)) return;
+    
     let filtered = [...warranties];
 
     if (filters.status !== "ALL") {
@@ -89,16 +101,16 @@ export default function Warranty() {
     }
 
     if (filters.storeId !== "ALL") {
-      filtered = filtered.filter((w) => w.storeId._id === filters.storeId);
+      filtered = filtered.filter((w) => (w.storeId?._id || w.storeId) === filters.storeId);
     }
 
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(
         (w) =>
-          w.customerName.toLowerCase().includes(searchLower) ||
-          w.serialCode.toLowerCase().includes(searchLower) ||
-          w.phoneModel.toLowerCase().includes(searchLower)
+          (w.customerName || "").toLowerCase().includes(searchLower) ||
+          (w.serialCode || "").toLowerCase().includes(searchLower) ||
+          (w.phoneModel || "").toLowerCase().includes(searchLower)
       );
     }
 
@@ -241,7 +253,6 @@ export default function Warranty() {
     <div className="p-6">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-4 mb-6">
         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Shield className="text-blue-600" /> Quản lý Bảo hành
@@ -265,7 +276,6 @@ export default function Warranty() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
@@ -313,14 +323,12 @@ export default function Warranty() {
         </div>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
           {error}
         </div>
       )}
 
-      {/* Warranty List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -453,7 +461,6 @@ export default function Warranty() {
         </div>
       </div>
 
-      {/* Create Warranty Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -572,7 +579,6 @@ export default function Warranty() {
         </div>
       )}
 
-      {/* Process Warranty Modal */}
       {showProcessModal && selectedWarranty && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
