@@ -21,21 +21,19 @@ export const fetchCartDataApi = async (userId, activeStore) => {
         const storeSpecificItems = fetchedCart.items.filter(item => {
             const iStoreId = item.storeId?._id || item.storeId;
             if (!iStoreId) {
-              
                 return storeData.length > 0 && String(finalActiveStore) === String(storeData[0]._id);
             }
             return String(iStoreId) === String(finalActiveStore);
         });
 
-     
         const allPhones = phonesRes.data?.data || [];
         const newStockMap = {};
         
         allPhones.forEach(p => {
             const pStoreId = p.storeId?._id || p.storeId;
             if (p.status === 'in_stock' && String(pStoreId) === String(finalActiveStore)) {
-                const modelId = typeof p.phoneModelId === 'object' ? p.phoneModelId._id : p.phoneModelId;
-                const grade = p.grade || 'Mới'; // 🌟 Yếu tố quan trọng nhất
+                const modelId = p.phoneModelId?._id || p.phoneModelId || 'unknown';
+                const grade = p.grade || 'Mới'; 
                 const key = `${modelId}-${p.capacity}-${p.colorName}-${grade}`;
                 newStockMap[key] = (newStockMap[key] || 0) + 1;
             }
@@ -55,7 +53,6 @@ export const fetchCartDataApi = async (userId, activeStore) => {
     }
 };
 
-
 export const updateCartQuantityApi = async (payload) => {
     try {
         await axiosClient.put('/cart/update-quantity', payload);
@@ -65,7 +62,6 @@ export const updateCartQuantityApi = async (payload) => {
         return false;
     }
 };
-
 
 export const removeCartItemApi = async (userId, itemId) => {
     try {
