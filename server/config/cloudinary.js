@@ -3,14 +3,13 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 require('dotenv').config();
 
-// Kết nối với tài khoản Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Cấu hình kho lưu trữ
+
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -19,6 +18,11 @@ const storage = new CloudinaryStorage({
   }
 });
 
-const uploadCloud = multer({ storage });
+const uploadCloud = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 
+  }
+});
 
 module.exports = uploadCloud;

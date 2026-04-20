@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {toast} from "react-toastify";
+import Swal from 'sweetalert2';
 import {Plus, Edit, Search, ChevronLeft, ChevronRight, X, Wrench, ArrowUpDown, Trash2} from "lucide-react";
 
 import {
@@ -8,6 +8,155 @@ import {
     updateRepairServiceApi,
     deleteRepairServiceApi
 } from "../../api/admin/repairService";
+
+const formatPriceInput = (val) => {
+    if (!val && val !== 0) return '';
+    return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const parsePriceInput = (str) => {
+    if (!str) return '';
+    return str.toString().replace(/\./g, '');
+};
+
+const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
+    const [editingDots, setEditingDots] = useState(null); 
+    const [jumpPage, setJumpPage] = useState('');
+
+    if (totalPages <= 1) return null;
+
+    const handleJumpSubmit = () => {
+        let page = parseInt(jumpPage, 10);
+        if (!isNaN(page)) {
+            if (page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            onPageChange(page);
+        }
+        setEditingDots(null);
+        setJumpPage('');
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleJumpSubmit();
+        } else if (e.key === 'Escape') {
+            setEditingDots(null);
+            setJumpPage('');
+        }
+    };
+
+    const renderInteractiveDots = (position) => {
+        if (editingDots === position) {
+            return (
+                <input
+                    key={`input-${position}`}
+                    type="number"
+                    autoFocus
+                    min={1}
+                    max={totalPages}
+                    value={jumpPage}
+                    onChange={(e) => setJumpPage(e.target.value)}
+                    onBlur={handleJumpSubmit}
+                    onKeyDown={handleKeyDown}
+                    className="w-14 px-1 py-1.5 border-2 border-blue-500 rounded-lg text-center text-sm font-bold text-blue-700 outline-none hide-arrows shadow-sm"
+                    placeholder="..."
+                />
+            );
+        }
+        return (
+            <button
+                key={`dots-${position}`}
+                onClick={() => setEditingDots(position)}
+                className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer"
+                title="Nhấn để nhập số trang"
+            >
+                ...
+            </button>
+        );
+    };
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = startPage + maxVisible - 1;
+
+        if (endPage > totalPages) {
+            endPage = totalPages;
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
+            );
+            if (startPage > 2) {
+                pages.push(renderInteractiveDots('start'));
+            }
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    onClick={() => onPageChange(i)}
+                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
+                        i === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(renderInteractiveDots('end'));
+            }
+            pages.push(
+                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
+            );
+        }
+
+        return pages;
+    };
+
+    return (
+        <div className="flex gap-1.5 items-center">
+            <button
+                disabled={currentPage <= 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+            >
+                Trước
+            </button>
+            
+            {renderPageNumbers()}
+            
+            <button
+                disabled={currentPage >= totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
+            >
+                Sau
+            </button>
+            
+            <style dangerouslySetInnerHTML={{__html: `
+                .hide-arrows::-webkit-outer-spin-button,
+                .hide-arrows::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                .hide-arrows {
+                    -moz-appearance: textfield;
+                }
+            `}} />
+        </div>
+    );
+};
 
 export default function ManageRepairService() {
     const [repairServices, setRepairServices] = useState([]);
@@ -40,12 +189,14 @@ export default function ManageRepairService() {
 
     const loadRepairServices = async () => {
         setLoading(true);
+        const timestamp = new Date().getTime();
         const params = new URLSearchParams({
             page: pagination.currentPage,
             limit: pagination.itemsPerPage,
             ...(search && {search}),
             sortBy,
-            sortOrder
+            sortOrder,
+            t: timestamp
         });
 
         const data = await fetchRepairServicesApi(params);
@@ -67,17 +218,37 @@ export default function ManageRepairService() {
         setIsEditing(true);
         setFormData({
             name: service.name,
-            price: service.price.toString()
+            price: service.price ? service.price.toString() : ''
         });
         setEditingId(service._id);
         setShowModal(true);
     };
 
     const handleDelete = async (service) => {
-        if (window.confirm(`Bạn có chắc chắn muốn xóa dịch vụ "${service.name}" không?`)) {
+        const result = await Swal.fire({
+            title: 'Xác nhận xóa?',
+            text: `Bạn có chắc chắn muốn xóa dịch vụ "${service.name}" không?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy',
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition mx-2',
+                cancelButton: 'bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition mx-2'
+            }
+        });
+
+        if (result.isConfirmed) {
             const isSuccess = await deleteRepairServiceApi(service._id);
             if (isSuccess) {
-                toast.success("Xóa dịch vụ sửa chữa thành công");
+                Swal.fire({
+                    title: 'Thành công!',
+                    text: 'Xóa dịch vụ sửa chữa thành công',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
                 loadRepairServices();
             }
         }
@@ -87,22 +258,44 @@ export default function ManageRepairService() {
         e.preventDefault();
 
         if (!formData.name.trim()) {
-            toast.error("Tên dịch vụ là bắt buộc");
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi',
+                text: 'Tên dịch vụ là bắt buộc',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700' }
+            });
             return;
         }
 
         const payload = {
             name: formData.name.trim(),
-            ...(formData.price && {price: parseFloat(formData.price)})
+            ...(formData.price && {price: parseFloat(parsePriceInput(formData.price))})
         };
 
         let isSuccess = false;
         if (isEditing) {
             isSuccess = await updateRepairServiceApi(editingId, payload);
-            if (isSuccess) toast.success("Cập nhật dịch vụ sửa chữa thành công");
+            if (isSuccess) {
+                Swal.fire({
+                    title: 'Thành công!',
+                    text: 'Cập nhật dịch vụ sửa chữa thành công',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
         } else {
             isSuccess = await createRepairServiceApi(payload);
-            if (isSuccess) toast.success("Tạo dịch vụ sửa chữa thành công");
+            if (isSuccess) {
+                Swal.fire({
+                    title: 'Thành công!',
+                    text: 'Tạo dịch vụ sửa chữa thành công',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
         }
 
         if (isSuccess) {
@@ -231,7 +424,7 @@ export default function ManageRepairService() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {formatPrice(service.price)}
+                                                {service.price ? formatPrice(service.price) : ''}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
@@ -256,73 +449,16 @@ export default function ManageRepairService() {
                         </table>
                     </div>
 
-                    {pagination.totalPages > 1 && (
-                        <div
-                            className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                    disabled={pagination.currentPage === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Trước
-                                </button>
-                                <button
-                                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                    disabled={pagination.currentPage === pagination.totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Sau
-                                </button>
-                            </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Hiển thị{' '}
-                                        <span className="font-medium">
-                                            {Math.min((pagination.currentPage - 1) * pagination.itemsPerPage + 1, pagination.totalItems)}
-                                        </span>{' '}
-                                        đến{' '}
-                                        <span className="font-medium">
-                                            {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)}
-                                        </span>{' '}
-                                        của{' '}
-                                        <span className="font-medium">{pagination.totalItems}</span> kết quả
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
-                                         aria-label="Pagination">
-                                        <button
-                                            onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                            disabled={pagination.currentPage === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <ChevronLeft className="w-5 h-5"/>
-                                        </button>
-                                        {Array.from({length: pagination.totalPages}, (_, i) => i + 1).map((page) => (
-                                            <button
-                                                key={page}
-                                                onClick={() => handlePageChange(page)}
-                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                                    page === pagination.currentPage
-                                                        ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        ))}
-                                        <button
-                                            onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                            disabled={pagination.currentPage === pagination.totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <ChevronRight className="w-5 h-5"/>
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
+                    {!loading && pagination.totalItems > 0 && (
+                        <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto">
+                            <span className="text-sm text-gray-600">
+                                Trang <span className="font-bold text-blue-600">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng cộng: <span className="font-bold text-gray-800">{pagination.totalItems}</span> mục
+                            </span>
+                            <CustomPagination 
+                                currentPage={pagination.currentPage} 
+                                totalPages={pagination.totalPages} 
+                                onPageChange={handlePageChange} 
+                            />
                         </div>
                     )}
                 </div>
@@ -360,11 +496,9 @@ export default function ManageRepairService() {
                                         Giá
                                     </label>
                                     <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={formData.price}
-                                        onChange={(e) => setFormData({...formData, price: e.target.value})}
+                                        type="text"
+                                        value={formatPriceInput(formData.price)}
+                                        onChange={(e) => setFormData({...formData, price: parsePriceInput(e.target.value)})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="Nhập giá (tùy chọn)"
                                     />
