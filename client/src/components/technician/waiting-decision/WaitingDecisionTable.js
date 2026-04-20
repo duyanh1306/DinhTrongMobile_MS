@@ -2,24 +2,31 @@ import React from "react";
 import { Calendar, Settings, CheckCircle } from "lucide-react";
 import dayjs from "dayjs";
 
+const IGNORE_KEYWORDS = ['Cấu hình', 'Ghi chú thêm'];
+const BROKEN_KEYWORDS = ['hỏng', 'kém'];
+
 const getBrokenParts = (noteStr) => {
   if (!noteStr) return [];
-  const lines = noteStr.split('\n');
-  const broken = [];
-  lines.forEach(line => {
+
+  return noteStr.split('\n').reduce((broken, line) => {
     const cleanLine = line.trim();
-    if (cleanLine.startsWith('-') && !cleanLine.includes('Cấu hình') && !cleanLine.includes('Ghi chú thêm')) {
+    
+    const isIgnored = IGNORE_KEYWORDS.some(keyword => cleanLine.includes(keyword));
+
+    if (cleanLine.startsWith('-') && !isIgnored) {
       const parts = cleanLine.split(':');
       if (parts.length >= 2) {
         const name = parts[0].replace('-', '').trim();
-        const statusStr = parts.slice(1).join(':').trim();
-        if (statusStr.toLowerCase().includes('hỏng') || statusStr.toLowerCase().includes('kém')) {
+        const statusStr = parts.slice(1).join(':').trim().toLowerCase();
+        
+        const isBroken = BROKEN_KEYWORDS.some(keyword => statusStr.includes(keyword));
+        if (isBroken) {
           broken.push(name);
         }
       }
     }
-  });
-  return broken;
+    return broken;
+  }, []);
 };
 
 const WaitingDecisionTable = ({ waitingPhones, loading, onProcess }) => {
