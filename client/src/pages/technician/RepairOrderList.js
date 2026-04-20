@@ -316,30 +316,56 @@ const RepairOrderList = () => {
       setOrderDetails([]);
     }
   };
-  
-  const acceptRepairOrder = async (orderId) => {
+
+  const acceptRepairOrder = async (orderId, serviceId = [], itemIds = [], totalPrice = 0) => {
     try {
-      await axiosClient.put(`/repair-orders/${orderId}/accept`);
-      const updateOrderStatus = (orderList) => orderList.map((order) => order._id === orderId ? { ...order, status: "In Progress" } : order);
+      await axiosClient.put(`/repair-orders/${orderId}/accept`, {
+        serviceId,
+        itemIds,
+        totalPrice
+      });
+      const updateOrderStatus = (orderList) =>
+        orderList.map((order) =>
+          order._id === orderId ? { ...order, status: "In Progress", totalPrice } : order
+        );
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
-      toast.success("Đã nhận đơn");
+      toast.success("Đã nhận đơn và cập nhật chi tiết!");
       fetchAllCounts();
     } catch (error) {
-      toast.error("Lỗi nhận đơn");
+      toast.error("Lỗi nhận đơn: " + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleOrderUpdate = async (orderId, serviceId = [], itemIds = [], totalPrice = 0) => {
+    try {
+      await axiosClient.put(`/repair-orders/${orderId}/details-transfer`, { serviceId, itemIds });
+      await axiosClient.put(`/repair-orders/${orderId}`, { totalPrice });
+      const updateOrderStatus = (orderList) =>
+        orderList.map((order) =>
+          order._id === orderId ? { ...order, totalPrice } : order
+        );
+      setOrders(updateOrderStatus(orders));
+      setFilteredOrders(updateOrderStatus(filteredOrders));
+      toast.success("Đã lưu cập nhật chi tiết và tổng tiền!");
+    } catch (error) {
+      toast.error("Lỗi cập nhật: " + (error.response?.data?.message || error.message));
     }
   };
 
   const completeRepairOrder = async (orderId) => {
     try {
-      await axiosClient.put(`/repair-orders/${orderId}/complete`);
-      const updateOrderStatus = (orderList) => orderList.map((order) => order._id === orderId ? { ...order, status: "Completed" } : order);
+      await axiosClient.put(`/repair-orders/${orderId}/complete`, {});
+      const updateOrderStatus = (orderList) =>
+        orderList.map((order) =>
+          order._id === orderId ? { ...order, status: "Completed" } : order
+        );
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
-      toast.success("Đã hoàn thành đơn");
+      toast.success("Đã hoàn thành đơn sửa chữa!");
       fetchAllCounts();
     } catch (error) {
-      toast.error("Lỗi hoàn thành đơn");
+      toast.error("Lỗi hoàn thành đơn: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -464,6 +490,7 @@ const RepairOrderList = () => {
             onResetFilters={resetFilters}
             onViewDetails={handleViewDetails}
             onAccept={acceptRepairOrder}
+            onOrderUpdate={handleOrderUpdate}
             onCancel={cancelRepairOrder}
             onComplete={completeRepairOrder}
             onCloseDetailsModal={() => setShowDetailsModal(false)}

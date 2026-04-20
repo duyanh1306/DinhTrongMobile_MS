@@ -9,6 +9,7 @@ const RepairDetailsModal = ({
   showDetailsModal,
   onClose,
   onAccept,
+  onOrderUpdate,
   orderDetails,
 }) => {
   const [repairServices, setRepairServices] = useState([]);
@@ -18,6 +19,8 @@ const RepairDetailsModal = ({
   const [selectedItems, setSelectedItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const isWarranty = selectedOrder?.repairType === "Bảo hành" || orderDetails?.some(d => d.type === "WARRANTY");
 
   useEffect(() => {
     if (showDetailsModal) {
@@ -88,12 +91,14 @@ const RepairDetailsModal = ({
   };
 
   const getSelectedServiceTotal = () => {
+    if (isWarranty) return 0;
     return repairServices
       .filter(service => selectedServices.includes(service._id))
       .reduce((total, service) => total + (service.price || 0), 0);
   };
 
   const getSelectedItemTotal = () => {
+    if (isWarranty) return 0;
     return items
       .filter(item => selectedItems.includes(item._id))
       .reduce((total, item) => total + (item.price || 0), 0);
@@ -184,7 +189,7 @@ const RepairDetailsModal = ({
           <div className="border-t pt-6">
             <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <Wrench className="w-4 h-4 text-blue-600" />
-              Chọn dịch vụ sửa chữa
+              Chọn dịch vụ sửa chữa {isWarranty && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold uppercase">Bảo hành</span>}
             </h4>
             
             {loadingServices ? (
@@ -222,7 +227,7 @@ const RepairDetailsModal = ({
                     </div>
                     <div className="text-right">
                       <span className="font-semibold text-blue-600">
-                        {service.price ? `${service.price.toLocaleString('vi-VN')} đ` : 'Liên hệ'}
+                        {isWarranty ? "0 đ" : (service.price ? `${service.price.toLocaleString('vi-VN')} đ` : 'Liên hệ')}
                       </span>
                     </div>
                   </div>
@@ -248,6 +253,7 @@ const RepairDetailsModal = ({
             <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <Package className="w-4 h-4 text-green-600" />
               Chọn linh kiện thay thế {deviceName !== "Chưa xác định" && `cho ${deviceName}`}
+              {isWarranty && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold uppercase">Bảo hành</span>}
             </h4>
             
             {loadingItems ? (
@@ -279,11 +285,13 @@ const RepairDetailsModal = ({
                     .filter(item => {
                       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
                       let matchesDevice = true;
+                      
                       if (deviceId && (item.phoneModelId?._id || item.phoneModelId)) {
                         matchesDevice = (item.phoneModelId?._id || item.phoneModelId) === deviceId;
                       } else if (deviceName && deviceName !== "Chưa xác định") {
                         matchesDevice = item.name.toLowerCase().includes(deviceName.toLowerCase());
                       }
+                      
                       return matchesSearch && matchesDevice;
                     })
                     .map((item) => (
@@ -313,7 +321,7 @@ const RepairDetailsModal = ({
                         </div>
                         <div className="text-right">
                           <span className="font-semibold text-green-600 text-sm">
-                            {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Liên hệ'}
+                            {isWarranty ? "0 đ" : (item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Liên hệ')}
                           </span>
                         </div>
                       </div>
@@ -387,12 +395,23 @@ const RepairDetailsModal = ({
           {selectedOrder.status === "Pending" && onAccept && (
             <button
               onClick={() => {
-                onAccept(selectedOrder._id, selectedServices, selectedItems);
+                onAccept(selectedOrder._id, selectedServices, selectedItems, getGrandTotal());
                 onClose();
               }}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
-              Xác nhận
+              Xác nhận nhận đơn
+            </button>
+          )}
+          {selectedOrder.status === "In Progress" && onOrderUpdate && (
+            <button
+              onClick={() => {
+                onOrderUpdate(selectedOrder._id, selectedServices, selectedItems, getGrandTotal());
+                onClose();
+              }}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Lưu & Cập nhật chi tiết
             </button>
           )}
         </div>

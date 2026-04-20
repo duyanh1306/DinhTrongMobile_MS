@@ -3,7 +3,6 @@ import { Search, Eye, X, Hammer, Package } from "lucide-react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API
 import { fetchRepairOrdersApi, fetchRepairOrderDetailsApi } from "../../api/admin/repairHistory";
 
 export default function RepairHistory() {
@@ -18,9 +17,6 @@ export default function RepairHistory() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // ==============================================================
-  // GỌI API QUA HÀM ĐÃ TÁCH
-  // ==============================================================
   useEffect(() => { 
     loadOrders(); 
   }, []);
@@ -41,13 +37,11 @@ export default function RepairHistory() {
     setIsLoadingDetails(false);
   };
 
-  // ==============================================================
-  // LOGIC HIỂN THỊ
-  // ==============================================================
   const calculateGrandTotal = () => {
     return orderDetails.reduce((total, d) => {
-      const servicePrice = d.serviceId?.price || 0;
-      const itemsPrice = d.itemIds?.reduce((iSum, item) => iSum + (item.price || item.item_type?.price || 0), 0) || 0;
+      const srvs = Array.isArray(d.serviceId) ? d.serviceId : (d.serviceId ? [d.serviceId] : []);
+      const servicePrice = srvs.reduce((sSum, srv) => sSum + (srv.price || 0), 0);
+      const itemsPrice = d.itemIds?.reduce((iSum, item) => iSum + (item.sellingPrice || item.price || item.item_type?.price || 0), 0) || 0;
       return total + servicePrice + itemsPrice;
     }, 0);
   };
@@ -146,7 +140,6 @@ export default function RepairHistory() {
         )}
       </div>
 
-      {/* --- MODAL CHI TIẾT --- */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -187,24 +180,25 @@ export default function RepairHistory() {
                       ) : (
                         orderDetails.map((detail, idx) => {
                           let rows = [];
-                          // 1. Dịch vụ sửa chữa (serviceId)
-                          if (detail.serviceId) {
+                          
+                          const srvs = Array.isArray(detail.serviceId) ? detail.serviceId : (detail.serviceId ? [detail.serviceId] : []);
+                          srvs.forEach(srv => {
                             rows.push({
                               icon: <Hammer size={16} className="text-blue-500"/>,
-                              name: detail.serviceId.name,
+                              name: srv.name || "Dịch vụ",
                               badge: "Dịch vụ",
                               style: "bg-blue-50 text-blue-700",
-                              price: detail.serviceId.price || 0
+                              price: srv.price || 0
                             });
-                          }
-                          // 2. Danh sách linh kiện thay thế (itemIds)
+                          });
+                          
                           detail.itemIds?.forEach(item => {
                             rows.push({
                               icon: <Package size={16} className="text-orange-500"/>,
                               name: `${item.item_type?.name || item.name} (SN: ${item.serialCode || "N/A"})`,
                               badge: "Linh kiện",
                               style: "bg-orange-50 text-orange-700",
-                              price: item.price || item.item_type?.price || 0
+                              price: item.sellingPrice || item.price || item.item_type?.price || 0
                             });
                           });
 
