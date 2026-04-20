@@ -15,10 +15,7 @@ const initialFormState = {
     }
 };
 
-const checkIsUsedModel = (name) => {
-    const lowerName = name.toLowerCase();
-    return lowerName.includes('cũ') || lowerName.includes('like new') || lowerName.includes('99%');
-};
+
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     const [editingDots, setEditingDots] = useState(null); 
@@ -166,7 +163,6 @@ export default function AdminPhoneModel() {
     
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedBrandFilter, setSelectedBrandFilter] = useState('');
-    const [selectedTypeFilter, setSelectedTypeFilter] = useState(''); 
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10; 
@@ -183,7 +179,7 @@ export default function AdminPhoneModel() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchKeyword, selectedBrandFilter, selectedTypeFilter]);
+    }, [searchKeyword, selectedBrandFilter]);
 
     const fetchPhoneBrands = async () => {
         const data = await fetchPhoneBrandsApi();
@@ -330,17 +326,13 @@ export default function AdminPhoneModel() {
 
     const filteredModels = useMemo(() => {
         const safeKeyword = searchKeyword.toLowerCase();
-
         return phoneModels.filter(m => {
             const nameMatch = m.name.toLowerCase().includes(safeKeyword);
             const brandId = m.brand?._id || m.brand;
             const brandPass = selectedBrandFilter ? brandId === selectedBrandFilter : true;
-            const isUsed = checkIsUsedModel(m.name);
-            const typePass = selectedTypeFilter === 'used' ? isUsed : selectedTypeFilter === 'new' ? !isUsed : true;
-
-            return nameMatch && brandPass && typePass;
+            return nameMatch && brandPass;
         });
-    }, [phoneModels, searchKeyword, selectedBrandFilter, selectedTypeFilter]);
+    }, [phoneModels, searchKeyword, selectedBrandFilter]);
 
     const paginatedModels = useMemo(() => {
         const totalPages = Math.ceil(filteredModels.length / itemsPerPage);
@@ -380,18 +372,6 @@ export default function AdminPhoneModel() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                 </div>
 
-                <div className="relative min-w-[180px]">
-                    <select 
-                        value={selectedTypeFilter} 
-                        onChange={(e) => setSelectedTypeFilter(e.target.value)} 
-                        className="w-full border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 px-4 rounded-lg outline-none focus:border-blue-500 cursor-pointer"
-                    >
-                        <option value="">Tất cả loại hàng</option>
-                        <option value="new">Chỉ Điện thoại Mới</option>
-                        <option value="used">Chỉ Điện thoại Cũ</option>
-                    </select>
-                </div>
-
                 <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
@@ -420,7 +400,6 @@ export default function AdminPhoneModel() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {paginatedModels.items.map(model => {
-                                    const isUsed = checkIsUsedModel(model.name);
                                     const brandName = model.brand?.name || 'Khác';
                                     
                                     return (
@@ -436,11 +415,6 @@ export default function AdminPhoneModel() {
                                             <td className="px-6 py-3">
                                                 <div className="flex flex-col gap-1 items-start">
                                                     <span className="font-bold text-gray-700">{brandName}</span>
-                                                    {isUsed ? (
-                                                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Hàng Cũ</span>
-                                                    ) : (
-                                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Hàng Mới</span>
-                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-3 text-xs text-gray-500 whitespace-normal">
