@@ -2,7 +2,6 @@ const Phone_model = require("../models/Phone_model");
 const Phone_brand = require("../models/PhoneBrand");
 const Phone = require("../models/Phone"); 
 
-// GET /api/phone_models/all
 const getAllPhoneModels = async (req, res) => {
     try {
     
@@ -30,7 +29,6 @@ const getAllPhoneModels = async (req, res) => {
     }
 };
 
-// POST /api/phone_models/create
 const createPhoneModel = async (req, res) => {
     try {
         let { name, brand, specifications } = req.body;
@@ -51,7 +49,7 @@ const createPhoneModel = async (req, res) => {
     }
 };
 
-// PUT /api/phone_models/update/:id
+
 const updatePhoneModel = async (req, res) => {
     try {
         const { id } = req.params;
@@ -74,7 +72,17 @@ const updatePhoneModel = async (req, res) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
-
+const deletePhoneModel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deleted = await Phone_model.findByIdAndDelete(id);
+        if (!deleted) return res.status(404).json({ success: false, message: "Không tìm thấy dòng máy" });
+        
+        res.status(200).json({ success: true, message: "Xóa thành công" });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
 const getPhoneModelPaginatedAndSearch = async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', brand = '', sortBy = 'name', sortOrder = 'asc' } = req.query;
@@ -115,4 +123,4 @@ const getPhoneModelPaginatedAndSearch = async (req, res) => {
     }
 };
 
-module.exports = { getAllPhoneModels, createPhoneModel, updatePhoneModel, getPhoneModelPaginatedAndSearch };
+module.exports = { getAllPhoneModels, createPhoneModel, updatePhoneModel, deletePhoneModel, getPhoneModelPaginatedAndSearch };

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import Swal from 'sweetalert2';
 import { Plus, Edit, Trash2, Search, X, Smartphone } from "lucide-react";
 
 import { 
@@ -148,6 +147,7 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
         </div>
     );
 };
+
 export default function AdminPhoneBrand() {
     const [brands, setBrands] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -176,10 +176,12 @@ export default function AdminPhoneBrand() {
 
     const loadBrands = async () => {
         setLoading(true);
+        const timestamp = new Date().getTime();
         const params = new URLSearchParams({
             page: pagination.currentPage, 
             limit: pagination.limit, 
-            search: search
+            search: search,
+            t: timestamp
         });
 
         const data = await fetchPhoneBrandsApi(params);
@@ -191,33 +193,84 @@ export default function AdminPhoneBrand() {
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa hãng này? Sẽ không thể hoàn tác!")) {
+        const result = await Swal.fire({
+            title: 'Xác nhận xóa?',
+            text: "Bạn có chắc chắn muốn xóa hãng này? Sẽ không thể hoàn tác!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy',
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 transition mx-2 shadow-md',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition mx-2 shadow-md'
+            }
+        });
+
+        if (result.isConfirmed) {
             const isSuccess = await deletePhoneBrandApi(id);
             if (isSuccess) {
-                toast.success("Xóa hãng thành công");
+                Swal.fire({ title: 'Thành công!', text: 'Đã xóa hãng sản xuất.', icon: 'success', timer: 1500, showConfirmButton: false });
                 loadBrands();
+            } else {
+                Swal.fire({ icon: 'error', title: 'Thất bại!', text: 'Lỗi khi xóa hãng.', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
             }
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.name.trim()) {
-            return toast.warning("Vui lòng nhập tên hãng!");
+        const trimmedName = formData.name.trim();
+
+        if (!trimmedName) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng nhập tên hãng!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
+
+        const isDuplicate = brands.some(b => 
+            b.name.toLowerCase() === trimmedName.toLowerCase() && b._id !== editingId
+        );
+
+        if (isDuplicate) {
+            return Swal.fire({
+                icon: 'error',
+                title: 'Trùng lặp dữ liệu!',
+                text: `Hãng "${trimmedName}" đã tồn tại trên hệ thống. Vui lòng nhập tên khác!`,
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
         }
 
         let isSuccess = false;
         if (isEditing) {
-            isSuccess = await updatePhoneBrandApi(editingId, formData);
-            if (isSuccess) toast.success("Cập nhật hãng thành công");
+            isSuccess = await updatePhoneBrandApi(editingId, { name: trimmedName });
         } else {
-            isSuccess = await createPhoneBrandApi(formData);
-            if (isSuccess) toast.success("Thêm hãng mới thành công");
+            isSuccess = await createPhoneBrandApi({ name: trimmedName });
         }
 
         if (isSuccess) {
             setShowModal(false);
+            Swal.fire({
+                title: 'Thành công!',
+                text: isEditing ? 'Cập nhật hãng thành công!' : 'Thêm hãng mới thành công!',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            });
             loadBrands();
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Thất bại!',
+                text: 'Có lỗi xảy ra, tên hãng có thể đã bị trùng. Vui lòng kiểm tra lại!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
         }
     };
 
@@ -240,7 +293,6 @@ export default function AdminPhoneBrand() {
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            <ToastContainer position="top-right" autoClose={3000} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Smartphone className="text-blue-600" size={28} />
@@ -251,46 +303,45 @@ export default function AdminPhoneBrand() {
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center">
+            <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap gap-4 items-center border border-gray-100">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
                         type="text" placeholder="Tìm kiếm theo tên hãng..." 
                         value={search} onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm transition"
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 transition"
                     />
                 </div>
             </div>
 
-            
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col border border-gray-200">
                 {loading ? (
                     <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
                 ) : (
                     <div className="overflow-x-auto flex-1">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-gray-600 border-b">
+                            <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 uppercase text-xs">
                                 <tr>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider w-24">STT</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider">Tên hãng sản xuất</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-right">Hành động</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider w-24">STT</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider">Tên hãng sản xuất</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider text-right">Hành động</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {brands.length === 0 ? (
-                                    <tr><td colSpan="3" className="py-12 text-center text-gray-500 text-base">Chưa có dữ liệu hãng sản xuất</td></tr>
+                                    <tr><td colSpan="3" className="py-12 text-center text-gray-500 text-base border-dashed border border-gray-200 mx-4 my-4 rounded-xl">Chưa có dữ liệu hãng sản xuất</td></tr>
                                 ) : (
                                     brands.map((brand, index) => (
-                                        <tr key={brand._id} className="hover:bg-gray-50 transition">
-                                            <td className="px-6 py-4 text-gray-500">
+                                        <tr key={brand._id} className="hover:bg-blue-50/30 transition">
+                                            <td className="px-6 py-4 text-gray-500 font-medium">
                                                 {(pagination.currentPage - 1) * pagination.limit + index + 1}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="font-bold text-gray-800 text-base">{brand.name}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button onClick={() => handleOpenModal(brand)} className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition mr-2" title="Sửa"><Edit size={18}/></button>
-                                                <button onClick={() => handleDelete(brand._id)} className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition" title="Xóa"><Trash2 size={18}/></button>
+                                                <button onClick={() => handleOpenModal(brand)} className="text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition mr-2 shadow-sm border border-blue-100" title="Sửa"><Edit size={18}/></button>
+                                                <button onClick={() => handleDelete(brand._id)} className="text-red-500 bg-red-50 hover:bg-red-600 hover:text-white p-2 rounded-lg transition shadow-sm border border-red-100" title="Xóa"><Trash2 size={18}/></button>
                                             </td>
                                         </tr>
                                     ))
@@ -300,45 +351,45 @@ export default function AdminPhoneBrand() {
                     </div>
                 )}
                 
-              
-                <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto">
-                    <span className="text-sm text-gray-600">Trang <span className="font-bold text-blue-600">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold text-gray-800">{pagination.totalCount}</span></span>
-                    <CustomPagination 
-                        currentPage={pagination.currentPage} 
-                        totalPages={pagination.totalPages} 
-                        onPageChange={handlePageChange} 
-                    />
-                </div>
+                {!loading && pagination.totalCount > 0 && (
+                    <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto">
+                        <span className="text-sm text-gray-600">Trang <span className="font-bold text-blue-600">{pagination.currentPage}</span> / <span className="font-bold">{pagination.totalPages || 1}</span> | Tổng: <span className="font-bold text-gray-800">{pagination.totalCount}</span> hãng</span>
+                        <CustomPagination 
+                            currentPage={pagination.currentPage} 
+                            totalPages={pagination.totalPages} 
+                            onPageChange={handlePageChange} 
+                        />
+                    </div>
+                )}
             </div>
 
-          
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center p-5 border-b bg-gray-50">
                             <h2 className="text-lg font-bold text-gray-800">{isEditing ? 'Sửa thông tin Hãng' : 'Thêm Hãng mới'}</h2>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={20}/></button>
+                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition bg-white p-1 rounded-full"><X size={20}/></button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6">
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-semibold mb-2 text-gray-700">Tên Hãng sản xuất <span className="text-red-500">*</span></label>
+                                    <label className="block text-sm font-bold mb-2 text-gray-700">Tên Hãng sản xuất <span className="text-red-500">*</span></label>
                                     <input 
                                         type="text" 
                                         required
                                         autoFocus
                                         value={formData.name} 
                                         onChange={e => setFormData({...formData, name: e.target.value})} 
-                                        className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" 
+                                        className="w-full border border-gray-300 p-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-800" 
                                         placeholder="VD: Apple, Samsung, Xiaomi..." 
                                     />
                                 </div>
                             </div>
 
-                            <div className="mt-8 flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition">Hủy</button>
-                                <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md shadow-blue-500/30 transition">
+                            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition shadow-sm">Hủy bỏ</button>
+                                <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition">
                                     {isEditing ? 'Lưu thay đổi' : 'Thêm mới'}
                                 </button>
                             </div>

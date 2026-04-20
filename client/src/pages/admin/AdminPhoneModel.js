@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { toast } from "react-toastify";
-import { Plus, Edit, Smartphone, Search, ChevronDown, X, Image as ImageIcon, Tag } from "lucide-react";
-import { fetchPhoneBrandsApi, fetchPhoneModelsApi, createPhoneModelApi, updatePhoneModelApi } from "../../api/admin/phoneModel";
+import { Plus, Edit, Smartphone, Search, ChevronDown, X, Image as ImageIcon, Tag, Trash2 } from "lucide-react";
+import Swal from 'sweetalert2';
+import { fetchPhoneBrandsApi, fetchPhoneModelsApi, createPhoneModelApi, updatePhoneModelApi, deletePhoneModelApi } from "../../api/admin/phoneModel";
 
 const initialFormState = {
     name: '',
@@ -181,7 +181,6 @@ export default function AdminPhoneModel() {
         fetchPhoneModels();
     }, []);
 
-
     useEffect(() => {
         setCurrentPage(1);
     }, [searchKeyword, selectedBrandFilter, selectedTypeFilter]);
@@ -213,6 +212,36 @@ export default function AdminPhoneModel() {
         setShowModal(true);
     };
 
+    const handleDeletePhoneModel = async (id) => {
+        const result = await Swal.fire({
+            title: 'Bạn có chắc chắn?',
+            text: "Dòng máy này sẽ bị xóa khỏi hệ thống và không thể hoàn tác!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy bỏ',
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 mx-2 shadow-sm',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 mx-2 shadow-sm'
+            }
+        });
+
+        if (result.isConfirmed) {
+            const isSuccess = await deletePhoneModelApi(id);
+            if (isSuccess) {
+                Swal.fire({
+                    title: 'Đã xóa!',
+                    text: 'Dòng máy đã được xóa thành công.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                fetchPhoneModels();
+            }
+        }
+    };
+
     const handleCloseModal = () => setShowModal(false);
 
     const handleInputChange = (e) => {
@@ -226,34 +255,78 @@ export default function AdminPhoneModel() {
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-        if (file) setFormData(prev => ({ ...prev, imageFile: file, previewImage: URL.createObjectURL(file) }));
+        if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Ảnh quá lớn!',
+                    text: 'Vui lòng chọn ảnh có dung lượng dưới 10MB.',
+                    buttonsStyling: false,
+                    customClass: {
+                        confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm'
+                    }
+                });
+                e.target.value = null; 
+                return;
+            }
+            
+            setFormData(prev => ({ ...prev, imageFile: file, previewImage: URL.createObjectURL(file) }));
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+    
+        if (!isEditing && !formData.imageFile && !formData.previewImage) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Thiếu hình ảnh!',
+                text: 'Vui lòng chọn hình ảnh đại diện cho dòng máy này.',
+                buttonsStyling: false,
+                customClass: {
+                    confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm'
+                }
+            });
+            return;
+        }
         
         const submitData = new FormData();
         submitData.append("name", formData.name);
         submitData.append("brand", formData.brand);
         submitData.append("specifications", JSON.stringify(formData.specifications));
         if (formData.imageFile) submitData.append("image", formData.imageFile);
-
-        let isSuccess = false;
+    
+        let response;
 
         if (isEditing) {
-            isSuccess = await updatePhoneModelApi(editingId, submitData);
-            if (isSuccess) toast.success("Cập nhật thành công!");
+            response = await updatePhoneModelApi(editingId, submitData);
         } else {
-            isSuccess = await createPhoneModelApi(submitData);
-            if (isSuccess) toast.success("Thêm mới thành công!");
+            response = await createPhoneModelApi(submitData);
         }
-
-        if (isSuccess) {
+    
+        if (response.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Thành công!',
+                text: isEditing ? 'Cập nhật dòng máy thành công!' : 'Đã thêm dòng máy mới thành công!',
+                timer: 1500,
+                showConfirmButton: false
+            });
             handleCloseModal();
             fetchPhoneModels();
+        } 
+        else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Thất bại!',
+                text: response.message, 
+                buttonsStyling: false,
+                customClass: {
+                    confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm'
+                }
+            });
         }
     };
-
 
     const filteredModels = useMemo(() => {
         const safeKeyword = searchKeyword.toLowerCase();
@@ -269,7 +342,6 @@ export default function AdminPhoneModel() {
         });
     }, [phoneModels, searchKeyword, selectedBrandFilter, selectedTypeFilter]);
 
-  
     const paginatedModels = useMemo(() => {
         const totalPages = Math.ceil(filteredModels.length / itemsPerPage);
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -330,7 +402,6 @@ export default function AdminPhoneModel() {
                 </div>
             </div>
 
-         
             <div className="flex-1 overflow-y-auto pb-4">
                 {loading ? (
                     <div className="flex justify-center items-center h-40"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
@@ -379,9 +450,12 @@ export default function AdminPhoneModel() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-3 text-right">
-                                                <div className="flex justify-end">
+                                                <div className="flex justify-end gap-2">
                                                     <button onClick={() => handleEditPhoneModel(model)} className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-sm border border-blue-100">
                                                         <Edit size={16} /> 
+                                                    </button>
+                                                    <button onClick={() => handleDeletePhoneModel(model._id)} className="text-red-500 bg-red-50 p-2 rounded-lg hover:bg-red-600 hover:text-white transition shadow-sm border border-red-100">
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -394,7 +468,6 @@ export default function AdminPhoneModel() {
                 )}
             </div>
 
-        
             {!loading && paginatedModels.totalCount > 0 && (
                 <div className="p-4 flex flex-col sm:flex-row justify-between items-center bg-white gap-4 mt-auto rounded-xl border border-gray-200 shadow-sm">
                     <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -410,13 +483,12 @@ export default function AdminPhoneModel() {
                 </div>
             )}
 
-         
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between p-5 border-b bg-gray-50">
                             <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Cập nhật Dòng máy' : 'Thêm Dòng máy mới'}</h2>
-                            <button onClick={handleCloseModal} className="text-gray-400 hover:text-red-500 transition bg-white p-1 rounded-full"><X size={24} /></button>
+                            <button type="button" onClick={handleCloseModal} className="text-gray-400 hover:text-red-500 transition bg-white p-1 rounded-full"><X size={24} /></button>
                         </div>
                         
                         <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 max-h-[80vh] custom-scrollbar">
