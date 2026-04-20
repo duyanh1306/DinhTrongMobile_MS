@@ -129,12 +129,17 @@ const updateItemType = async (req, res) => {
 
         if (req.body.linkedRecipes) {
             try {
+                await Recipe.updateMany(
+                    { "requiredParts.acceptedItemTypes": updated._id },
+                    { $pull: { "requiredParts.$[].acceptedItemTypes": updated._id } }
+                );
                 const links = JSON.parse(req.body.linkedRecipes);
                 for (let link of links) {
                     const recipe = await Recipe.findById(link.recipeId);
                     if (recipe) {
                         const part = recipe.requiredParts.find(p => p.name === link.partName);
                         if (part) {
+                   
                             const alreadyExists = part.acceptedItemTypes.some(itemTypeId => itemTypeId.toString() === updated._id.toString());
                             if (!alreadyExists) {
                                 part.acceptedItemTypes.push(updated._id);
@@ -143,7 +148,9 @@ const updateItemType = async (req, res) => {
                         }
                     }
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) { 
+                console.error("Lỗi cập nhật Recipe:", err); 
+            }
         }
         res.status(200).json({ success: true, data: updated });
     } catch (error) {
@@ -151,8 +158,6 @@ const updateItemType = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
-// Hàm xóa
 const deleteItemType = async (req, res) => {
     try {
         await Item_type.findByIdAndDelete(req.params.id);

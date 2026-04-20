@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import Swal from 'sweetalert2';
 import { Plus, Edit, Trash2, Smartphone, Search, ChevronDown, X, MapPin, Tag, Image as ImageIcon, QrCode, Eye, ArrowUpDown } from "lucide-react";
 
 import { fetchStoresAndModelsApi, fetchPhonesApi, deletePhoneApi, fetchPhoneQrCodeApi, createPhoneApi, updatePhoneApi } from "../../api/admin/phone"; 
@@ -10,7 +11,15 @@ const initialFormState = {
     warrantyPeriod: 12, source: 'supplier', notes: '',
     imageFiles: [], previewImages: [], retainedImages: []
 };
+const formatPriceInput = (val) => {
+    if (!val && val !== 0) return '';
+    return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
 
+const parsePriceInput = (str) => {
+    if (!str) return '';
+    return str.toString().replace(/\./g, '');
+};
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     const [editingDots, setEditingDots] = useState(null); 
@@ -240,11 +249,32 @@ export default function AdminPhone() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa máy này?")) return;
-        const success = await deletePhoneApi(id);
-        if (success) {
-            toast.success("Xóa máy thành công!");
-            fetchPhones();
+        const result = await Swal.fire({
+            title: 'Bạn có chắc chắn?',
+            text: "Chiếc điện thoại này sẽ bị xóa khỏi kho và không thể hoàn tác!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy bỏ',
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 mx-2 shadow-sm',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 mx-2 shadow-sm'
+            }
+        });
+
+        if (result.isConfirmed) {
+            const success = await deletePhoneApi(id);
+            if (success) {
+                Swal.fire({
+                    title: 'Đã xóa!',
+                    text: 'Máy đã được xóa khỏi hệ thống.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                fetchPhones();
+            }
         }
     };
 
@@ -301,10 +331,96 @@ export default function AdminPhone() {
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files);
+        
         if (files.length > 0) {
-            const previews = files.map(file => URL.createObjectURL(file));
-            setFormData(prev => ({ ...prev, imageFiles: files, previewImages: previews, retainedImages: [] }));
+            const existingFileNames = formData.imageFiles.map(f => f.name);
+            
+            let validFiles = [];
+            let hasOversizedFile = false;
+            let hasDuplicateFile = false;
+            let currentBatchNames = new Set(); 
+
+            files.forEach(file => {
+                if (existingFileNames.includes(file.name) || currentBatchNames.has(file.name)) {
+                    hasDuplicateFile = true;
+                } else if (file.size > 10 * 1024 * 1024) {
+                    hasOversizedFile = true;
+                } else {
+                    validFiles.push(file);
+                    currentBatchNames.add(file.name);
+                }
+            });
+
+            const currentTotalImages = formData.previewImages.length;
+            const newTotalImages = currentTotalImages + validFiles.length;
+    
+   
+            if (newTotalImages > 5) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Vượt quá giới hạn!',
+                    text: `Bạn chỉ được phép có tối đa 5 ảnh. Hiện tại bạn đang có ${currentTotalImages} ảnh. Vui lòng chọn thêm tối đa ${5 - currentTotalImages} ảnh hợp lệ.`,
+                    buttonsStyling: false,
+                    customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+                });
+                e.target.value = null; 
+                return; 
+            }
+    
+            if (hasDuplicateFile) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Bỏ qua ảnh trùng lặp!',
+                    text: 'Một hoặc nhiều ảnh bạn chọn đã có sẵn trong danh sách nên đã bị bỏ qua.',
+                    buttonsStyling: false,
+                    customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+                });
+            } else if (hasOversizedFile) { 
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Ảnh quá lớn!',
+                    text: 'Một hoặc nhiều ảnh có dung lượng vượt quá 10MB đã bị loại bỏ.',
+                    buttonsStyling: false,
+                    customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+                });
+            }
+            
+            e.target.value = null; 
+    
+            if (validFiles.length > 0) {
+                const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+                setFormData(prev => ({ 
+                    ...prev, 
+                    imageFiles: [...prev.imageFiles, ...validFiles], 
+                    previewImages: [...prev.previewImages, ...newPreviews]
+                }));
+            }
         }
+    };
+    
+    const handleRemoveImage = (indexToRemove) => {
+        setFormData(prev => {
+            const newPreviewImages = [...prev.previewImages];
+            const removedSrc = newPreviewImages.splice(indexToRemove, 1)[0];
+    
+            let newRetainedImages = [...(prev.retainedImages || [])];
+            let newImageFiles = [...prev.imageFiles];
+    
+            if (removedSrc.startsWith('blob:')) {
+                const fileIndex = indexToRemove - newRetainedImages.length;
+                if (fileIndex >= 0) newImageFiles.splice(fileIndex, 1);
+            } 
+            else {
+                newRetainedImages = newRetainedImages.filter(img => img !== removedSrc);
+            }
+    
+            return {
+                ...prev,
+                previewImages: newPreviewImages,
+                imageFiles: newImageFiles,
+                retainedImages: newRetainedImages
+            };
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -324,10 +440,41 @@ export default function AdminPhone() {
         if (isEditing && formData.retainedImages?.length > 0) submitData.append("retainedImages", JSON.stringify(formData.retainedImages));
         if (formData.imageFiles?.length > 0) formData.imageFiles.forEach(file => submitData.append("images", file));
 
-        let isSuccess = isEditing ? await updatePhoneApi(editingId, submitData) : await createPhoneApi(submitData);
-        if (isSuccess) {
-            toast.success(isEditing ? "Cập nhật thành công!" : "Thêm máy thành công!");
-            setShowModal(false); fetchPhones();
+        let isSuccess = false;
+        try {
+            if (isEditing) {
+                isSuccess = await updatePhoneApi(editingId, submitData);
+            } else {
+                isSuccess = await createPhoneApi(submitData);
+            }
+
+            if (isSuccess) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công!',
+                    text: isEditing ? 'Cập nhật thông tin máy thành công!' : 'Đã thêm máy mới vào kho!',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                setShowModal(false); 
+                fetchPhones();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Thất bại!',
+                    text: 'Có lỗi xảy ra (có thể trùng mã Serial), vui lòng kiểm tra lại!',
+                    buttonsStyling: false,
+                    customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi hệ thống!',
+                text: error.response?.data?.message || 'Không thể kết nối đến server.',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
         }
     };
 
@@ -605,7 +752,7 @@ export default function AdminPhone() {
                                             <td className="px-4 py-4 text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <button onClick={() => handleOpenModal(phone)} className="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition border border-transparent hover:border-blue-200"><Edit size={16}/></button>
-                                                
+                                                    <button onClick={() => handleDelete(phone._id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition border border-transparent hover:border-red-200"><Trash2 size={16}/></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -633,8 +780,6 @@ export default function AdminPhone() {
                     </div>
                 </div>
             )}
-
-            {/* MODAL THÊM / SỬA */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[60] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -708,12 +853,28 @@ export default function AdminPhone() {
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình ảnh thực tế của máy (Chụp tình trạng xước xát nếu có)</label>
-                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer relative min-h-[100px]">
-                                        <input type="file" multiple accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                        <div className="flex flex-wrap gap-3 justify-center mb-2 pointer-events-none">
-                                            {formData.previewImages?.length > 0 ? formData.previewImages.map((src, idx) => <img key={idx} src={src} alt="preview" className="h-16 w-16 object-cover rounded-md shadow-sm border border-gray-200" />) : <ImageIcon className="h-10 w-10 text-gray-300" />}
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 min-h-[100px]">
+                                        <div className="flex flex-wrap gap-3 mb-3">
+                                            {formData.previewImages?.length > 0 ? formData.previewImages.map((src, idx) => (
+                                                <div key={idx} className="relative group">
+                                                    <img src={src} alt="preview" className="h-20 w-20 object-cover rounded-md shadow-sm border border-gray-200" />
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => handleRemoveImage(idx)}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-600"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            )) : null}
+                                            
+                                            <label className="h-20 w-20 border-2 border-dashed border-blue-300 rounded-md flex flex-col items-center justify-center text-blue-500 hover:bg-blue-50 cursor-pointer transition shadow-sm bg-white">
+                                                <Plus size={24} />
+                                                <span className="text-[10px] mt-1 font-semibold">Thêm ảnh</span>
+                                                <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+                                            </label>
                                         </div>
-                                        <span className="text-xs text-gray-500 font-medium pointer-events-none">{formData.previewImages?.length > 0 ? 'Nhấn để chọn lại ảnh khác' : 'Nhấn vào đây để chọn ảnh (Có thể chọn nhiều ảnh)'}</span>
+                                        <span className="text-xs text-gray-500 font-medium">Hỗ trợ tải lên nhiều ảnh (Dưới 10MB/ảnh)</span>
                                     </div>
                                 </div>
                                 
@@ -737,13 +898,13 @@ export default function AdminPhone() {
 
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá vốn (VNĐ) <span className="text-red-500">*</span></label>
-                                    <input type="number" value={formData.importPrice} onChange={e => setFormData({...formData, importPrice: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
+                                    <input type="text" value={formatPriceInput(formData.importPrice)} onChange={e => setFormData({...formData, importPrice: parsePriceInput(e.target.value)})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500 font-medium" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
-                                        <input type="number" value={formData.sellingPrice} onChange={e => setFormData({...formData, sellingPrice: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
+                                    <input type="text" value={formatPriceInput(formData.sellingPrice)} onChange={e => setFormData({...formData, sellingPrice: parsePriceInput(e.target.value)})} required className="w-full border-2 border-red-200 bg-red-50 p-2.5 rounded-xl outline-none focus:border-red-500 font-bold text-red-700" />
+                                </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5">Bảo hành (Tháng)</label>
                                         <input type="number" value={formData.warrantyPeriod} onChange={e => setFormData({...formData, warrantyPeriod: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />

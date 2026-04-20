@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, Tag } from "lucide-react";
 import Swal from 'sweetalert2';
 import { fetchItemTypesPaginatedApi, fetchAllRecipesApi, deleteItemTypeApi, createItemTypeApi, updateItemTypeApi } from "../../api/admin/itemType";
@@ -28,12 +27,8 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            handleJumpSubmit();
-        } else if (e.key === 'Escape') {
-            setEditingDots(null);
-            setJumpPage('');
-        }
+        if (e.key === 'Enter') handleJumpSubmit();
+        else if (e.key === 'Escape') { setEditingDots(null); setJumpPage(''); }
     };
 
     const renderInteractiveDots = (position) => {
@@ -41,28 +36,15 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
             return (
                 <input
                     key={`input-${position}`}
-                    type="number"
-                    autoFocus
-                    min={1}
-                    max={totalPages}
-                    value={jumpPage}
-                    onChange={(e) => setJumpPage(e.target.value)}
-                    onBlur={handleJumpSubmit}
-                    onKeyDown={handleKeyDown}
+                    type="number" autoFocus min={1} max={totalPages} value={jumpPage}
+                    onChange={(e) => setJumpPage(e.target.value)} onBlur={handleJumpSubmit} onKeyDown={handleKeyDown}
                     className="w-14 px-1 py-1.5 border-2 border-blue-500 rounded-lg text-center text-sm font-bold text-blue-700 outline-none hide-arrows shadow-sm"
                     placeholder="..."
                 />
             );
         }
         return (
-            <button
-                key={`dots-${position}`}
-                onClick={() => setEditingDots(position)}
-                className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer"
-                title="Nhấn để nhập số trang"
-            >
-                ...
-            </button>
+            <button key={`dots-${position}`} onClick={() => setEditingDots(position)} className="px-2 text-gray-400 font-bold tracking-widest hover:text-blue-600 transition cursor-pointer" title="Nhấn để nhập số trang">...</button>
         );
     };
 
@@ -79,72 +61,29 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
         }
 
         if (startPage > 1) {
-            pages.push(
-                <button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>
-            );
-            if (startPage > 2) {
-                pages.push(renderInteractiveDots('start'));
-            }
+            pages.push(<button key="first" onClick={() => onPageChange(1)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">1</button>);
+            if (startPage > 2) pages.push(renderInteractiveDots('start'));
         }
         
         for (let i = startPage; i <= endPage; i++) {
             pages.push(
-                <button
-                    key={i}
-                    onClick={() => onPageChange(i)}
-                    className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${
-                        i === currentPage
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                >
-                    {i}
-                </button>
+                <button key={i} onClick={() => onPageChange(i)} className={`px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}>{i}</button>
             );
         }
 
         if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-                pages.push(renderInteractiveDots('end'));
-            }
-            pages.push(
-                <button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>
-            );
+            if (endPage < totalPages - 1) pages.push(renderInteractiveDots('end'));
+            pages.push(<button key="last" onClick={() => onPageChange(totalPages)} className="px-3.5 py-1.5 border rounded-lg text-sm font-bold transition shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100">{totalPages}</button>);
         }
-
         return pages;
     };
 
     return (
         <div className="flex gap-1.5 items-center">
-            <button
-                disabled={currentPage <= 1}
-                onClick={() => onPageChange(currentPage - 1)}
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
-            >
-                Trước
-            </button>
-            
+            <button disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)} className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm">Trước</button>
             {renderPageNumbers()}
-            
-            <button
-                disabled={currentPage >= totalPages}
-                onClick={() => onPageChange(currentPage + 1)}
-                className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm"
-            >
-                Sau
-            </button>
-            
-            <style dangerouslySetInnerHTML={{__html: `
-                .hide-arrows::-webkit-outer-spin-button,
-                .hide-arrows::-webkit-inner-spin-button {
-                    -webkit-appearance: none;
-                    margin: 0;
-                }
-                .hide-arrows {
-                    -moz-appearance: textfield;
-                }
-            `}} />
+            <button disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)} className="px-3 py-1.5 border border-gray-300 bg-white font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm rounded-lg shadow-sm">Sau</button>
+            <style dangerouslySetInnerHTML={{__html: `.hide-arrows::-webkit-outer-spin-button, .hide-arrows::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } .hide-arrows { -moz-appearance: textfield; }`}} />
         </div>
     );
 };
@@ -177,16 +116,14 @@ export default function AdminItemType() {
 
     useEffect(() => { fetchRecipes(); fetchItemType(); }, []);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchKeyword, selectedBaseFilter]);
+    useEffect(() => { setCurrentPage(1); }, [searchKeyword, selectedBaseFilter]);
 
+  
     const fetchItemType = async () => {
         setLoading(true);
-        const data = await fetchItemTypesPaginatedApi('limit=9999');
-        if (data) {
-            setItemTypes(data.data || data || []);
-        }
+        const timestamp = new Date().getTime();
+        const data = await fetchItemTypesPaginatedApi(`limit=9999&t=${timestamp}`);
+        if (data) setItemTypes(data.data || data || []);
         setLoading(false);
     };
 
@@ -205,21 +142,15 @@ export default function AdminItemType() {
             cancelButtonText: 'Hủy',
             buttonsStyling: false, 
             customClass: {
-                confirmButton: 'bg-red-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-600 transition ml-3 shadow-md',
-                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition shadow-md'
+                confirmButton: 'bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 transition mx-2 shadow-md',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition mx-2 shadow-md'
             }
         });
     
         if (result.isConfirmed) {
             const isSuccess = await deleteItemTypeApi(id);
             if (isSuccess) {
-                Swal.fire({
-                    title: 'Thành công!',
-                    text: 'Danh mục đã được xóa.',
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+                Swal.fire({ title: 'Thành công!', text: 'Danh mục đã được xóa.', icon: 'success', timer: 1500, showConfirmButton: false });
                 fetchItemType();
             }
         }
@@ -252,7 +183,21 @@ export default function AdminItemType() {
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        if (file) { setImageFile(file); setFormData({ ...formData, image: URL.createObjectURL(file) }); }
+        if (file) { 
+            if (file.size > 10 * 1024 * 1024) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Ảnh quá lớn!',
+                    text: 'Vui lòng chọn ảnh có dung lượng dưới 10MB.',
+                    buttonsStyling: false,
+                    customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+                });
+                e.target.value = null;
+                return;
+            }
+            setImageFile(file); 
+            setFormData({ ...formData, image: URL.createObjectURL(file) }); 
+        }
     };
 
     const handleRecipeChange = (e) => {
@@ -274,9 +219,13 @@ export default function AdminItemType() {
     };
 
     const handleAddLink = () => {
-        if (!tempLink.recipeId || !tempLink.partName) return toast.warning("Vui lòng chọn Dòng Máy và Slot ghép!");
+        if (!tempLink.recipeId || !tempLink.partName) {
+            return Swal.fire({ icon: 'warning', title: 'Thiếu thông tin!', text: 'Vui lòng chọn Dòng Máy và Slot ghép!', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
+        }
         const isDuplicate = formData.linkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
-        if (isDuplicate) return toast.error("Công thức này đã có trong danh sách!");
+        if (isDuplicate) {
+            return Swal.fire({ icon: 'error', title: 'Trùng lặp!', text: 'Công thức này đã có trong danh sách!', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
+        }
         setFormData({ ...formData, linkedRecipes: [...formData.linkedRecipes, tempLink] });
         setTempLink({ recipeId: '', partName: '' }); 
     };
@@ -291,12 +240,14 @@ export default function AdminItemType() {
         e.preventDefault();
         
         if (formData.linkedRecipes.length === 0 && !tempLink.recipeId) {
-            return toast.error("Bắt buộc phải thêm ít nhất 1 Cấu hình máy ráp tương thích!");
+            return Swal.fire({ icon: 'error', title: 'Thiếu cấu hình!', text: 'Bắt buộc phải thêm ít nhất 1 Cấu hình máy ráp tương thích!', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
         }
 
         const subUpper = formData.subCode.trim().toUpperCase();
         const finalCode = formData.baseCode === 'OTH' ? subUpper : (subUpper ? `${formData.baseCode}-${subUpper}` : formData.baseCode);
-        if (!finalCode) return toast.warning("Mã Code không được để trống!");
+        if (!finalCode) {
+            return Swal.fire({ icon: 'warning', title: 'Thiếu thông tin!', text: 'Mã Code không được để trống!', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
+        }
         
         const submitData = new FormData();
         submitData.append('name', formData.name);
@@ -315,29 +266,28 @@ export default function AdminItemType() {
         let isSuccess = false;
         if (isEditing) {
             isSuccess = await updateItemTypeApi(editingId, submitData);
-            if (isSuccess) toast.success("Cập nhật thành công");
         } else {
             isSuccess = await createItemTypeApi(submitData);
-            if (isSuccess) toast.success("Thêm mới thành công");
         }
 
         if (isSuccess) {
             setShowModal(false);
-            
             Swal.fire({
                 title: 'Thành công!',
                 text: isEditing ? 'Đã cập nhật danh mục thành công.' : 'Đã thêm danh mục mới thành công.',
                 icon: 'success',
-                confirmButtonText: 'Đóng',
-                allowOutsideClick: false,
+                timer: 1500,
+                showConfirmButton: false
+            });
+            fetchItemType();
+            fetchRecipes();
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Thất bại!',
+                text: 'Có lỗi xảy ra (có thể trùng mã code). Vui lòng kiểm tra lại!',
                 buttonsStyling: false,
-                customClass: {
-                    confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition shadow-md'
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.location.reload(); 
-                }
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
             });
         }
     };
@@ -369,11 +319,7 @@ export default function AdminItemType() {
         const startIndex = (currentPage - 1) * itemsPerPage;
         const currentItems = filteredItemTypes.slice(startIndex, startIndex + itemsPerPage);
 
-        return {
-            items: currentItems,
-            totalPages: totalPages || 1,
-            totalCount: filteredItemTypes.length
-        };
+        return { items: currentItems, totalPages: totalPages || 1, totalCount: filteredItemTypes.length };
     }, [filteredItemTypes, currentPage, itemsPerPage]);
 
     return (
