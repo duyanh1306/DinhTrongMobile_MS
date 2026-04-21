@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { Camera, Lock, Shield, User, Eye, EyeOff, MapPin } from "lucide-react";
 import axiosClient from "../../api/axiosClient"; 
-import { updateProfileApi, changePasswordApi } from "../../api/admin/profile";
+import { updateProfileApi, changePasswordApi, getImageProfile  } from "../../api/common/profile";
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -44,11 +44,8 @@ export default function Profile() {
         number: storedUser.number || "",
         birthday: storedUser.birthday ? new Date(storedUser.birthday).toISOString().split('T')[0] : "",
       });
-      if (storedUser.image) {
-        setPreview(`http://localhost:9999${storedUser.image}`); 
-      } else {
-        setPreview("https://res-console.cloudinary.com/dtjfxho13/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/ZGVmYXVsdC1hdmF0YXItaWNvbi1vZi1zb2NpYWwtbWVkaWEtdXNlci12ZWN0b3JfaXY1aXB6/template_primary");
-      }
+      
+      setPreview(getImageProfile(storedUser.image));
     }
   }, []);
 
@@ -192,53 +189,67 @@ export default function Profile() {
 
   const validatePassword = () => {
     const passRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
-    if (!passData.oldPassword) return toast.error("Vui lòng nhập mật khẩu hiện tại.");
-    if (!passData.newPassword) return toast.error("Vui lòng nhập mật khẩu mới.");
-    if (!passRegex.test(passData.newPassword)) return toast.error("Mật khẩu mới phải tối thiểu 8 ký tự, bao gồm chữ hoa và ký tự đặc biệt.");
-    if (passData.newPassword !== passData.confirmPassword) return toast.error("Mật khẩu xác nhận không khớp.");
-    return true;
-  };
+    
+    if (!passData.oldPassword) {
+        toast.error("Vui lòng nhập mật khẩu hiện tại.");
+        return false;
+    }
+    if (!passData.newPassword) {
+        toast.error("Vui lòng nhập mật khẩu mới.");
+        return false;
+    }
+    if (!passRegex.test(passData.newPassword)) {
+        toast.error("Mật khẩu mới phải tối thiểu 8 ký tự, bao gồm chữ hoa và ký tự đặc biệt.");
+        return false;
+    }
+    if (passData.newPassword !== passData.confirmPassword) {
+        toast.error("Mật khẩu xác nhận không khớp.");
+        return false; 
+    }
+    
+    return true; 
+};
 
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateProfile()) return; 
-    
     setLoadingProfile(true);
 
     const fullAddress = `${addressData.street ? addressData.street + ', ' : ''}${addressData.ward}, ${addressData.district}, ${addressData.province}`;
     
     const submitData = new FormData();
-    submitData.append("userId", user._id);
+    submitData.append("userId", user._id || user.id);
     submitData.append("fullName", formData.fullName);
     submitData.append("number", formData.number);
     submitData.append("address", fullAddress);
     submitData.append("birthday", formData.birthday);
+    
     if (avatarFile) submitData.append("avatar", avatarFile);
 
     try {
         const result = await updateProfileApi(submitData);
-        if (result) {
+        if (result && result.user) {
             const updatedUser = { 
                 ...user, 
                 fullName: formData.fullName, 
                 number: formData.number, 
                 address: fullAddress, 
-                birthday: formData.birthday 
+                birthday: formData.birthday,
+                image: result.user.image 
             };
-            if (result.user && result.user.image) {
-                updatedUser.image = result.user.image;
-            }
             
+            setUser(updatedUser);
             localStorage.setItem("user", JSON.stringify(updatedUser));
+
+            window.dispatchEvent(new Event("userUpdated"));
         }
     } catch (error) {
         toast.error("Có lỗi xảy ra khi cập nhật. Vui lòng thử lại sau.");
     }
-    
     setLoadingProfile(false);
   };
+  
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();

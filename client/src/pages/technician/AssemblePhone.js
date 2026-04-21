@@ -3,7 +3,7 @@ import { Wrench, CheckCircle, Search, Plus, X, Filter, Package, Eye, ArrowLeft, 
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
-import { fetchAssembleDataApi, submitAssemblePhoneApi } from "../../api/technician/assemble";
+import { fetchAssembleDataApi, submitAssemblePhoneApi, getImageUrl } from "../../api/technician/assemble";
 
 export default function AssemblePhone() {
     const [recipes, setRecipes] = useState([]);
@@ -280,12 +280,6 @@ export default function AssemblePhone() {
                 });
             }
         }
-    };
-
-    const getImageUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        return `http://localhost:9999${url}`;
     };
 
     if (loading) return <div className="py-20 text-center flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div></div>;
