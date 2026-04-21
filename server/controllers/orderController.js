@@ -64,10 +64,9 @@ const createOrder = async (req, res) => {
                 orderCode: payosOrderCode,
                 amount: totalAmount,
                 description: `DTM${payosOrderCode}`,
-                returnUrl: `${process.env.VNP_CLIENT_RETURN_URL}?vnp_ResponseCode=00&vnp_Amount=${totalAmount*100}`,
-                cancelUrl: `${process.env.VNP_CLIENT_RETURN_URL}?vnp_ResponseCode=99`
+                returnUrl: `http://localhost:9999/api/payos/return`,
+                cancelUrl: `http://localhost:9999/api/payos/return`
             };
-
             const paymentLinkRes = await payos.paymentRequests.create(body);
 
             return res.status(201).json({ 

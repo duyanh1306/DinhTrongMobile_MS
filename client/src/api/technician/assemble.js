@@ -1,6 +1,11 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
+export const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('blob:')) return url;
+    return `http://localhost:9999${url}`;
+};
 export const fetchAssembleDataApi = async () => {
     try {
         const [recipesRes, itemsRes, itemTypesRes, storesRes] = await Promise.all([

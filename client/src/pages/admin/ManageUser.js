@@ -15,11 +15,14 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 
-// Import API và đổi tên để tránh trùng lặp với hàm nội bộ
 import { 
   fetchUsers as apiFetchUsers, 
   fetchRoles as apiFetchRoles, 
-  fetchStores as apiFetchStores 
+  fetchStores as apiFetchStores,
+  updateUserApi,    
+  createUserApi,   
+  banUserApi,       
+  resetPasswordApi 
 } from "../../api/admin/manageUser";
 
 export default function ManageUser() {
@@ -48,9 +51,6 @@ export default function ManageUser() {
   });
   const [errors, setErrors] = useState({});
 
-  // =========================================================
-  // HÀM HỨNG DỮ LIỆU TỪ API VÀ ĐẨY VÀO STATE
-  // =========================================================
   const loadUsers = async () => {
     const data = await apiFetchUsers();
     if (data) setUsers(Array.isArray(data) ? data : data.data || []);
@@ -171,7 +171,6 @@ export default function ManageUser() {
       isValid = false;
     }
 
-    // Validate Cửa hàng nếu vai trò là Nhân viên
     const selectedRoleObj = roles.find(r => r._id === formData.roleId);
     if (selectedRoleObj && isStaffRole(selectedRoleObj.id) && !formData.storeId) {
         newErrors.storeId = "Vui lòng chọn Cửa hàng làm việc";
@@ -236,39 +235,16 @@ export default function ManageUser() {
 
     try {
       if (modalType === "UPDATE") {
-        const res = await fetch(
-          `http://localhost:9999/api/users/${selectedUser._id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(submitData),
-          }
-        );
-        if (res.ok) {
-          toast.success("Cập nhật thông tin thành công!");
-          loadUsers(); // Gọi lại loadUsers thay vì fetchUsers
-          handleCloseModal();
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Cập nhật thất bại");
-        }
+        await updateUserApi(selectedUser._id, submitData);
+        toast.success("Cập nhật thông tin thành công!");
       } else if (modalType === "CREATE_STAFF") {
-        const res = await fetch(`http://localhost:9999/api/users`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(submitData),
-        });
-        if (res.ok) {
-          toast.success("Tạo tài khoản nhân viên thành công!");
-          loadUsers(); // Gọi lại loadUsers thay vì fetchUsers
-          handleCloseModal();
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Tạo tài khoản thất bại");
-        }
+        await createUserApi(submitData);
+        toast.success("Tạo tài khoản nhân viên thành công!");
       }
+      loadUsers();
+      handleCloseModal();
     } catch (error) {
-      toast.error("Lỗi khi lưu: " + error.message);
+      toast.error(error.message || "Có lỗi xảy ra khi lưu");
     }
   };
 
@@ -302,24 +278,11 @@ export default function ManageUser() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const res = await fetch(
-            `http://localhost:9999/api/users/${user._id}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "inactive" }),
-            }
-          );
-
-          if (res.ok) {
-            toast.success("Đã khóa tài khoản thành công!");
-            loadUsers(); // Gọi lại loadUsers thay vì fetchUsers
-          } else {
-            const errData = await res.json();
-            toast.error(errData.message || "Khóa tài khoản thất bại.");
-          }
+          await banUserApi(user._id);
+          toast.success("Đã khóa tài khoản thành công!");
+          loadUsers();
         } catch (error) {
-          toast.error("Lỗi hệ thống: " + error.message);
+          toast.error(error.message || "Khóa tài khoản thất bại.");
         }
       }
     });
@@ -359,22 +322,10 @@ export default function ManageUser() {
 
     if (newPassword) {
       try {
-        const res = await fetch(
-          `http://localhost:9999/api/users/${id}/reset-password`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password: newPassword }),
-          }
-        );
-        if (res.ok) {
-          toast.success("Đặt lại mật khẩu thành công!");
-        } else {
-          const errData = await res.json();
-          toast.error(errData.message || "Đặt lại mật khẩu thất bại.");
-        }
+        await resetPasswordApi(id, newPassword);
+        toast.success("Đặt lại mật khẩu thành công!");
       } catch (error) {
-        toast.error("Lỗi khi đặt lại mật khẩu: " + error.message);
+        toast.error(error.message || "Đặt lại mật khẩu thất bại.");
       }
     }
   };

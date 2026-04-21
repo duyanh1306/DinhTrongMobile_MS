@@ -192,7 +192,15 @@ export default function AdminItem() {
 
     const handleGenerateQR = async (itemId) => {
         const blobData = await fetchItemQrCodeApi(itemId);
-        if (!blobData) { toast.error("Lỗi khi tải mã QR."); return; }
+        if (!blobData) { 
+            return Swal.fire({
+                icon: 'error',
+                title: 'Lỗi!',
+                text: 'Không thể tải mã QR từ máy chủ.',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold' }
+            });
+        }
 
         const blob = new Blob([blobData], { type: "image/png" });
         const qrUrl = window.URL.createObjectURL(blob);
@@ -205,9 +213,14 @@ export default function AdminItem() {
         const iframeDoc = iframe.contentWindow?.document;
         if (!iframeDoc || !iframe.contentWindow) {
             document.body.removeChild(iframe); window.URL.revokeObjectURL(qrUrl);
-            toast.error("Không thể khởi tạo chế độ in."); return;
+            return Swal.fire({
+                icon: 'error',
+                title: 'Lỗi In Ấn!',
+                text: 'Không thể khởi tạo chế độ in QR.',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold' }
+            });
         }
-
         iframeDoc.open();
         iframeDoc.write(`
           <!doctype html>
@@ -251,7 +264,15 @@ export default function AdminItem() {
     };
 
     const handleGenerateSerial = () => {
-        if (!formData.item_type) return toast.warning("Vui lòng chọn Phân loại linh kiện trước!");
+        if (!formData.item_type) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng chọn Phân loại linh kiện trước khi tạo mã!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700' }
+            });
+        }
         const selectedType = itemTypes.find(t => t._id === formData.item_type);
         if (!selectedType) return;
 
@@ -264,6 +285,26 @@ export default function AdminItem() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!formData.item_type) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng chọn "Danh mục chính" và "Phân loại chi tiết" cho linh kiện!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
+
+
+        if (!formData.storeId) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng phân bổ linh kiện này vào một "Cửa hàng / Kho lưu trữ" cụ thể!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
         let isSuccess = false;
         if (isEditing) {
             isSuccess = await updateItemApi(editingId, formData);
@@ -740,13 +781,13 @@ export default function AdminItem() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1.5 text-gray-800">Cửa hàng / Kho lưu trữ</label>
-                                        <select value={formData.storeId} onChange={e => setFormData({...formData, storeId: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white">
-                                            <option value="">-- Chưa phân bổ vào kho --</option>
-                                            {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-1.5 text-gray-800">Cửa hàng / Kho lưu trữ <span className="text-red-500">*</span></label>
+                                    <select value={formData.storeId} onChange={e => setFormData({...formData, storeId: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white">
+                                        <option value="">-- Vui lòng chọn cửa hàng --</option>
+                                        {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                    </select>
+                                </div>
 
                                     <div>
                                         <label className="block text-sm font-semibold mb-1.5 text-gray-800">Trạng thái tồn kho</label>

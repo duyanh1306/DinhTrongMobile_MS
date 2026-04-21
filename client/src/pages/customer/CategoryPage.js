@@ -38,13 +38,13 @@ export default function CategoryPage() {
         try {
             const data = await fetchCategoryDataApi(type, selectedStore);
             if (data) {
-                setStores(data.stores);
-                if (data.activeStore !== selectedStore) {
+                setStores(data.stores || []);
+                if (data.activeStore && data.activeStore !== selectedStore) {
                     setSelectedStore(data.activeStore);
                     localStorage.setItem('selectedStoreId', data.activeStore);
                 }
-                setBrands(data.brands);
-                setAllProducts(data.allProducts || []);
+                setBrands(data.brands || []); 
+                setAllProducts(data.allProducts || data.assembledPhones || data.products || data.data || []);
             }
         } catch (error) {
             console.error("Lỗi tải dữ liệu danh mục:", error);

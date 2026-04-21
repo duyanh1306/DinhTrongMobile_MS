@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
-import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter } from "lucide-react";
+import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter, Search } from "lucide-react";
 
 import { 
     fetchInitialDataApi, 
@@ -470,10 +470,13 @@ export default function AdminRecipe() {
                                                 .filter((p, pIndex) => pIndex !== index && p.filterCode !== '')
                                                 .map(p => p.filterCode);
 
-                                            const filteredItemTypes = itemTypes.filter(type => {
-                                                if (!part.filterCode) return false;
-                                                return type.code.toUpperCase().includes(part.filterCode.toUpperCase());
-                                            });
+                                                const filteredItemTypes = itemTypes.filter(type => {
+                                                    if (!part.filterCode) return false;
+                                                    const matchGroup = type.code.toUpperCase().includes(part.filterCode.toUpperCase());
+                                                    const keyword = (part.searchKeyword || '').toLowerCase();
+                                                    const matchSearch = (type.name || '').toLowerCase().includes(keyword) || (type.code || '').toLowerCase().includes(keyword);
+                                                    return matchGroup && matchSearch;
+                                                });
 
                                             return (
                                                 <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white relative shadow-sm">
@@ -518,7 +521,21 @@ export default function AdminRecipe() {
                                                     </div>
 
                                                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                                        <label className="block text-sm font-semibold text-blue-800 mb-2">2. Tick chọn các danh mục cho phép:</label>
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+                                                        <label className="block text-sm font-semibold text-blue-800">2. Tick chọn các danh mục cho phép:</label>
+                                                        {part.filterCode && (
+                                                            <div className="relative w-full md:w-64">
+                                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Tìm tên hoặc mã linh kiện..."
+                                                                    value={part.searchKeyword || ''}
+                                                                    onChange={(e) => handlePartChange(index, 'searchKeyword', e.target.value)}
+                                                                    className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                         
                                                         {!part.filterCode ? (
                                                             <div className="text-sm text-gray-500 italic p-4 text-center border border-dashed border-gray-300 rounded bg-white">

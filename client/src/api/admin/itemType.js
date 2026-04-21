@@ -1,6 +1,11 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
+export const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('blob:')) return url;
+    return `http://localhost:9999${url}`;
+};
 export const fetchItemTypesPaginatedApi = async (params) => {
     try {
         const { data } = await axiosClient.get(`/item_types?${params}`);
@@ -33,7 +38,7 @@ export const deleteItemTypeApi = async (id) => {
 
 export const createItemTypeApi = async (submitData) => {
     try {
-        // AxiosClient đã được setup nhận FormData bình thường
+       
         await axiosClient.post(`/item_types/create`, submitData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
