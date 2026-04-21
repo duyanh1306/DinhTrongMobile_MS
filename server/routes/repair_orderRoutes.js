@@ -552,7 +552,7 @@ router.put("/:id/details", updateRepairOrderDetails);
  *       500:
  *         description: Internal server error
  */
-router.put("/:id/details-with-transfer", updateRepairOrderDetailsWithTransfer);
+router.put("/:id/details-transfer", updateRepairOrderDetailsWithTransfer);
 
 /**
  * @swagger
