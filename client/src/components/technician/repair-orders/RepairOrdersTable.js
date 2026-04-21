@@ -1,97 +1,134 @@
-import { Calendar, Phone, Store } from "lucide-react";
+import React from "react";
+import { Eye, CheckCircle, XCircle, Wrench } from "lucide-react";
 import dayjs from "dayjs";
-import StatusBadge from "../shared/StatusBadge";
-import OrderActions from "../shared/OrderActions";
 
-const RepairOrdersTable = ({ 
-  filteredOrders, 
-  filterLoading, 
+const RepairOrdersTable = ({
+  filteredOrders,
+  filterLoading,
   viewMode,
-  onViewDetails, 
-  onAccept, 
+  onViewDetails,
+  onAccept,
   onCancel,
   onComplete,
 }) => {
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "Completed": return "bg-green-100 text-green-800";
+      case "In Progress": return "bg-blue-100 text-blue-800";
+      case "Pending": return "bg-yellow-100 text-yellow-800";
+      case "Cancelled": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Pending": return "Chờ xử lý";
+      case "In Progress": return "Đang sửa";
+      case "Completed": return "Hoàn thành";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
+    }
+  };
+
+  if (filterLoading) {
+    return <div className="text-center py-10 italic text-gray-500">Đang tải dữ liệu...</div>;
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden relative border">
-      {filterLoading && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-          <div className="flex items-center gap-2 text-gray-600">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-            <span>Đang lọc...</span>
-          </div>
-        </div>
-      )}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full text-left border-collapse">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã đơn</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời gian</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khách hàng</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cửa hàng</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại sửa chữa</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-              {viewMode === "PENDING" && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
-              )}
+              <th className="p-4 font-semibold text-gray-600 text-sm">Mã đơn</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Khách hàng</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Thiết bị</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Tổng giá</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Ngày tạo</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Trạng thái</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredOrders.map((order, index) => (
-              <tr key={order._id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  #{String(index + 1).padStart(4, '0')}
+          <tbody className="divide-y divide-gray-200">
+            {filteredOrders.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="p-8 text-center text-gray-500 italic">
+                  Không có đơn sửa chữa nào
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" /> 
-                    {dayjs(order.repairOrderDate).format('DD/MM/YYYY HH:mm')}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm">
-                    <div className="font-medium text-gray-900">{order.customerName}</div>
-                    {order.customerPhone && (
-                      <div className="flex items-center gap-1 text-gray-500">
-                        <Phone className="w-3 h-3" /> {order.customerPhone}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <Store className="w-4 h-4" /> {order.storeId?.name || 'N/A'}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {order.repairType || 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <StatusBadge status={order.status} />
-                </td>
-                {viewMode === "PENDING" && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <OrderActions 
-                      order={order} 
-                      onViewDetails={onViewDetails} 
-                      onAccept={onAccept} 
-                      onCancel={onCancel}
-                      onComplete={onComplete}
-                    />
-                  </td>
-                )}
               </tr>
-            ))}
+            ) : (
+              filteredOrders.map((order) => (
+                <tr key={order._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="p-4 font-mono text-sm">
+                    #{order._id?.substring(order._id.length - 6).toUpperCase()}
+                  </td>
+                  <td className="p-4">
+                    <div className="font-medium text-gray-800">{order.customerName}</div>
+                    <div className="text-xs text-gray-500">{order.customerPhone}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-gray-800 font-medium">
+                      {order.phoneName || order.phoneModelId?.name || "Chưa xác định"}
+                    </div>
+                  </td>
+                  <td className="p-4 font-bold text-red-600">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalPrice || 0)}
+                  </td>
+                  <td className="p-4 text-sm text-gray-600">
+                    {dayjs(order.repairOrderDate || order.createdAt).format('DD/MM/YYYY HH:mm')}
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2.5 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
+                      {getStatusText(order.status)}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => onViewDetails(order)}
+                        className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                        title="Xem chi tiết"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      
+                      {viewMode === "PENDING" && order.status === "Pending" && (
+                        <>
+                          <button
+                            onClick={() => onAccept(order._id)}
+                            className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                            title="Nhận đơn"
+                          >
+                            <Wrench size={18} />
+                          </button>
+                          <button
+                            onClick={() => onCancel(order._id)}
+                            className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                            title="Hủy đơn"
+                          >
+                            <XCircle size={18} />
+                          </button>
+                        </>
+                      )}
+                      
+                      {viewMode === "PENDING" && order.status === "In Progress" && (
+                        <button
+                          onClick={() => onComplete(order._id)}
+                          className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                          title="Hoàn thành"
+                        >
+                          <CheckCircle size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      {filteredOrders.length === 0 && !filterLoading && (
-        <div className="text-center py-12 text-gray-500">
-          <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>Không có đơn sửa chữa nào phù hợp</p>
-        </div>
-      )}
     </div>
   );
 };

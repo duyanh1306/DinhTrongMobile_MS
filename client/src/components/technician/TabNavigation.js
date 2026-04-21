@@ -1,34 +1,30 @@
-import React from "react";
-
-const TabNavigation = ({ activeTab, onTabChange }) => {
+export default function TabNavigation({ activeTab, onTabChange, counts }) {
   const tabs = [
-    { id: "TRADE_IN", label: "Định giá thu mua", color: "purple" },
-    { id: "WAITING_DECISION", label: "Chờ xử lý (Nhập kho)", color: "orange" },
-    { id: "REPAIR", label: "Khách chờ sửa chữa", color: "blue" }
+    { id: "TRADE_IN", label: "Định giá thu cũ" },
+    { id: "WAITING_DECISION", label: "Chờ quyết định" },
+    { id: "REPAIR", label: "Sửa chữa" },
   ];
 
-  const getTabClasses = (tabId, color) => {
-    const isActive = activeTab === tabId;
-    return `pb-2 px-2 text-lg font-bold transition-all border-b-4 ${
-      isActive 
-        ? `border-${color}-600 text-${color}-600` 
-        : "border-transparent text-gray-500 hover:text-gray-700"
-    }`;
-  };
-
   return (
-    <div className="flex gap-4">
-      {tabs.map(tab => (
+    <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+      {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={getTabClasses(tab.id, tab.color)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${
+            activeTab === tab.id
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+          }`}
         >
           {tab.label}
+          {counts && counts[tab.id] > 0 && (
+            <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+              {counts[tab.id]}
+            </span>
+          )}
         </button>
       ))}
     </div>
   );
-};
-
-export default TabNavigation;
+}
