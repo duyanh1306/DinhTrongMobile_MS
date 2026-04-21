@@ -175,7 +175,7 @@ export default function SaleTransferExportDetail() {
             confirmButtonText: 'Xác nhận Xuất kho',
             cancelButtonText: 'Kiểm tra lại',
             customClass: {
-                confirmButton: 'bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
+                confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
                 cancelButton: 'bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-lg mx-2 transition-all',
                 popup: 'rounded-2xl' 
             },
@@ -204,7 +204,7 @@ export default function SaleTransferExportDetail() {
         }
     };
 
-    if (loading) return <div className="py-20 text-center flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-orange-600 border-t-transparent"></div></div>;
+    if (loading) return <div className="py-20 text-center flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div></div>;
     if (!requestData) return <div className="text-center text-red-500 p-10 font-bold">Không tìm thấy dữ liệu phiếu!</div>;
 
     return (
@@ -218,7 +218,7 @@ export default function SaleTransferExportDetail() {
                 </button>
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Quét / Nhập Mã Xuất Kho</h1>
-                    <p className="text-sm text-gray-600">Mã phiếu: <strong className="uppercase">{requestData._id}</strong> | Xuất đến: <strong className="text-orange-600">{requestData.toStoreId?.name}</strong></p>
+                    <p className="text-sm text-gray-600">Mã phiếu: <strong className="uppercase">{requestData._id}</strong> | Xuất đến: <strong className="text-blue-600">{requestData.toStoreId?.name}</strong></p>
                 </div>
             </div>
 
@@ -233,7 +233,7 @@ export default function SaleTransferExportDetail() {
                                 value={scannedSerial}
                                 onChange={(e) => setScannedSerial(e.target.value)}
                                 placeholder="Nhập mã vào đây..."
-                                className="w-full px-4 py-3 border-2 border-orange-300 bg-orange-50 rounded-lg outline-none focus:border-orange-500 font-mono font-bold text-lg"
+                                className="w-full px-4 py-3 border-2 border-blue-300 bg-blue-50 rounded-lg outline-none focus:border-blue-500 font-mono font-bold text-lg"
                             />
                             <button type="submit" className="hidden">Quét</button>
                         </form>
@@ -247,7 +247,7 @@ export default function SaleTransferExportDetail() {
                                 return (
                                     <div key={idx} className="flex justify-between items-center text-sm">
                                         <span className={`font-medium ${isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{req.itemTypes?.name || 'Linh kiện'}</span>
-                                        <span className={`font-bold ${isDone ? 'text-emerald-500' : 'text-orange-600'}`}>{scannedQty} / {req.quantity}</span>
+                                        <span className={`font-bold ${isDone ? 'text-emerald-500' : 'text-blue-600'}`}>{scannedQty} / {req.quantity}</span>
                                     </div>
                                 )
                             })}
@@ -259,7 +259,7 @@ export default function SaleTransferExportDetail() {
                                 return (
                                     <div key={`p${idx}`} className="flex justify-between items-center text-sm">
                                         <span className={`font-medium ${isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{req.phoneModels?.name || 'Điện thoại'}</span>
-                                        <span className={`font-bold ${isDone ? 'text-emerald-500' : 'text-orange-600'}`}>{scannedQty} / {req.quantity}</span>
+                                        <span className={`font-bold ${isDone ? 'text-emerald-500' : 'text-blue-600'}`}>{scannedQty} / {req.quantity}</span>
                                     </div>
                                 )
                             })}
@@ -269,7 +269,7 @@ export default function SaleTransferExportDetail() {
                             <button 
                                 onClick={handleConfirmShipment}
                                 disabled={!isReadyToShip() || submitting}
-                                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-lg shadow-md ${isReadyToShip() ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-lg shadow-md ${isReadyToShip() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
                             >
                                 {submitting ? "Đang xử lý..." : <><Truck size={24}/> XÁC NHẬN XUẤT KHO</>}
                             </button>

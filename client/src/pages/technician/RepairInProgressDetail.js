@@ -906,7 +906,7 @@ const RepairInProgressDetail = () => {
                                                                     <p className="text-xs text-blue-600">Số
                                                                         lượng: {part.quantity}</p>
                                                                     {!part.isRequired && (
-                                                                        <p className="text-xs text-orange-600">Không bắt
+                                                                        <p className="text-xs text-blue-600">Không bắt
                                                                             buộc</p>)}
                                                                 </div>
                                                             </div>

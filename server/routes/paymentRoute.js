@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createVnpayPayment, vnpayReturn, vnpayIpn } = require('../controllers/paymentController');
+const { createVnpayPayment, vnpayReturn, vnpayIpn, payosReturn, payosWebhook  } = require('../controllers/paymentController');
 
 /**
  * @swagger
@@ -316,5 +316,93 @@ router.get('/vnpay/return', vnpayReturn);
  *                   example: "Unknown error"
  */
 router.get('/vnpay/ipn', vnpayIpn);
+
+/**
+ * @swagger
+ * /api/payos/return:
+ *   get:
+ *     summary: PayOS payment return callback
+ *     description: Handle PayOS payment return callback after payment completion. Validates payment result, updates order status, and assigns serial codes.
+ *     tags: [Payment]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *         description: PayOS response code (00 = success)
+ *         example: "00"
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: string
+ *         description: PayOS transaction ID
+ *       - in: query
+ *         name: cancel
+ *         schema:
+ *           type: string
+ *         description: Cancellation flag (true/false)
+ *         example: "false"
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Transaction status (PAID, CANCELLED)
+ *         example: "PAID"
+ *       - in: query
+ *         name: orderCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Your system's Order Code
+ *     responses:
+ *       302:
+ *         description: Redirect to client frontend with PayOS payment result
+ *       200:
+ *         description: Payment return processed successfully (if no redirect URL configured)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PayosReturnResponse'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/payos/return', payosReturn);
+
+/**
+ * @swagger
+ * /api/payos/webhook:
+ *   post:
+ *     summary: PayOS Webhook
+ *     description: Handle PayOS Webhook for server-to-server payment notification. Updates order status and auto-assigns serial codes.
+ *     tags: [Payment]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   orderCode:
+ *                     type: number
+ *                   amount:
+ *                     type: number
+ *                   description:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PayosWebhookResponse'
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/payos/webhook', payosWebhook);
 
 module.exports = router;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, Package, Search, X, Settings, ChevronDown, Tag, QrCode, Smartphone, Eye, ArrowUpDown, Image as ImageIcon } from "lucide-react";
-
+import Swal from 'sweetalert2';
 
 import { 
     fetchItemTypesApi, fetchModelsApi, fetchItemsApi, fetchPhonesApi, 
@@ -35,7 +35,15 @@ const initialPhoneFormState = {
     warrantyPeriod: 12, source: 'supplier', notes: '',
     imageFiles: [], previewImages: [], retainedImages: []
 };
+const formatPriceInput = (val) => {
+    if (!val && val !== 0) return '';
+    return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
 
+const parsePriceInput = (str) => {
+    if (!str) return '';
+    return str.toString().replace(/\./g, '');
+};
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     const [editingDots, setEditingDots] = useState(null); 
@@ -283,9 +291,10 @@ export default function ManagerInventory() {
     };
 
     const handleDeletePhone = async (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa máy này?")) {
+        const res = await Swal.fire({ title: 'Xóa điện thoại?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', buttonsStyling: false, customClass: { confirmButton: 'bg-red-600 text-white px-4 py-2 rounded mr-2', cancelButton: 'bg-gray-500 text-white px-4 py-2 rounded' }});
+        if (res.isConfirmed) {
             const success = await deletePhoneApi(id);
-            if (success) loadPhones();
+            if (success) { Swal.fire({ title: 'Thành công', icon: 'success', timer: 1500, showConfirmButton: false }); loadPhones(); }
         }
     };
 
@@ -342,8 +351,9 @@ export default function ManagerInventory() {
         const success = await submitItemApi(isEditingItem, editingItemId, itemFormData);
         if (success) {
             setShowItemModal(false);
+            Swal.fire({ title: 'Thành công!', text: 'Lưu linh kiện thành công.', icon: 'success', timer: 1500, showConfirmButton: false });
             loadItems();
-        }
+        } else Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Có lỗi xảy ra, vui lòng kiểm tra mã Serial.'});
     };
 
     const handlePhoneSubmit = async (e) => {
@@ -357,14 +367,15 @@ export default function ManagerInventory() {
         submitData.append("status", phoneFormData.status); submitData.append("importPrice", phoneFormData.importPrice);
         submitData.append("sellingPrice", phoneFormData.sellingPrice); submitData.append("warrantyPeriod", phoneFormData.warrantyPeriod);
         submitData.append("source", phoneFormData.source); submitData.append("notes", phoneFormData.notes);
-        if (isEditingPhone && phoneFormData.retainedImages && phoneFormData.retainedImages.length > 0) submitData.append("retainedImages", JSON.stringify(phoneFormData.retainedImages));
-        if (phoneFormData.imageFiles && phoneFormData.imageFiles.length > 0) phoneFormData.imageFiles.forEach(file => submitData.append("images", file));
+        if (isEditingPhone && phoneFormData.retainedImages?.length > 0) submitData.append("retainedImages", JSON.stringify(phoneFormData.retainedImages));
+        if (phoneFormData.imageFiles?.length > 0) phoneFormData.imageFiles.forEach(file => submitData.append("images", file));
 
         const success = await submitPhoneApi(isEditingPhone, editingPhoneId, submitData);
         if (success) {
             setShowPhoneModal(false);
+            Swal.fire({ title: 'Thành công!', text: 'Lưu điện thoại thành công.', icon: 'success', timer: 1500, showConfirmButton: false });
             loadPhones();
-        }
+        } else Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Có lỗi xảy ra, vui lòng kiểm tra mã Serial.'});
     };
 
 
@@ -435,7 +446,61 @@ export default function ManagerInventory() {
         const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
         setPhoneFormData({ ...phoneFormData, serialCode: `${prefix}-${ddmmyyyy}-${randomStr}` });
     };
+    const handlePhoneFileChange = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            const existingFileNames = phoneFormData.imageFiles.map(f => f.name);
+            let validFiles = [];
+            let hasOversizedFile = false;
+            let hasDuplicateFile = false;
+            let currentBatchNames = new Set(); 
 
+            files.forEach(file => {
+                if (existingFileNames.includes(file.name) || currentBatchNames.has(file.name)) {
+                    hasDuplicateFile = true;
+                } else if (file.size > 10 * 1024 * 1024) {
+                    hasOversizedFile = true;
+                } else {
+                    validFiles.push(file);
+                    currentBatchNames.add(file.name);
+                }
+            });
+
+            const currentTotalImages = phoneFormData.previewImages.length;
+            const newTotalImages = currentTotalImages + validFiles.length;
+    
+            if (newTotalImages > 5) {
+                Swal.fire({ icon: 'warning', title: 'Vượt quá giới hạn!', text: `Tối đa 5 ảnh. Bạn đang có ${currentTotalImages} ảnh. Vui lòng chọn thêm tối đa ${5 - currentTotalImages} ảnh.`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
+                e.target.value = null; return; 
+            }
+            if (hasDuplicateFile) {
+                Swal.fire({ icon: 'info', title: 'Bỏ qua ảnh trùng!', text: 'Vài ảnh bị bỏ qua do trùng lặp.', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold' }});
+            } else if (hasOversizedFile) { 
+                Swal.fire({ icon: 'error', title: 'Ảnh quá lớn!', text: 'Ảnh > 10MB đã bị loại bỏ.', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold' }});
+            }
+            e.target.value = null; 
+            if (validFiles.length > 0) {
+                const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+                setPhoneFormData(prev => ({ ...prev, imageFiles: [...prev.imageFiles, ...validFiles], previewImages: [...prev.previewImages, ...newPreviews] }));
+            }
+        }
+    };
+    
+    const handleRemovePhoneImage = (indexToRemove) => {
+        setPhoneFormData(prev => {
+            const newPreviewImages = [...prev.previewImages];
+            const removedSrc = newPreviewImages.splice(indexToRemove, 1)[0];
+            let newRetainedImages = [...(prev.retainedImages || [])];
+            let newImageFiles = [...prev.imageFiles];
+            if (removedSrc.startsWith('blob:')) {
+                const fileIndex = indexToRemove - newRetainedImages.length;
+                if (fileIndex >= 0) newImageFiles.splice(fileIndex, 1);
+            } else {
+                newRetainedImages = newRetainedImages.filter(img => img !== removedSrc);
+            }
+            return { ...prev, previewImages: newPreviewImages, imageFiles: newImageFiles, retainedImages: newRetainedImages };
+        });
+    };
     const filteredItemTypesForModal = useMemo(() => {
         if (!selectedBaseCategory) return []; 
         return itemTypes.filter(t => getBaseCodeFromItemTypeCode(t.code) === selectedBaseCategory);
@@ -1007,10 +1072,12 @@ export default function ManagerInventory() {
                                     )}
 
                                     <div>
-                                        <label className="block text-sm font-semibold mb-1">Cửa hàng / Kho chứa</label>
-                                        <select value={itemFormData.storeId} onChange={e => setItemFormData({...itemFormData, storeId: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="">-- Chưa phân bổ kho --</option>
-                        
+                                        <label className="block text-sm font-semibold mb-1 text-gray-500">Cửa hàng / Kho chứa</label>
+                                        <select 
+                                            value={itemFormData.storeId} 
+                                            disabled 
+                                            className="w-full border p-2.5 rounded-lg outline-none bg-gray-100 text-gray-500 cursor-not-allowed font-semibold"
+                                        >
                                             <option value={userStore}>Cửa hàng của bạn</option>
                                         </select>
                                     </div>
@@ -1051,11 +1118,11 @@ export default function ManagerInventory() {
                                     <div className="grid grid-cols-2 gap-4 mt-2">
                                         <div>
                                             <label className="block text-sm font-semibold mb-1">Giá nhập (VNĐ)</label>
-                                            <input type="number" value={itemFormData.baseCost} onChange={e => setItemFormData({...itemFormData, baseCost: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" />
+                                            <input type="text" value={formatPriceInput(itemFormData.baseCost)} onChange={e => setItemFormData({...itemFormData, baseCost: parsePriceInput(e.target.value)})} className="w-full border p-2.5 rounded-lg outline-none" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-semibold mb-1 text-red-600">Giá bán ra (VNĐ)</label>
-                                            <input type="number" value={itemFormData.price} onChange={e => setItemFormData({...itemFormData, price: e.target.value})} className="w-full border border-red-300 bg-red-50/30 p-2.5 rounded-lg outline-none font-bold" />
+                                            <input type="text" value={formatPriceInput(itemFormData.price)} onChange={e => setItemFormData({...itemFormData, price: parsePriceInput(e.target.value)})} className="w-full border border-red-300 bg-red-50/30 p-2.5 rounded-lg outline-none font-bold" />
                                         </div>
                                     </div>
                                     
@@ -1146,15 +1213,7 @@ export default function ManagerInventory() {
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình ảnh thực tế của máy (Chụp tình trạng xước xát nếu có)</label>
                                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer relative min-h-[100px]">
-                                        <input type="file" multiple accept="image/*" onChange={e => {
-                                            const files = Array.from(e.target.files);
-                                            if (files.length > 0) {
-                                                const previews = files.map(file => URL.createObjectURL(file));
-                                                setPhoneFormData(prev => ({
-                                                    ...prev, imageFiles: files, previewImages: previews, retainedImages: [] 
-                                                }));
-                                            }
-                                        }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <input type="file" multiple accept="image/*" onChange={handlePhoneFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                         <div className="flex flex-wrap gap-3 justify-center mb-2 pointer-events-none">
                                             {phoneFormData.previewImages?.length > 0 ? (
                                                 phoneFormData.previewImages.map((src, idx) => (
@@ -1192,12 +1251,12 @@ export default function ManagerInventory() {
                       
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá vốn (VNĐ) <span className="text-red-500">*</span></label>
-                                    <input type="number" value={phoneFormData.importPrice} onChange={e => setPhoneFormData({...phoneFormData, importPrice: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
+                                    <input type="text" value={formatPriceInput(phoneFormData.importPrice)} onChange={e => setPhoneFormData({...phoneFormData, importPrice: parsePriceInput(e.target.value)})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
-                                        <input type="number" value={phoneFormData.sellingPrice} onChange={e => setPhoneFormData({...phoneFormData, sellingPrice: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
+                                        <input type="text" value={formatPriceInput(phoneFormData.sellingPrice)} onChange={e => setPhoneFormData({...phoneFormData, sellingPrice: parsePriceInput(e.target.value)})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5">Bảo hành (Tháng)</label>

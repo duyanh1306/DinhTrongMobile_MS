@@ -108,9 +108,9 @@ export default function SaleWebOrders() {
             <div className="w-1/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                     <h2 className="font-bold text-gray-800 flex items-center gap-2">
-                        <Globe size={18} className="text-orange-600"/> Đơn Web Chờ Xử Lý
+                        <Globe size={18} className="text-blue-600"/> Đơn Web Chờ Xử Lý
                     </h2>
-                    <span className="bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full text-xs font-bold">
+                    <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold">
                         {orders.length} đơn
                     </span>
                 </div>
@@ -118,7 +118,7 @@ export default function SaleWebOrders() {
                 <div className="p-3 border-b border-gray-100">
                     <div className="relative">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input type="text" placeholder="Tìm mã đơn, SĐT..." className="w-full pl-9 pr-3 py-2 bg-gray-100 border-none rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200"/>
+                        <input type="text" placeholder="Tìm mã đơn, SĐT..." className="w-full pl-9 pr-3 py-2 bg-gray-100 border-none rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
                     </div>
                 </div>
 
@@ -140,7 +140,7 @@ export default function SaleWebOrders() {
                                 <div 
                                     key={order._id} 
                                     onClick={() => handleSelectOrder(order)}
-                                    className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedOrder?._id === order._id ? 'border-orange-500 bg-orange-50/50 shadow-md' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
+                                    className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedOrder?._id === order._id ? 'border-blue-500 bg-blue-50/50 shadow-md' : 'border-gray-200 hover:border-blue-300 bg-white'}`}
                                 >
                                     <div className="flex justify-between items-start mb-2">
                                         <span className="font-bold text-sm text-gray-800">#{order.orderCode || order._id.substring(order._id.length-6).toUpperCase()}</span>
@@ -155,7 +155,7 @@ export default function SaleWebOrders() {
                                         <span className="text-[11px] text-gray-500 flex items-center gap-1"><Clock size={12}/> {new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
                                         
                                         {scannedCount > 0 && scannedCount < totalRequired && (
-                                            <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold animate-pulse">
+                                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold animate-pulse">
                                                 Đang quét ({scannedCount}/{totalRequired})
                                             </span>
                                         )}
@@ -165,7 +165,7 @@ export default function SaleWebOrders() {
                                             </span>
                                         )}
                                         
-                                        <span className="font-bold text-orange-600 text-sm">{formatCurrency(order.totalAmount)}</span>
+                                        <span className="font-bold text-blue-600 text-sm">{formatCurrency(order.totalAmount)}</span>
                                     </div>
                                 </div>
                             );
@@ -192,9 +192,9 @@ export default function SaleWebOrders() {
 
                         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
                             
-                            <div className="bg-orange-50/50 p-6 rounded-2xl border border-orange-100 shadow-sm">
+                            <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 shadow-sm">
                                 <div className="flex justify-between items-end mb-4">
-                                    <h3 className="text-sm font-bold text-gray-800 uppercase flex items-center gap-2"><ScanLine size={16} className="text-orange-600"/> Quét Serial đóng gói</h3>
+                                    <h3 className="text-sm font-bold text-gray-800 uppercase flex items-center gap-2"><ScanLine size={16} className="text-blue-600"/> Quét Serial đóng gói</h3>
                                     <div className="text-sm font-bold">
                                         Tiến độ: <span className="text-green-600">{scannedSerials.length} / {requiredList.length}</span>
                                     </div>
@@ -208,14 +208,14 @@ export default function SaleWebOrders() {
                                         value={scanInput}
                                         onChange={(e) => setScanInput(e.target.value)}
                                         onKeyDown={handleScan}
-                                        className="w-full pl-4 pr-12 py-4 bg-white border-2 border-orange-200 rounded-xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 text-lg font-mono tracking-wider transition-all uppercase shadow-sm"
+                                        className="w-full pl-4 pr-12 py-4 bg-white border-2 border-blue-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-lg font-mono tracking-wider transition-all uppercase shadow-sm"
                                     />
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold">Enter</div>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-bold">Enter</div>
                                 </div>
                             </div>
 
                             <div>
-                                <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Globe size={16} className="text-orange-600"/> Đối chiếu sản phẩm</h3>
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase flex items-center gap-2"><Globe size={16} className="text-blue-600"/> Đối chiếu sản phẩm</h3>
                                 <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-gray-100 text-gray-600 text-[11px] uppercase tracking-wider">
@@ -237,7 +237,7 @@ export default function SaleWebOrders() {
                                                             <td className="p-3 text-center font-bold">1</td>
                                                             <td className="p-3 text-right">
                                                             {item.phoneId?.serialCode ? (
-                                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                                                                     {scannedSerials.includes(item.phoneId.serialCode.toUpperCase()) ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
                                                                     {item.phoneId.serialCode}
                                                                 </span>
@@ -263,7 +263,7 @@ export default function SaleWebOrders() {
                                                                     <td className="p-3 text-center text-gray-500 text-[13px]">1</td>
                                                                     <td className="p-3 text-right">
                                                                         {part.serialCode ? (
-                                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${scannedSerials.includes(part.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-[12px] border ${scannedSerials.includes(part.serialCode.toUpperCase()) ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                                                                                 {scannedSerials.includes(part.serialCode.toUpperCase()) ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
                                                                                 {part.serialCode}
                                                                             </span>

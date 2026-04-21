@@ -8,7 +8,8 @@ const {
     createItemType, 
     updateItemType, 
     getAllItemTypes,
-    getItemTypePaginatedAndSearch
+    getItemTypePaginatedAndSearch,
+    deleteItemType
 } = require("../controllers/item_typeController");
 
 
@@ -319,5 +320,46 @@ router.post("/create", authInternal, upload.single('image'), createItemType);
  *         description: Internal server error
  */
 router.put("/update/:id", authInternal, upload.single('image'), updateItemType);
+
+/**
+ * @swagger
+ * /api/item_types/delete/{id}:
+ *   delete:
+ *     summary: Delete item type
+ *     description: Delete an existing item type (internal staff only)
+ *     tags: [Item Types]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Item type ID
+ *     responses:
+ *       200:
+ *         description: Item type deleted successfully
+ *         content:
+ *         application/json:
+ *         schema:
+ *          type: object
+ *          properties:
+ *              success:
+ *                type: boolean
+ *                example: true
+ *              message:
+ *                type: string
+ *                example: "Deleted"
+ *       401:
+ *         description: Unauthorized - authentication required
+ *       403:
+ *         description: Forbidden - insufficient permissions
+ *       404:
+ *         description: Item type not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete("/delete/:id", authInternal, deleteItemType);
 
 module.exports = router;

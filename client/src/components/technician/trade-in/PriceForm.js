@@ -25,11 +25,10 @@ const PriceForm = ({ valuation, onChange }) => {
             CHỐT GIÁ THU MUA (VND) <span className="text-red-500">*</span>
           </label>
           <div className="relative">
-            <DollarSign className="absolute left-4 top-4 text-purple-400" size={24}/>
             <input 
-              type="number" 
-              value={valuation.price} 
-              onChange={e => onChange({ ...valuation, price: e.target.value })} 
+              type="text" 
+              value={valuation.price ? new Intl.NumberFormat('vi-VN').format(valuation.price) : ''} 
+              onChange={e => onChange({ ...valuation, price: e.target.value.replace(/\D/g, '') })} 
               className="w-full pl-12 pr-4 py-3 border-2 border-purple-300 rounded-xl outline-none focus:border-purple-600 text-3xl font-black text-purple-700 bg-white" 
               placeholder="0" 
             />

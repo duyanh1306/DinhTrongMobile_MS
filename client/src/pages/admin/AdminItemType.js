@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, Package, Search, X, Image as ImageIcon, UploadCloud, Link as LinkIcon, ChevronDown, Tag } from "lucide-react";
 import Swal from 'sweetalert2';
-import { fetchItemTypesPaginatedApi, fetchAllRecipesApi, deleteItemTypeApi, createItemTypeApi, updateItemTypeApi } from "../../api/admin/itemType";
+import { fetchItemTypesPaginatedApi, fetchAllRecipesApi, deleteItemTypeApi, createItemTypeApi, updateItemTypeApi,getImageUrl } from "../../api/admin/itemType";
 
 const BASE_CODES = {
     "MB": "Mainboard", "SCR": "Màn hình", "BAT": "Pin", "HSG": "Vỏ máy",
@@ -169,11 +169,7 @@ export default function AdminItemType() {
     const [imageFile, setImageFile] = useState(null);
     const fileInputRef = useRef(null);
 
-    const getImageUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        return `http://localhost:9999${url}`;
-    };
+
 
     useEffect(() => { fetchRecipes(); fetchItemType(); }, []);
 
@@ -274,9 +270,25 @@ export default function AdminItemType() {
     };
 
     const handleAddLink = () => {
-        if (!tempLink.recipeId || !tempLink.partName) return toast.warning("Vui lòng chọn Dòng Máy và Slot ghép!");
+        if (!tempLink.recipeId || !tempLink.partName) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng chọn Dòng Máy và Slot ghép!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
         const isDuplicate = formData.linkedRecipes.some(l => l.recipeId === tempLink.recipeId && l.partName === tempLink.partName);
-        if (isDuplicate) return toast.error("Công thức này đã có trong danh sách!");
+        if (isDuplicate) {
+            return Swal.fire({
+                icon: 'error',
+                title: 'Trùng lặp!',
+                text: 'Công thức này đã có trong danh sách!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
         setFormData({ ...formData, linkedRecipes: [...formData.linkedRecipes, tempLink] });
         setTempLink({ recipeId: '', partName: '' }); 
     };
@@ -289,15 +301,50 @@ export default function AdminItemType() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        if (formData.linkedRecipes.length === 0 && !tempLink.recipeId) {
-            return toast.error("Bắt buộc phải thêm ít nhất 1 Cấu hình máy ráp tương thích!");
-        }
 
         const subUpper = formData.subCode.trim().toUpperCase();
         const finalCode = formData.baseCode === 'OTH' ? subUpper : (subUpper ? `${formData.baseCode}-${subUpper}` : formData.baseCode);
-        if (!finalCode) return toast.warning("Mã Code không được để trống!");
-        
+        if (!finalCode) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Lỗi!',
+                text: 'Mã Code không được để trống!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
+        if (!formData.name || !formData.name.trim()) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng nhập Tên danh mục hiển thị!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
+
+        if (!imageFile && !formData.image) {
+            return Swal.fire({
+                icon: 'error',
+                title: 'Thiếu hình ảnh!',
+                text: 'Vui lòng tải lên ảnh đại diện cho danh mục này!',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
+        const isDuplicateCode = itemTypes.some(type => 
+            type.code.toUpperCase() === finalCode.toUpperCase() && type._id !== editingId
+        );
+
+        if (isDuplicateCode) {
+            return Swal.fire({
+                icon: 'error',
+                title: 'Trùng mã hệ thống!',
+                text: `Mã code "${finalCode}" đã tồn tại. Vui lòng nhập mã khác hoặc thêm hậu tố!`,
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold' }
+            });
+        }
         const submitData = new FormData();
         submitData.append('name', formData.name);
         submitData.append('code', finalCode); 
@@ -315,10 +362,8 @@ export default function AdminItemType() {
         let isSuccess = false;
         if (isEditing) {
             isSuccess = await updateItemTypeApi(editingId, submitData);
-            if (isSuccess) toast.success("Cập nhật thành công");
         } else {
             isSuccess = await createItemTypeApi(submitData);
-            if (isSuccess) toast.success("Thêm mới thành công");
         }
 
         if (isSuccess) {
@@ -492,18 +537,17 @@ export default function AdminItemType() {
                             <div>
                                 <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Chọn Linh kiện (Mã Code) *</label>
                                 <div className="flex gap-2">
-                                    <select 
+                                <select 
                                         value={formData.baseCode} 
                                         onChange={e => {
                                             const newBaseCode = e.target.value;
-                                            const baseName = BASE_CODES[newBaseCode];
+                                            const baseName = BASE_CODES[newBaseCode] || '';
                                             setFormData({
                                                 ...formData, 
                                                 baseCode: newBaseCode,
-                                       
-                                                name: baseName ? `${baseName} ` : ''
+                                                name: baseName 
                                             });
-                                        }} 
+                                        }}
                                         className="w-1/2 border border-gray-300 p-2.5 rounded-lg focus:border-blue-500 outline-none bg-white text-gray-700 text-sm"
                                     >
                                         {Object.entries(BASE_CODES).map(([code, label]) => <option key={code} value={code}>{label} ({code})</option>)}
@@ -516,7 +560,7 @@ export default function AdminItemType() {
                          
                             <div className="pt-2">
                                 <label className="block text-[13px] font-bold mb-3 text-indigo-700 flex items-center gap-2">
-                                    <LinkIcon size={18}/> Linh kiện máy tương thích <span className="text-red-500">*</span>
+                                    <LinkIcon size={18}/> Linh kiện máy tương thích (Tuỳ chọn)
                                 </label>
                                 <div className="flex flex-col gap-3 mb-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-inner">
                                     <div className="flex gap-2">
@@ -554,7 +598,9 @@ export default function AdminItemType() {
                             
                           
                             <div>
-                                <label className="block text-[13px] font-bold mb-1.5 text-gray-700">Ảnh đại diện chung</label>
+                            <label className="block text-[13px] font-bold mb-1.5 text-gray-700">
+                                Ảnh đại diện chung <span className="text-red-500">*</span>
+                            </label>
                                 <div className="flex items-center gap-4">
                                     <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden relative group">
                                         {formData.image ? <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-contain p-1" /> : <ImageIcon size={28} className="text-gray-300" />}

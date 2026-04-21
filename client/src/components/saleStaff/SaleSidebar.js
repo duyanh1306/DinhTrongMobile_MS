@@ -2,11 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   ShoppingCart, 
-  Package, 
-  Users, 
   FileText, 
-  LogOut,
-  User,
   Globe,
   Truck
 } from "lucide-react";
@@ -28,8 +24,8 @@ export default function SaleSidebar() {
   ];
 
   return (
-    <div className="h-screen w-64 bg-orange-600 text-white flex flex-col shadow-lg transition-all duration-300">
-      <div className="text-2xl font-bold p-6 border-b border-orange-500 flex items-center gap-2">
+    <div className="h-screen w-64 bg-blue-900 text-white flex flex-col shadow-lg transition-all duration-300">
+      <div className="text-2xl font-bold p-6 border-b border-blue-800 bg-blue-900 flex items-center gap-2">
         <span>Sales Portal</span>
       </div>
       <nav className="flex flex-col p-4 gap-2 flex-1">
@@ -38,8 +34,8 @@ export default function SaleSidebar() {
           return (
             <div
               key={index}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors ${
-                isActive ? "bg-orange-800" : "hover:bg-orange-500"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                isActive ? "bg-blue-700 shadow-md" : "hover:bg-blue-800 text-blue-100"
               }`}
               onClick={() => navigate(item.link)}
             >

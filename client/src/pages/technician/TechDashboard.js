@@ -192,7 +192,7 @@ export default function TechDashboard() {
                 </div>
                 <div className="flex justify-between items-center mt-6 border-t pt-4">
                   <span className="text-xs text-green-600 font-semibold">{repairOrders.filter(o => o.status === 'Completed').length} đã xong</span>
-                  <span className="text-xs text-orange-500 font-semibold">{repairOrders.filter(o => o.status !== 'Completed').length} đang xử lý</span>
+                  <span className="text-xs text-blue-500 font-semibold">{repairOrders.filter(o => o.status !== 'Completed').length} đang xử lý</span>
                 </div>
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function TechDashboard() {
                 <div className="flex flex-row items-center justify-between flex-1">
                   <div className="flex-1">
                     <p className="text-gray-500 text-sm font-medium">Đơn chờ xử lý</p>
-                    <h3 className="text-3xl font-bold mt-1 text-orange-500">{repairOrders.filter(o => o.status === 'Pending').length}</h3>
+                    <h3 className="text-3xl font-bold mt-1 text-blue-500">{repairOrders.filter(o => o.status === 'Pending').length}</h3>
                     <p className="text-xs text-gray-400 mt-2">{stats.appointments} lịch hẹn khách</p>
                   </div>
                   <div className="w-1/2 h-32 flex items-center justify-center">
@@ -281,7 +281,7 @@ export default function TechDashboard() {
                           <td className="py-2 pr-4 font-semibold text-gray-800">{order.repairType || 'Sửa chữa'}</td>
                           <td className="py-2 pr-4 text-gray-600">{order.customerName}</td>
                           <td className="py-2 pr-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-bold shadow-sm border ${getStatusBadge(order.status)} ${order.status==='Completed'?'bg-green-50 border-green-200 text-green-700':order.status==='In Progress'?'bg-blue-50 border-blue-200 text-blue-700':order.status==='Pending'?'bg-orange-50 border-orange-200 text-orange-700':'bg-gray-50 border-gray-200 text-gray-500'}`}>{getStatusText(order.status)}</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold shadow-sm border ${getStatusBadge(order.status)} ${order.status==='Completed'?'bg-green-50 border-green-200 text-green-700':order.status==='In Progress'?'bg-blue-50 border-blue-200 text-blue-700':order.status==='Pending'?'bg-blue-50 border-blue-200 text-blue-700':'bg-gray-50 border-gray-200 text-gray-500'}`}>{getStatusText(order.status)}</span>
                           </td>
                           <td className="py-2 pr-4 text-gray-500">{formatDate(order.repairOrderDate)}</td>
                         </tr>

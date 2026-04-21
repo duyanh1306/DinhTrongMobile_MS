@@ -12,9 +12,6 @@ import html2pdf from "html2pdf.js";
 import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi, pollNewPurchaseOrdersApi } from "../../api/saleStaff/saleOrders";
 import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
 
-// ==================================================================
-// COMPONENT: HÓA ĐƠN KHỔ A4 (PHIẾU XUẤT KHO KIÊM BẢO HÀNH)
-// ==================================================================
 const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
   if (activeTab === "PURCHASE") invoiceTitle = "PHIẾU BIÊN NHẬN THU MUA MÁY CŨ";
@@ -144,9 +141,6 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
 };
 
 
-// ==================================================================
-// MAIN COMPONENT
-// ==================================================================
 export default function SaleOrders() {
   const [activeTab, setActiveTab] = useState("SALE"); 
   
@@ -157,6 +151,7 @@ export default function SaleOrders() {
   const [isLoading, setIsLoading] = useState(false);
 
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set());
+  const isInitialLoadRef = useRef(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); 
@@ -178,6 +173,10 @@ export default function SaleOrders() {
     setCurrentPage(1);
     setSearchQuery("");
     setStatusFilter("ALL");
+    
+    if (activeTab === "PURCHASE") {
+      isInitialLoadRef.current = true;
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -185,6 +184,14 @@ export default function SaleOrders() {
     if (activeTab === "PURCHASE" && !isModalOpen) {
       interval = setInterval(async () => {
         const data = await pollNewPurchaseOrdersApi();
+        
+        if (isInitialLoadRef.current) {
+            const initialPendingIds = data.filter(o => o.status === "Pending").map(o => o._id);
+            setNotifiedOrderIds(new Set(initialPendingIds));
+            isInitialLoadRef.current = false;
+            return;
+        }
+
         const newlyValuatedOrder = data.find(o => o.status === "Pending" && !notifiedOrderIds.has(o._id));
 
         if (newlyValuatedOrder) {
@@ -277,7 +284,7 @@ export default function SaleOrders() {
         <div className="flex gap-4">
           <button onClick={() => setActiveTab("SALE")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "SALE" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Bán Hàng</button>
           <button onClick={() => setActiveTab("PURCHASE")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "PURCHASE" ? "border-purple-600 text-purple-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Thu Mua</button>
-          <button onClick={() => setActiveTab("REPAIR")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "REPAIR" ? "border-orange-600 text-orange-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Sửa Chữa</button>
+          <button onClick={() => setActiveTab("REPAIR")} className={`pb-2 px-4 text-lg font-bold transition-all border-b-4 ${activeTab === "REPAIR" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Đơn Sửa Chữa</button>
         </div>
       </div>
 
@@ -340,7 +347,7 @@ export default function SaleOrders() {
                         
                         <td className="p-4 text-sm font-medium text-gray-600">
                             {activeTab === "REPAIR" ? (
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${order.type === "WARRANTY" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${order.type === "WARRANTY" ? "bg-blue-100 text-blue-700" : "bg-blue-100 text-blue-700"}`}>
                                     {order.type === "WARRANTY" ? "BẢO HÀNH" : "SỬA CHỮA"}
                                 </span>
                             ) : (
@@ -475,7 +482,7 @@ export default function SaleOrders() {
                         <tr key={idx} className="border-t hover:bg-gray-50">
                             <td className="p-4">
                             <div className="flex items-center gap-2 font-bold text-gray-800">
-                                {activeTab === "REPAIR" ? <Wrench size={16} className="text-orange-500" /> : detail.phoneId ? <Smartphone size={16} className="text-blue-500" /> : <Package size={16} className="text-emerald-500" />}
+                                {activeTab === "REPAIR" ? <Wrench size={16} className="text-blue-500" /> : detail.phoneId ? <Smartphone size={16} className="text-blue-500" /> : <Package size={16} className="text-emerald-500" />}
                                 {itemName}
                             </div>
                             
@@ -501,7 +508,7 @@ export default function SaleOrders() {
                             </td>
                             <td className="p-4 text-right font-black text-gray-800">{formatCurrency(price)}</td>
                             <td className="p-4 text-center">
-                                <span className={`text-[10px] ${activeTab === "REPAIR" ? "text-orange-600 bg-orange-50" : "text-green-600 bg-green-50"} font-bold px-2 py-1 rounded`}>
+                                <span className={`text-[10px] ${activeTab === "REPAIR" ? "text-blue-600 bg-blue-50" : "text-green-600 bg-green-50"} font-bold px-2 py-1 rounded`}>
                                     {activeTab === "REPAIR" ? "Bảo hành DV" : "CÓ BH"}
                                 </span>
                             </td>

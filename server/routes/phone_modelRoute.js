@@ -7,6 +7,7 @@ const {
     createPhoneModel,
     updatePhoneModel,
     getAllPhoneModels,
+    deletePhoneModel,
     getPhoneModelPaginatedAndSearch
 } = require("../controllers/phone_modelController");
 
@@ -415,5 +416,47 @@ router.post("/create", authInternal, uploadCloud.single("image"), createPhoneMod
  *         description: Internal server error
  */
 router.put("/update/:id", authInternal, uploadCloud.single("image"), updatePhoneModel);
+
+/**
+ * @swagger
+ * /api/phone_models/delete/{id}:
+ *   delete:
+ *     summary: Delete phone model
+ *     description: Delete an existing phone model (internal staff only)
+ *     tags: [Phone Models]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Phone model ID
+ *     requestBody:
+ *      responses:
+ *       200:
+ *          description: Phone model deleted successfully
+ *          content:
+ *              application/json:
+ *                  schema:
+ *                      type: object
+ *                  properties:
+ *                      success:
+ *                      type: boolean
+ *                  example: true
+ *                  message:
+ *                      type: string
+ *                      example: "Xóa thành công"
+ *       401:
+ *          description: Unauthorized - authentication required
+ *       403:
+ *          description: Forbidden - insufficient permissions
+ *       404:
+ *          description: Phone model not found
+ *       500:
+ *          description: Internal server error
+ */
+router.delete("/delete/:id", authInternal, deletePhoneModel);
 
 module.exports = router;

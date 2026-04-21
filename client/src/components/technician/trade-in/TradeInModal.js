@@ -38,11 +38,11 @@ const TradeInModal = ({
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
-          <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 mb-6 shadow-sm">
-            <p className="text-xs text-orange-800 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6 shadow-sm">
+            <p className="text-xs text-blue-800 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
               <User size={14}/> Ghi chú tình trạng từ Sale:
             </p>
-            <p className="text-sm text-orange-700 italic">
+            <p className="text-sm text-blue-700 italic">
               {selectedTradeIn.note || "Sale không để lại ghi chú nào."}
             </p>
           </div>
