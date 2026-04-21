@@ -1,14 +1,23 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
-// Hàm cập nhật Thông tin cá nhân (Hỗ trợ upload File)
+export const getImageProfile = (imagePath) => {
+    const defaultAvatar = "https://res-console.cloudinary.com/dtjfxho13/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/ZGVmYXVsdC1hdmF0YXItaWNvbi1vZi1zb2NpYWwtbWVkaWEtdXNlci12ZWN0b3JfaXY1aXB6/template_primary";
+    
+    if (!imagePath) return defaultAvatar;
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    const currentBaseUrl = axiosClient.defaults.baseURL || 'http://localhost:9999/api';
+    const serverUrl = currentBaseUrl.replace(/\/api\/?$/, '');
+    
+    return `${serverUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+};
 export const updateProfileApi = async (submitData) => {
     try {
         const { data } = await axiosClient.put("/users/profile", submitData, {
             headers: { "Content-Type": "multipart/form-data" },
         });
         
-        // Lưu data user mới vào localStorage để UI tự cập nhật
         localStorage.setItem("user", JSON.stringify(data.user));
         toast.success(data.message || "Cập nhật hồ sơ thành công!");
         return true;
@@ -18,7 +27,7 @@ export const updateProfileApi = async (submitData) => {
     }
 };
 
-// Hàm thay đổi Mật khẩu
+
 export const changePasswordApi = async (payload) => {
     try {
         const { data } = await axiosClient.put("/users/change-password", payload);

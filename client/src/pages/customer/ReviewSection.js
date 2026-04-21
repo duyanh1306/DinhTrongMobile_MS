@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { Star, ThumbsUp, X, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// IMPORT TỪ FILE API VỪA TẠO
+
 import { fetchReviewsApi, submitReviewApi } from '../../api/customer/review';
 
 export default function ReviewSection({ phoneModelId }) {
@@ -12,19 +12,16 @@ export default function ReviewSection({ phoneModelId }) {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); 
     
-    // Form States
+  
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ rating: 5, comment: '', performance: 5, battery: 5, camera: 5 });
-    
-    // User states
+
     const navigate = useNavigate();
     const currentUser = JSON.parse(localStorage.getItem('user'));
     const currentUserId = currentUser ? (currentUser._id || currentUser.id) : null;
     const [myReview, setMyReview] = useState(null);
 
-    // ==============================================================
-    // GỌI API KHỞI TẠO DATA
-    // ==============================================================
+ 
     useEffect(() => {
         if (phoneModelId) {
             loadReviews();
@@ -44,9 +41,7 @@ export default function ReviewSection({ phoneModelId }) {
         setLoading(false);
     };
 
-    // ==============================================================
-    // LOGIC XỬ LÝ NÚT BẤM & FORM
-    // ==============================================================
+  
     const handleOpenReviewModal = () => {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -90,7 +85,7 @@ export default function ReviewSection({ phoneModelId }) {
         <div className="bg-white rounded-2xl shadow-sm p-6 mt-8 border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Đánh giá điện thoại</h2>
             
-            {/* THỐNG KÊ TỔNG QUAN */}
+    
             <div className="flex flex-col md:flex-row gap-8 pb-8 border-b">
                 <div className="flex flex-col items-center justify-center min-w-[150px]">
                     <div className="flex items-baseline gap-1 text-red-600">
@@ -105,7 +100,7 @@ export default function ReviewSection({ phoneModelId }) {
                     </button>
                 </div>
 
-                {/* Phân bổ sao */}
+              
                 <div className="flex-1 space-y-2 border-l pl-8 border-gray-100">
                     {[5, 4, 3, 2, 1].map(star => {
                         const count = stats.ratingCounts?.[star] || 0;
@@ -122,7 +117,7 @@ export default function ReviewSection({ phoneModelId }) {
                     })}
                 </div>
 
-                {/* Điểm chi tiết */}
+      
                 <div className="flex-1 border-l pl-8 border-gray-100">
                     <h3 className="font-semibold text-gray-800 mb-4 text-sm">Đánh giá theo trải nghiệm</h3>
                     <div className="space-y-3 text-sm">
@@ -133,7 +128,7 @@ export default function ReviewSection({ phoneModelId }) {
                 </div>
             </div>
 
-            {/* BỘ LỌC ĐÁNH GIÁ */}
+   
             <div className="py-6 flex flex-wrap items-center gap-3 border-b">
                 <span className="font-semibold text-gray-800 mr-2">Lọc đánh giá theo</span>
                 {[
@@ -150,7 +145,7 @@ export default function ReviewSection({ phoneModelId }) {
                 ))}
             </div>
 
-            {/* DANH SÁCH */}
+    
             <div className="mt-6 space-y-6">
                 {loading ? (
                     <div className="text-center py-10 text-gray-500">Đang tải đánh giá...</div>
@@ -159,7 +154,7 @@ export default function ReviewSection({ phoneModelId }) {
                 ) : (
                     reviews.map(review => (
                         <div key={review._id} className="border-b border-gray-100 pb-6 last:border-0 relative group">
-                            {/* Nút sửa nhanh */}
+                          
                             {currentUserId === review.user?._id && (
                                 <button onClick={handleOpenReviewModal} className="absolute right-0 top-0 text-blue-600 bg-blue-50 px-3 py-1 rounded text-xs font-semibold opacity-0 group-hover:opacity-100 transition">
                                     Chỉnh sửa
@@ -167,12 +162,9 @@ export default function ReviewSection({ phoneModelId }) {
                             )}
 
                             <div className="flex gap-4">
-                               {review.user?.image ? (
+                                    {review.user?.image ? (
                                         <img 
-                                            src={review.user.image.startsWith('http') 
-                                                ? review.user.image 
-                                                : `http://localhost:9999${review.user.image.startsWith('/') ? '' : '/'}${review.user.image}`
-                                            } 
+                                            src={review.user.image} 
                                             alt={review.user?.fullName} 
                                             className="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200 bg-white"
                                             onError={(e) => {
@@ -218,7 +210,7 @@ export default function ReviewSection({ phoneModelId }) {
                 )}
             </div>
 
-            {/* MODAL */}
+         
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">

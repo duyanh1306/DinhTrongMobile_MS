@@ -256,9 +256,6 @@ export default function Checkout() {
                     window.location.href = paymentData.paymentUrl;
                 }
             } else if (selectedPaymentMethod === 'PAYOS') {
-                await clearCartApi(user._id || user.id);
-                window.dispatchEvent(new Event('cartUpdated')); 
-                
                 toast.success("Đang chuyển hướng đến cổng thanh toán...");
                 
                 if (orderData.checkoutUrl) {
@@ -610,8 +607,8 @@ export default function Checkout() {
                                     </button>
                                 ) : (
                                     <button onClick={handleCheckout} className="w-full bg-[#d70018] text-white py-3.5 rounded-lg font-bold text-[15px] uppercase tracking-wide hover:bg-red-700 transition-all active:scale-[0.98] shadow-md flex justify-center items-center gap-2">
-                                        {selectedPaymentMethod === 'VNPAY' ? 'THANH TOÁN QUA VNPAY' : 'HOÀN TẤT ĐẶT HÀNG'}
-                                    </button>
+                                    {selectedPaymentMethod === 'VNPAY' ? 'THANH TOÁN QUA VNPAY' : 'THANH TOÁN QUA PAYOS'}
+                                </button>
                                 )}
                                 
                                 <p className="text-center text-[11px] text-gray-400 mt-4 flex items-center justify-center gap-1.5">

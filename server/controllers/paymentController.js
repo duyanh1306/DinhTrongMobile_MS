@@ -135,3 +135,71 @@ exports.vnpayIpn = async (req, res) => {
 		return res.json({ RspCode: '99', Message: 'Unknown error' });
 	}
 };
+exports.payosReturn = async (req, res) => {
+    try {
+        const { code, status, orderCode } = req.query;
+
+
+        if (code === '00' || status === 'PAID') {
+            const updatedOrder = await Order.findOneAndUpdate(
+                { orderCode: Number(orderCode) }, 
+                { paymentStatus: 'Paid', orderStatus: 'Processing' },
+                { new: true }
+            );
+
+            if (updatedOrder) {
+                const user = await User.findById(updatedOrder.userId);
+                const userEmail = user?.email || "email_du_phong@gmail.com";
+                const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
+                
+                sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
+
+                reserveInventoryForOrder(updatedOrder).catch(err => console.error('Lỗi khóa kho PayOS:', err));
+            }
+        }
+
+
+        const clientReturn = process.env.VNP_CLIENT_RETURN_URL || process.env.VNP_FRONTEND_RETURN_URL;
+        if (clientReturn) {
+            const qs = querystring.stringify(req.query);
+            const sep = clientReturn.includes('?') ? '&' : '?';
+
+            return res.redirect(302, `${clientReturn.replace('vnpay-return', 'payos-return')}${sep}${qs}`);
+        }
+
+        return res.status(200).json({ success: code === '00' || status === 'PAID', data: req.query });
+    } catch (error) {
+        console.error('Lỗi PayOS return:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi xử lý PayOS Return' });
+    }
+};
+
+
+exports.payosWebhook = async (req, res) => {
+    try {
+        const { data, success } = req.body;
+        
+        if (success && data && data.orderCode) {
+            const updatedOrder = await Order.findOneAndUpdate(
+                { orderCode: Number(data.orderCode), paymentStatus: { $ne: 'Paid' } }, 
+                { paymentStatus: 'Paid', orderStatus: 'Processing' },
+                { new: true }
+            );
+
+            if (updatedOrder) {
+                const user = await User.findById(updatedOrder.userId);
+                const userEmail = user?.email || "email_du_phong@gmail.com";
+                const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
+                
+                sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
+      
+                reserveInventoryForOrder(updatedOrder).catch(err => console.error('Lỗi khóa kho PayOS Webhook:', err));
+            }
+        }
+
+        return res.json({ success: true, message: 'Webhook nhận thành công' });
+    } catch (error) {
+        console.error('Lỗi PayOS Webhook:', error);
+        return res.json({ success: false, message: 'Lỗi xử lý Webhook' });
+    }
+};

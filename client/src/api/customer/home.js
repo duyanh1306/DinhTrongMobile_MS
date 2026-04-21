@@ -57,7 +57,7 @@ export const fetchHomeDataApi = async (selectedStore) => {
                     ...model,
                     image: getDisplayImage(newPhonesPhysical),
                     price: getStartingPrice(newPhonesPhysical),
-                    stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length, // CHỈ TÍNH MÁY IN_STOCK ĐỂ CHO PHÉP MUA
+                    stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length, 
                     isUsedCard: false,
                     isAssembledCard: false
                 });

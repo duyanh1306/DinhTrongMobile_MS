@@ -27,6 +27,7 @@ import OrderHistory from "./pages/customer/OrderHistory";
 import BuildPhone from "./pages/customer/BuildPhone";
 import OrderDetail from "./pages/customer/OrderDetail"
 import CategoryPage from "./pages/customer/CategoryPage";
+import PayosReturn from "./pages/customer/PayosReturn";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManageStores from "./pages/admin/ManageStore";
@@ -167,7 +168,7 @@ function App() {
                 <Route path="/vnpay-return" element={<VnPayReturn />} />
                 <Route path="/order-history" element={<OrderHistory/>}/>
                 <Route path="/order-detail/:id" element={<OrderDetail/>}/>
-               
+                <Route path="/payos-return" element={<PayosReturn />} />
 
                 {/* ================= ADMIN ROUTES ================= */}
                 <Route
