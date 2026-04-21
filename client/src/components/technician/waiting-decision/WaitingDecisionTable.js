@@ -49,7 +49,7 @@ const WaitingDecisionTable = ({ waitingPhones, loading, onProcess }) => {
             {waitingPhones.map((phone) => {
               const brokenParts = getBrokenParts(phone.note || phone.notes);
               return (
-                <tr key={phone._id} className="hover:bg-orange-50/30 transition-colors">
+                <tr key={phone._id} className="hover:bg-blue-50/30 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">
                     #{phone._id.substring(phone._id.length - 6).toUpperCase()}
                   </td>
@@ -84,14 +84,14 @@ const WaitingDecisionTable = ({ waitingPhones, loading, onProcess }) => {
                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phone.importPrice || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold uppercase bg-orange-100 text-orange-800">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold uppercase bg-blue-100 text-blue-800">
                       <Settings size={14}/> Chờ quyết định
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
                     <button 
                       onClick={() => onProcess(phone)} 
-                      className="text-white bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors"
+                      className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors"
                     >
                       Xử lý ngay
                     </button>

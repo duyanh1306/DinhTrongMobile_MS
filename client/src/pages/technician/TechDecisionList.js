@@ -121,7 +121,7 @@ export default function TechDecisionList() {
                 setSellForm({ sellingPrice: "", capacity: phone.capacity || "", colorName: phone.colorName || "" });
                 setDismantleParts([]);
               }} 
-              className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-orange-700 shadow-sm"
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm"
             >
               Quyết định xử lý
             </button>
@@ -138,7 +138,7 @@ export default function TechDecisionList() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-50 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[95vh] flex flex-col">
             <div className="p-6 border-b flex justify-between items-center bg-white rounded-t-2xl">
-              <h3 className="text-xl font-bold">Xử lý thiết bị: <span className="text-orange-600">{selectedPhone.phoneModelId?.name}</span></h3>
+              <h3 className="text-xl font-bold">Xử lý thiết bị: <span className="text-blue-600">{selectedPhone.phoneModelId?.name}</span></h3>
               <button onClick={() => setSelectedPhone(null)} className="text-gray-400 hover:text-red-500"><X size={24} /></button>
             </div>
 

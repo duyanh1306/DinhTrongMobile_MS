@@ -532,7 +532,7 @@ export default function AssemblePhone() {
                                                 const isNew = group.origin === 'new';
 
                                                 return (
-                                                    <div key={index} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border-2 rounded-xl hover:shadow-md transition bg-white gap-4 ${isNew ? 'border-orange-100 hover:border-orange-400' : 'border-blue-50 hover:border-blue-400'}`}>
+                                                    <div key={index} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border-2 rounded-xl hover:shadow-md transition bg-white gap-4 ${isNew ? 'border-blue-100 hover:border-blue-400' : 'border-blue-50 hover:border-blue-400'}`}>
                                                         <div className="flex items-center gap-4 flex-1">
                                                             <div className="w-14 h-14 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100 flex-shrink-0">
                                                                 {getImageUrl(typeImage) ? <img src={getImageUrl(typeImage)} alt="" className="max-w-full max-h-full object-contain p-1" /> : <Package className="text-gray-300"/>}
@@ -540,7 +540,7 @@ export default function AssemblePhone() {
                                                             <div>
                                                                 <h4 className="font-bold text-gray-800 text-sm">{group.name}</h4>
                                                                 <div className="text-xs mt-1 flex flex-wrap gap-2">
-                                                                    <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider ${isNew ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                                    <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider ${isNew ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                                                                         {isNew ? 'Mới 100%' : 'Bóc máy zin'}
                                                                     </span>
                                                                     <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded"><CheckCircle size={14}/> Tồn: {group.stockQuantity}</span>
@@ -548,7 +548,7 @@ export default function AssemblePhone() {
                                                                 <div className="font-black text-gray-700 mt-1.5 text-sm">Vốn: {(group.baseCost || 0).toLocaleString()} đ</div>
                                                             </div>
                                                         </div>
-                                                        <button onClick={() => handleSelectItem(group)} className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-6 py-2.5 text-white font-bold rounded-lg transition ${isNew ? 'bg-orange-500 hover:bg-orange-600 shadow-md shadow-orange-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20'}`}>
+                                                        <button onClick={() => handleSelectItem(group)} className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-6 py-2.5 text-white font-bold rounded-lg transition ${isNew ? 'bg-blue-500 hover:bg-blue-600 shadow-md shadow-blue-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20'}`}>
                                                             <Plus size={18}/> Chọn
                                                         </button>
                                                     </div>

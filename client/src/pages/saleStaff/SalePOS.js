@@ -464,7 +464,7 @@ export default function SalePOS() {
           <div className="p-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
             <h2 className="font-bold text-gray-800 flex items-center gap-2"><Settings size={20} /> Điểm bán hàng (POS)</h2>
             <div className="flex bg-white rounded-lg p-1 border shadow-sm">
-              <button onClick={() => setOrderType("SALE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "SALE" ? "bg-orange-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BÁN RA</button>
+              <button onClick={() => setOrderType("SALE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "SALE" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BÁN RA</button>
               <button onClick={() => setOrderType("PURCHASE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "PURCHASE" ? "bg-purple-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>THU CŨ / MUA VÀO</button>
               <button onClick={() => setOrderType("WARRANTY")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "WARRANTY" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BẢO HÀNH</button>
             </div>
@@ -472,13 +472,13 @@ export default function SalePOS() {
 
           {orderType === "SALE" && (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
-              <div className="w-full max-w-xl bg-white p-8 rounded-3xl shadow-xl border border-orange-100 text-center">
-                 <div className="mx-auto bg-orange-100 text-orange-600 w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner"><ScanLine size={48} /></div>
+              <div className="w-full max-w-xl bg-white p-8 rounded-3xl shadow-xl border border-blue-100 text-center">
+                 <div className="mx-auto bg-blue-100 text-blue-600 w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner"><ScanLine size={48} /></div>
                  <h3 className="text-2xl font-black text-gray-800 mb-2">Quét mã Serial Code</h3>
                  <p className="text-gray-500 mb-8 text-sm">Dùng súng quét tít mã SN trên hộp máy/linh kiện, hoặc nhập tay và ấn Enter.</p>
                  <div className="relative group">
-                    <input ref={scanInputRef} type="text" placeholder="Nhập Serial Code (SN)..." value={scanInput} onChange={(e) => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full pl-6 pr-4 py-5 bg-gray-50 border-2 border-gray-200 rounded-2xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 text-xl font-mono text-center tracking-widest transition-all uppercase" />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity"><span className="bg-orange-100 text-orange-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span></div>
+                    <input ref={scanInputRef} type="text" placeholder="Nhập Serial Code (SN)..." value={scanInput} onChange={(e) => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full pl-6 pr-4 py-5 bg-gray-50 border-2 border-gray-200 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-xl font-mono text-center tracking-widest transition-all uppercase" />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity"><span className="bg-blue-100 text-blue-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span></div>
                  </div>
               </div>
             </div>
@@ -528,7 +528,7 @@ export default function SalePOS() {
 
                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
                         {warrantySearchResults.map(invoice => {
-                            let badgeInfo = { label: "Mua Offline", color: "bg-orange-100 text-orange-700" };
+                            let badgeInfo = { label: "Mua Offline", color: "bg-blue-100 text-blue-700" };
                             if (invoice.source === "ONLINE") badgeInfo = { label: "Mua Online", color: "bg-blue-100 text-blue-700" };
                             else if (invoice.source === "REPAIR") badgeInfo = { label: "Sửa chữa", color: "bg-purple-100 text-purple-700" };
 
@@ -633,16 +633,16 @@ export default function SalePOS() {
         {orderType !== "WARRANTY" && (
             <div className="w-1/3 flex flex-col gap-4">
             <div className="bg-white p-4 rounded-xl shadow-sm border">
-                <h3 className="font-bold mb-4 flex items-center gap-2 border-b pb-2"><User size={18} className={orderType === "SALE" ? "text-orange-600" : "text-purple-600"} /> Thông tin khách hàng <span className="text-red-500">*</span></h3>
+                <h3 className="font-bold mb-4 flex items-center gap-2 border-b pb-2"><User size={18} className={orderType === "SALE" ? "text-blue-600" : "text-purple-600"} /> Thông tin khách hàng <span className="text-red-500">*</span></h3>
                 <div className="space-y-3">
-                <input type="text" placeholder="Tên khách hàng" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className={`w-full p-3 border rounded-lg outline-none focus:ring-2 ${orderType==="SALE" ? "focus:ring-orange-500" : "focus:ring-purple-500"} bg-gray-50`} />
-                <input type="text" placeholder="Số điện thoại (VD: 0912345678)" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className={`w-full p-3 border rounded-lg outline-none focus:ring-2 ${orderType==="SALE" ? "focus:ring-orange-500" : "focus:ring-purple-500"} bg-gray-50`} />
+                <input type="text" placeholder="Tên khách hàng" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className={`w-full p-3 border rounded-lg outline-none focus:ring-2 ${orderType==="SALE" ? "focus:ring-blue-500" : "focus:ring-purple-500"} bg-gray-50`} />
+                <input type="text" placeholder="Số điện thoại (VD: 0912345678)" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className={`w-full p-3 border rounded-lg outline-none focus:ring-2 ${orderType==="SALE" ? "focus:ring-blue-500" : "focus:ring-purple-500"} bg-gray-50`} />
                 </div>
             </div>
 
             {orderType === "SALE" ? (
                 <div className="bg-white flex-1 p-4 rounded-xl shadow-sm border flex flex-col overflow-hidden">
-                <h3 className="font-bold mb-4 flex items-center gap-2 border-b pb-2"><ShoppingCart size={18} className="text-orange-600" /> Giỏ hàng ({cart.length})</h3>
+                <h3 className="font-bold mb-4 flex items-center gap-2 border-b pb-2"><ShoppingCart size={18} className="text-blue-600" /> Giỏ hàng ({cart.length})</h3>
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                     {cart.length === 0 && <p className="text-center text-sm text-gray-400 mt-10">Dùng súng quét mã để thêm SP</p>}
                     {cart.map((item, i) => (
@@ -650,7 +650,7 @@ export default function SalePOS() {
                         <div className="flex-1 min-w-0 mr-2">
                             <p className="font-bold text-sm truncate text-gray-800">{item.name}</p>
                             <p className="text-[10px] text-gray-500 font-mono italic truncate">SN: {item.identifier}</p>
-                            <p className="text-orange-600 font-bold text-xs mt-1">{formatCurrency(item.price)}</p>
+                            <p className="text-blue-600 font-bold text-xs mt-1">{formatCurrency(item.price)}</p>
                         </div>
                         <button onClick={() => removeFromCart(i)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all flex-shrink-0"><Trash2 size={18} /></button>
                         </div>
@@ -659,9 +659,9 @@ export default function SalePOS() {
                 <div className="mt-4 pt-4 border-t space-y-4">
                     <div className="flex justify-between items-end">
                         <span className="text-gray-500 font-medium uppercase text-[10px] tracking-wider">Tổng thanh toán:</span>
-                        <span className="text-2xl font-black text-orange-600 tracking-tighter">{formatCurrency(calculateTotal())}</span>
+                        <span className="text-2xl font-black text-blue-600 tracking-tighter">{formatCurrency(calculateTotal())}</span>
                     </div>
-                    <button onClick={handleSaleSubmit} disabled={cart.length === 0} className={`w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all ${cart.length > 0 ? "bg-orange-600 text-white shadow-lg hover:bg-orange-700" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}><Save size={20} /> TẠO HÓA ĐƠN</button>
+                    <button onClick={handleSaleSubmit} disabled={cart.length === 0} className={`w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all ${cart.length > 0 ? "bg-blue-600 text-white shadow-lg hover:bg-blue-700" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}><Save size={20} /> TẠO HÓA ĐƠN</button>
                 </div>
                 </div>
             ) : (
@@ -701,11 +701,11 @@ export default function SalePOS() {
                             ></textarea>
                         </div>
 
-                        <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl mb-6 flex gap-3 items-start">
-                            <AlertTriangle size={20} className="text-orange-600 flex-shrink-0 mt-0.5"/>
+                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl mb-6 flex gap-3 items-start">
+                            <AlertTriangle size={20} className="text-blue-600 flex-shrink-0 mt-0.5"/>
                             <div>
-                                <p className="text-sm font-bold text-orange-800 mb-1">Kiểm tra tem bảo hành vật lý</p>
-                                <p className="text-xs text-orange-700 mb-3">Sale vui lòng kiểm tra trực tiếp thiết bị của khách xem tem bảo hành của cửa hàng có còn nguyên vẹn không.</p>
+                                <p className="text-sm font-bold text-blue-800 mb-1">Kiểm tra tem bảo hành vật lý</p>
+                                <p className="text-xs text-blue-700 mb-3">Sale vui lòng kiểm tra trực tiếp thiết bị của khách xem tem bảo hành của cửa hàng có còn nguyên vẹn không.</p>
                                 <label className="flex items-center gap-2 cursor-pointer w-max bg-white px-3 py-2 border rounded-lg shadow-sm">
                                     <input 
                                         type="checkbox" 
@@ -733,7 +733,7 @@ export default function SalePOS() {
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
               <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-                <h3 className="text-xl font-bold text-orange-600 flex items-center gap-2">
+                <h3 className="text-xl font-bold text-blue-600 flex items-center gap-2">
                   <CheckCircle size={24}/> {selectedOrder.status === "Pending" ? "Xác nhận tạo đơn bán" : `Đơn hàng #${selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}`}
                 </h3>
                 
@@ -758,7 +758,7 @@ export default function SalePOS() {
               </div>
 
               <div className="p-6 overflow-y-auto flex-1">
-                <div className="grid grid-cols-2 gap-4 mb-6 bg-orange-50 p-4 rounded-lg border border-orange-100">
+                <div className="grid grid-cols-2 gap-4 mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                   <div>
                     <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Khách hàng</p>
                     <p className="font-bold text-gray-800 text-lg">{selectedOrder.customerName}</p>
@@ -766,7 +766,7 @@ export default function SalePOS() {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Tổng cần thanh toán</p>
-                    <p className="text-3xl font-black text-orange-600">{formatCurrency(selectedOrder.totalPrice)}</p>
+                    <p className="text-3xl font-black text-blue-600">{formatCurrency(selectedOrder.totalPrice)}</p>
                   </div>
                 </div>
 

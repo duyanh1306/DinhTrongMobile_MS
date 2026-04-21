@@ -193,7 +193,7 @@ export default function Warranty() {
   const getStatusBadge = (status) => {
     switch (status) {
       case "Pending":
-        return "bg-orange-100 text-orange-700 border-orange-200";
+        return "bg-blue-100 text-blue-700 border-blue-200";
       case "In Progress":
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "Completed":

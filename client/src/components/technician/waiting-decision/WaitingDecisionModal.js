@@ -24,7 +24,7 @@ const WaitingDecisionModal = ({
       <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
         <div className="p-6 border-b flex justify-between items-center bg-gray-50">
           <h3 className="text-xl font-bold text-gray-800">
-            Xử lý thiết bị: <span className="text-orange-600">{selectedDecisionPhone.phoneModelId?.name}</span> 
+            Xử lý thiết bị: <span className="text-blue-600">{selectedDecisionPhone.phoneModelId?.name}</span> 
             <span className="text-sm font-mono text-gray-500 ml-2">
               (#{selectedDecisionPhone._id.substring(selectedDecisionPhone._id.length - 6).toUpperCase()})
             </span>

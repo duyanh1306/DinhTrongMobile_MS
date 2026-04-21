@@ -72,8 +72,8 @@ export default function TechSidebar() {
   });
 
   return (
-    <div className="h-screen w-64 bg-slate-800 text-white flex flex-col shadow-lg">
-      <div className="text-xl font-bold p-6 border-b border-slate-700">
+    <div className="h-screen w-64 bg-blue-900 text-white flex flex-col shadow-lg">
+      <div className="text-xl font-bold p-6 border-b border-blue-800 bg-blue-900">
         Kỹ thuật viên
       </div>
       <nav className="flex flex-col p-4 gap-2">
@@ -82,8 +82,8 @@ export default function TechSidebar() {
           return (
             <div
               key={index}
-              className={`flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer transition ${
-                 isActive ? "bg-slate-900 text-blue-400" : "hover:bg-slate-700"
+              className={`flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                 isActive ? "bg-blue-700 shadow-md" : "hover:bg-blue-800 text-blue-100"
               }`}
               onClick={() => navigate(item.link)}
             >

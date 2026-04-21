@@ -466,7 +466,7 @@ export default function TechStorage() {
                                                     </td>
                                                     <td className="px-4 py-3 text-xs text-gray-600 truncate">
                                                         <div className="mb-1">
-                                                            {item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider inline-block">Bóc máy zin</span> : <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider inline-block">Mới 100%</span>}
+                                                            {item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider inline-block">Bóc máy zin</span> : <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider inline-block">Mới 100%</span>}
                                                         </div>
                                                         {(item.ram || item.capacity || item.color) ? (
                                                             <div className="flex gap-2 truncate">
@@ -480,7 +480,7 @@ export default function TechStorage() {
                                                         {item.status === 'in_stock' ? <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold border border-green-200 inline-block">Sẵn sàng</span> : 
                                                         item.status === 'repairing' ? <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200 inline-block">Đang lắp ráp</span> : 
                                                         item.status === 'defective' ? <span className="bg-red-100 text-red-700 px-1.5 py-1 rounded-lg text-xs font-bold border border-red-200 inline-block">Thiếu linh kiện</span> :
-                                                        item.status === 'reserved' ? <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-xs font-bold border border-orange-200 inline-block">Đặt trước</span> :
+                                                        item.status === 'reserved' ? <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200 inline-block">Đặt trước</span> :
                                                         <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-bold border border-gray-200 inline-block">{item.status}</span>}
                                                     </td>
                                                 </>
@@ -509,7 +509,7 @@ export default function TechStorage() {
                                                         {item.status === 'in_stock' ? <span className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold inline-block border border-green-200">Sẵn sàng</span> : 
                                                         item.status === 'waiting_for_tech_decision' ? <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-xs font-bold inline-block border border-yellow-200">Đang xử lý</span> :
                                                         item.status === 'defective' ? <span className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold border border-red-200 inline-block">Thiếu linh kiện</span> :
-                                                        item.status === 'reserved' ? <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-xs font-bold border border-orange-200 inline-block">Đặt trước</span> :
+                                                        item.status === 'reserved' ? <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200 inline-block">Đặt trước</span> :
                                                         <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded text-xs font-bold inline-block border border-gray-200">{item.status}</span>}
                                                     </td>
                                                 </>

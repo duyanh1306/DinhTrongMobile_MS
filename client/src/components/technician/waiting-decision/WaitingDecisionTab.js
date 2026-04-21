@@ -113,12 +113,12 @@ const WaitingDecisionTab = ({
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <div className="flex items-center gap-4">
-          <div className="bg-orange-100 p-3 rounded-full"><Settings className="w-8 h-8 text-orange-600" /></div>
+          <div className="bg-blue-100 p-3 rounded-full"><Settings className="w-8 h-8 text-blue-600" /></div>
           <div>
-            <h3 className="text-lg font-semibold text-orange-900">Danh sách thiết bị chờ Quyết định</h3>
-            <p className="text-orange-700">Tổng số: {waitingPhones.length} máy thu cũ đang chờ phân loại (Tân trang / Rã xác)</p>
+            <h3 className="text-lg font-semibold text-blue-900">Danh sách thiết bị chờ Quyết định</h3>
+            <p className="text-blue-700">Tổng số: {waitingPhones.length} máy thu cũ đang chờ phân loại (Tân trang / Rã xác)</p>
           </div>
         </div>
       </div>
@@ -129,7 +129,7 @@ const WaitingDecisionTab = ({
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
           <div className="bg-gray-50 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="p-6 border-b flex justify-between items-center bg-white rounded-t-2xl">
-              <h3 className="text-xl font-bold">Xử lý: <span className="text-orange-600">{selectedDecisionPhone.phoneModelId?.name}</span></h3>
+              <h3 className="text-xl font-bold">Xử lý: <span className="text-blue-600">{selectedDecisionPhone.phoneModelId?.name}</span></h3>
               <button onClick={onCloseModal} className="text-gray-400 hover:text-red-500"><X size={20} /></button>
             </div>
 
