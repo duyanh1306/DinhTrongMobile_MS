@@ -144,16 +144,6 @@ export default function TechDashboard() {
             <h2 className="text-xl md:text-2xl font-bold text-gray-800">Khu vực kỹ thuật</h2>
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-              />
-              <span className="absolute left-3 top-2.5 text-gray-400">
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1 0 6.5 6.5a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>
-              </span>
-            </div>
             <button
               onClick={fetchRepairOrders}
               disabled={loading}
