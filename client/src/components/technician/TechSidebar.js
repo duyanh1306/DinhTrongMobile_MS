@@ -18,7 +18,7 @@ export default function TechSidebar() {
           axiosClient.get("/purchase-orders?orderType=PURCHASE&status=Pending_Tech"),
           axiosClient.get("/phones?status=waiting_for_tech_decision"),
           axiosClient.get("/repair-orders"),
-          axiosClient.get("/warranties")
+          axiosClient.get("/warranty")
         ]);
 
         let tCount = 0, wCount = 0, rCount = 0, wPendingCount = 0;

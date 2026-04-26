@@ -61,7 +61,7 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
         <tbody>
           {details.map((d, idx) => {
             const isWarranty = d.type === "WARRANTY" || order?.repairType === "Bảo hành";
-            const targetPhone = d.targetPhoneId?.phoneModelId?.name || order?.phoneModel || "Máy khách";
+            const targetPhone = d.targetPhoneId?.phoneModelId?.name || order?.phoneModel?.name || order?.phoneModel || "Máy khách";
             
             const services = d.serviceId || [];
             const items = d.itemIds || [];
@@ -133,7 +133,6 @@ const RepairDetailsModal = ({
   const [items, setItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   
-  // States cho tính năng Scan
   const [scanInput, setScanInput] = useState("");
   const scanInputRef = useRef(null);
 
@@ -143,7 +142,6 @@ const RepairDetailsModal = ({
   const printRef = useRef(null);
 
   const isWarranty = selectedOrder?.repairType === "Bảo hành" || orderDetails?.some(d => d.type === "WARRANTY");
-  
   const isReadOnly = selectedOrder?.status === "Completed" || selectedOrder?.status === "Cancelled";
 
   useEffect(() => {
@@ -166,10 +164,13 @@ const RepairDetailsModal = ({
       
       const detailWithPhone = orderDetails?.find(d => d.targetPhoneId) || null;
       const targetPhone = detailWithPhone?.targetPhoneId;
-      const initialModelId = targetPhone?.phoneModelId?._id || targetPhone?.phoneModelId || selectedOrder?.phoneModelId || "";
+      
+      let initialModelId = targetPhone?.phoneModelId?._id || targetPhone?.phoneModelId || selectedOrder?.phoneModelId?._id || selectedOrder?.phoneModelId || "";
+      if (typeof initialModelId === 'object' && initialModelId !== null) {
+          initialModelId = initialModelId._id || "";
+      }
       setSelectedModel(initialModelId);
 
-      // Focus vào ô scan khi mở modal (nếu không phải read-only)
       if (!isReadOnly && scanInputRef.current) {
         setTimeout(() => scanInputRef.current.focus(), 100);
       }
@@ -214,7 +215,6 @@ const RepairDetailsModal = ({
     });
   };
 
-  // HÀM XỬ LÝ SCAN LINH KIỆN
   const handleScan = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -285,7 +285,7 @@ const RepairDetailsModal = ({
 
   const detailWithPhone = orderDetails?.find(d => d.targetPhoneId) || null;
   const targetPhone = detailWithPhone?.targetPhoneId;
-  const deviceName = targetPhone?.phoneModelId?.name || selectedOrder?.phoneModel || selectedOrder?.phoneName || "Chưa xác định";
+  const deviceName = targetPhone?.phoneModelId?.name || selectedOrder?.phoneModelId?.name || selectedOrder?.phoneModel || selectedOrder?.phoneName || "Chưa xác định";
   const deviceSerial = targetPhone?.imei || targetPhone?.serialCode || selectedOrder?.serialCode || selectedOrder?.imei || "";
 
   return (
@@ -422,6 +422,19 @@ const RepairDetailsModal = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {selectedServices.length > 0 && (
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h5 className="font-semibold text-gray-700 mb-2">Dịch vụ đã chọn:</h5>
+                <p className="text-sm text-gray-600 mb-2">{getSelectedServiceNames()}</p>
+                <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                  <span className="font-semibold text-gray-700">Tổng dịch vụ:</span>
+                  <span className="text-lg font-bold text-blue-600">
+                    {getSelectedServiceTotal().toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
               </div>
             )}
           </div>

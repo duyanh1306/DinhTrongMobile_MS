@@ -124,6 +124,7 @@ const getFilteredRepairOrders = async (req, res) => {
     let orders = await query
       .populate("storeId", "name code")
       .populate("createdBy", "fullName")
+      .populate("phoneModelId", "name")
       .sort({ repairOrderDate: 1 });
     
     if (type && type !== 'ALL') {
@@ -180,7 +181,7 @@ const getRepairOrderDetailsById = async (req, res) => {
 const acceptRepairOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { serviceId, itemIds, totalPrice } = req.body;
+    const { serviceId, itemIds, totalPrice, phoneModelId } = req.body;
     
     const order = await RepairOrder.findById(id);
     
@@ -195,6 +196,7 @@ const acceptRepairOrder = async (req, res) => {
     order.status = "In Progress";
     order.technicianId = req.user?.id || req.user?._id || null;
     if (totalPrice !== undefined) order.totalPrice = totalPrice;
+    if (phoneModelId !== undefined) order.phoneModelId = phoneModelId;
     await order.save();
 
     if (serviceId !== undefined || itemIds !== undefined) {
@@ -246,7 +248,7 @@ const cancelRepairOrder = async (req, res) => {
 const updateRepairOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { totalPrice } = req.body;
+    const { totalPrice, phoneModelId } = req.body;
     
     const order = await RepairOrder.findById(id);
     
@@ -256,6 +258,9 @@ const updateRepairOrder = async (req, res) => {
     
     if (totalPrice !== undefined) {
       order.totalPrice = totalPrice;
+    }
+    if (phoneModelId !== undefined) {
+      order.phoneModelId = phoneModelId;
     }
     
     await order.save();
@@ -325,7 +330,7 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
     if (items && items.length > 0) {
       const itemsNeedingTransfer = items.filter(item => {
         const itemStoreId = item.storeId?._id || item.storeId;
-        const needsTransfer = itemStoreId && itemStoreId !== repairOrder.storeId;
+        const needsTransfer = itemStoreId && itemStoreId.toString() !== repairOrder.storeId.toString();
         return needsTransfer;
       });
 
@@ -359,7 +364,7 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
 const completeRepairOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { serviceId, itemIds, totalPrice } = req.body;
+    const { serviceId, itemIds, totalPrice, phoneModelId } = req.body;
     
     const order = await RepairOrder.findById(id);
     
@@ -381,6 +386,7 @@ const completeRepairOrder = async (req, res) => {
     
     order.status = "Completed";
     if (totalPrice !== undefined) order.totalPrice = totalPrice;
+    if (phoneModelId !== undefined) order.phoneModelId = phoneModelId;
     await order.save();
 
     if (serviceId !== undefined || itemIds !== undefined) {

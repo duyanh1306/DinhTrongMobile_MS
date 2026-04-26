@@ -173,7 +173,7 @@ const RepairOrderList = () => {
 
   const fetchItemTypes = async () => {
     try {
-      const res = await axiosClient.get("/item_types");
+      const res = await axiosClient.get("/item_types/all");
       setItemTypes(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {}
   };
@@ -317,7 +317,6 @@ const RepairOrderList = () => {
     }
   };
 
-  // Ném thêm phoneModelId vào đây để gửi lên BE!
   const acceptRepairOrder = async (orderId, serviceId = [], itemIds = [], totalPrice = 0, phoneModelId = null) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/accept`, {
@@ -326,9 +325,12 @@ const RepairOrderList = () => {
         totalPrice,
         phoneModelId
       });
+
+      const modelObj = phoneModels.find(m => m._id === phoneModelId);
+      
       const updateOrderStatus = (orderList) =>
         orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "In Progress", totalPrice } : order
+          order._id === orderId ? { ...order, status: "In Progress", totalPrice, phoneModelId: modelObj || phoneModelId } : order
         );
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
@@ -339,14 +341,16 @@ const RepairOrderList = () => {
     }
   };
 
-  // Chỗ cập nhật cũng ném vào đây luôn!
   const handleOrderUpdate = async (orderId, serviceId = [], itemIds = [], totalPrice = 0, phoneModelId = null) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/details-transfer`, { serviceId, itemIds });
       await axiosClient.put(`/repair-orders/${orderId}`, { totalPrice, phoneModelId });
+      
+      const modelObj = phoneModels.find(m => m._id === phoneModelId);
+
       const updateOrderStatus = (orderList) =>
         orderList.map((order) =>
-          order._id === orderId ? { ...order, totalPrice } : order
+          order._id === orderId ? { ...order, totalPrice, phoneModelId: modelObj || phoneModelId } : order
         );
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
