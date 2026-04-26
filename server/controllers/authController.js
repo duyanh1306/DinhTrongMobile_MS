@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Store = require("../models/Store");
 const { sendEmail } = require("../utils/sendEmail");
-
+const cloudinary = require("cloudinary").v2;
 
 const isValidPassword = (password) => {
   const regex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
@@ -248,8 +248,10 @@ exports.updateProfile = async (req, res) => {
     const { userId, fullName, number, address, birthday } = req.body;
     const updateData = { fullName, number, address, birthday };
 
+
     if (req.file) {
-      updateData.image = `/uploads/avatar/${req.file.filename}`;
+      updateData.image = req.file.path; 
+      updateData.imagePublicId = req.file.filename; 
     }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).populate("roleId");
