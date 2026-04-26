@@ -2,7 +2,7 @@ import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
 export const getImageProfile = (imagePath) => {
-    const defaultAvatar = "https://res-console.cloudinary.com/dtjfxho13/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/ZGVmYXVsdC1hdmF0YXItaWNvbi1vZi1zb2NpYWwtbWVkaWEtdXNlci12ZWN0b3JfaXY1aXB6/template_primary";
+    const defaultAvatar = "https://res.cloudinary.com/dtjfxho13/image/upload/v1775826960/default-avatar-icon-of-social-media-user-vector_iv5ipz";
     
     if (!imagePath) return defaultAvatar;
     if (imagePath.startsWith('http')) return imagePath;
