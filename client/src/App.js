@@ -28,6 +28,10 @@ import BuildPhone from "./pages/customer/BuildPhone";
 import OrderDetail from "./pages/customer/OrderDetail"
 import CategoryPage from "./pages/customer/CategoryPage";
 import PayosReturn from "./pages/customer/PayosReturn";
+import WarrantyPolicy from "./pages/customer/WarrantyPolicy"; 
+import ReturnPolicy from "./pages/customer/ReturnPolicy";
+import ShippingPayment from "./pages/customer/ShippingPayment";
+import InstallmentGuide from "./pages/customer/InstallmentGuide";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManageStores from "./pages/admin/ManageStore";
@@ -170,6 +174,10 @@ function App() {
                 <Route path="/order-detail/:id" element={<OrderDetail/>}/>
                 <Route path="/payos-return" element={<PayosReturn />} />
 
+                <Route path="/chinh-sach-bao-hanh" element={<WarrantyPolicy />} />
+                <Route path="/chinh-sach-doi-tra" element={<ReturnPolicy />} />
+                <Route path="/giao-hang" element={<ShippingPayment />} />
+                <Route path="/huong-dan-tra-gop" element={<InstallmentGuide />} />
                 {/* ================= ADMIN ROUTES ================= */}
                 <Route
                     path="/admin/dashboard"
