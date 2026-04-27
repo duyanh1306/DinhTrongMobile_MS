@@ -2,44 +2,102 @@ const PurchaseOrder = require("../models/Purchase_order");
 const RepairOrder = require("../models/Repair_order");
 const User = require("../models/User");
 const TransferRequest = require("../models/Transfer_request");
+const mongoose = require("mongoose");
 
 const getDashboardStats = async (req, res) => {
   try {
-    // 1. Tính tổng doanh thu (Đơn bán + Đơn sửa chữa đã hoàn thành)
-    const completedSales = await PurchaseOrder.find({ status: "Completed", orderType: "SALE" });
-    const completedRepairs = await RepairOrder.find({ status: "Completed" });
+    const { storeId } = req.query;
+
+    let filter = {};
+    let transferFilter = { status: "PENDING" };
     
-    const totalSaleRevenue = completedSales.reduce((sum, order) => sum + order.totalPrice, 0);
-    const totalRepairRevenue = completedRepairs.reduce((sum, order) => sum + order.totalPrice, 0);
+    if (storeId && storeId !== "" && storeId !== "ALL") {
+      filter.storeId = new mongoose.Types.ObjectId(storeId);
+      transferFilter.$or = [
+        { fromStore: new mongoose.Types.ObjectId(storeId) },
+        { toStore: new mongoose.Types.ObjectId(storeId) }
+      ];
+    }
+
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const completedSales = await PurchaseOrder.find({ ...filter, status: "Completed", orderType: "SALE" });
+    const completedRepairs = await RepairOrder.find({ ...filter, status: "Completed" });
+    
+    const totalSaleRevenue = completedSales.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+    const totalRepairRevenue = completedRepairs.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
     const totalRevenue = totalSaleRevenue + totalRepairRevenue;
 
-    // 2. Tính tổng đơn hàng và khách hàng
-    const totalOrders = await PurchaseOrder.countDocuments() + await RepairOrder.countDocuments();
+    const totalPurchaseOrders = await PurchaseOrder.countDocuments(filter);
+    const totalRepairOrders = await RepairOrder.countDocuments(filter);
+    const totalOrders = totalPurchaseOrders + totalRepairOrders;
     
-    // Tìm Role của Khách hàng (Giả sử bạn có Role tên là CUSTOMER)
-    // Để đơn giản, ở đây đếm tổng User, bạn có thể filter thêm roleId
-    const totalCustomers = await User.countDocuments();
+    const uniqueCustomers = await PurchaseOrder.distinct("customerPhone", filter);
+    const uniqueRepairCustomers = await RepairOrder.distinct("customerPhone", filter);
+    const totalCustomersSet = new Set([...uniqueCustomers, ...uniqueRepairCustomers]);
+    const totalCustomers = totalCustomersSet.size;
 
-    // 3. Đếm số yêu cầu chuyển kho đang chờ duyệt
-    const pendingTransfers = await TransferRequest.countDocuments({ status: "PENDING" });
+    const pendingTransfers = await TransferRequest.countDocuments(transferFilter);
 
-    // 4. Dữ liệu Biểu đồ (Giả lập nhóm theo tháng cho 6 tháng)
-    // Trong thực tế, bạn nên dùng MongoDB Aggregation ($group theo tháng). 
-    // Dưới đây là dữ liệu mẫu trả về để Frontend vẽ biểu đồ.
-    const chartData = [
-      { name: "Tháng 9", sale: 40000000, repair: 24000000 },
-      { name: "Tháng 10", sale: 30000000, repair: 13980000 },
-      { name: "Tháng 11", sale: 20000000, repair: 58000000 },
-      { name: "Tháng 12", sale: 27800000, repair: 39080000 },
-      { name: "Tháng 1", sale: 18900000, repair: 48000000 },
-      { name: "Tháng 2", sale: 23900000, repair: 38000000 },
-    ];
+    const getAggregateData = async (Model, matchQuery, groupByObj) => {
+      return await Model.aggregate([
+        { $match: matchQuery },
+        { $group: { _id: groupByObj, total: { $sum: "$totalPrice" } } }
+      ]);
+    };
 
-    // 5. Hoạt động gần đây (Lấy 5 đơn Purchase/Repair mới nhất)
-    const recentPurchase = await PurchaseOrder.find().sort({ createdAt: -1 }).limit(3).populate("createdBy", "fullName");
-    const recentRepair = await RepairOrder.find().sort({ createdAt: -1 }).limit(2).populate("createdBy", "fullName");
+    const saleYearly = await getAggregateData(
+      PurchaseOrder, 
+      { ...filter, orderType: "SALE", status: "Completed", createdAt: { $gte: startOfYear, $lte: endOfYear } }, 
+      { $month: "$createdAt" }
+    );
+    const repairYearly = await getAggregateData(
+      RepairOrder, 
+      { ...filter, status: "Completed", createdAt: { $gte: startOfYear, $lte: endOfYear } }, 
+      { $month: "$createdAt" }
+    );
+
+    let yearlyChartData = [];
+    for (let i = 1; i <= 12; i++) {
+      const saleMonth = saleYearly.find(item => item._id === i);
+      const repairMonth = repairYearly.find(item => item._id === i);
+      yearlyChartData.push({
+        name: `Tháng ${i}`,
+        sale: saleMonth ? saleMonth.total : 0,
+        repair: repairMonth ? repairMonth.total : 0
+      });
+    }
+
+    const saleMonthly = await getAggregateData(
+      PurchaseOrder, 
+      { ...filter, orderType: "SALE", status: "Completed", createdAt: { $gte: startOfMonth, $lte: endOfMonth } }, 
+      { $dayOfMonth: "$createdAt" }
+    );
+    const repairMonthly = await getAggregateData(
+      RepairOrder, 
+      { ...filter, status: "Completed", createdAt: { $gte: startOfMonth, $lte: endOfMonth } }, 
+      { $dayOfMonth: "$createdAt" }
+    );
+
+    let monthlyChartData = [];
+    const daysInMonth = endOfMonth.getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const saleDay = saleMonthly.find(item => item._id === i);
+      const repairDay = repairMonthly.find(item => item._id === i);
+      monthlyChartData.push({
+        name: `${i}/${now.getMonth() + 1}`,
+        sale: saleDay ? saleDay.total : 0,
+        repair: repairDay ? repairDay.total : 0
+      });
+    }
+
+    const recentPurchase = await PurchaseOrder.find(filter).sort({ createdAt: -1 }).limit(5).populate("createdBy", "fullName");
+    const recentRepair = await RepairOrder.find(filter).sort({ createdAt: -1 }).limit(5).populate("createdBy", "fullName");
     
-    // Gộp và sắp xếp lại
     const recentActivities = [...recentPurchase, ...recentRepair]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5)
@@ -58,11 +116,13 @@ const getDashboardStats = async (req, res) => {
         totalCustomers,
         pendingTransfers
       },
-      chartData,
+      monthlyChartData,
+      yearlyChartData,
       recentActivities
     });
 
   } catch (error) {
+    console.error("Dashboard Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

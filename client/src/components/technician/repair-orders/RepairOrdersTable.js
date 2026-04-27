@@ -68,10 +68,10 @@ const RepairOrdersTable = ({
                     <div className="text-xs text-gray-500">{order.customerPhone}</div>
                   </td>
                   <td className="p-4">
-                    <div className="text-sm text-gray-800 font-medium">
-                      {order.phoneName || order.phoneModelId?.name || "Chưa xác định"}
-                    </div>
-                  </td>
+  <div className="text-sm text-gray-800 font-medium">
+    {order.phoneModelId?.name || order.phoneName || order.phoneModel || "Chưa xác định"}
+  </div>
+</td>
                   <td className="p-4 font-bold text-red-600">
                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalPrice || 0)}
                   </td>
