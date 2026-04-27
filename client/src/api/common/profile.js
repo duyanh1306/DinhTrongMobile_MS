@@ -2,7 +2,7 @@ import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
 export const getImageProfile = (imagePath) => {
-    const defaultAvatar = "https://res.cloudinary.com/dtjfxho13/image/upload/v1775826960/default-avatar-icon-of-social-media-user-vector_iv5ipz";
+    const defaultAvatar = "https://res.cloudinary.com/dtjfxho13/image/upload/v1775826960/default-avatar-icon-of-social-media-user-vector_iv5ipz.png";
     
     if (!imagePath) return defaultAvatar;
     if (imagePath.startsWith('http')) return imagePath;

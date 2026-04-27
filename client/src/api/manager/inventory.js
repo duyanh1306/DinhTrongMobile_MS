@@ -39,21 +39,17 @@ export const fetchPhonesApi = async (storeId) => {
 export const deleteItemApi = async (id) => {
     try {
         await axiosClient.delete(`/items/${id}`);
-        toast.success("Xóa thành công");
         return true;
     } catch (error) {
-        toast.error("Xóa thất bại");
         return false;
     }
 };
 
 export const deletePhoneApi = async (id) => {
     try {
-        await axiosClient.delete(`/phones/delete/${id}`);
-        toast.success("Xóa máy thành công!");
+        await axiosClient.delete(`/phones/${id}`); 
         return true;
     } catch (error) {
-        toast.error("Lỗi khi xóa máy");
         return false;
     }
 };
@@ -62,15 +58,16 @@ export const submitItemApi = async (isEditing, id, formData) => {
     try {
         if (isEditing) {
             await axiosClient.put(`/items/update/${id}`, formData);
-            toast.success("Cập nhật linh kiện thành công");
         } else {
             await axiosClient.post(`/items/create`, formData);
-            toast.success("Thêm linh kiện thành công");
         }
-        return true;
+        return { success: true };
     } catch (error) {
-        toast.error(error.response?.data?.message || "Lỗi khi lưu linh kiện");
-        return false;
+
+        return { 
+            success: false, 
+            message: error.response?.data?.message || error.message || "Lỗi không xác định từ máy chủ!" 
+        };
     }
 };
 
@@ -80,17 +77,17 @@ export const submitPhoneApi = async (isEditing, id, submitData) => {
             await axiosClient.put(`/phones/update/${id}`, submitData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast.success("Cập nhật thành công!");
         } else {
             await axiosClient.post(`/phones/create`, submitData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast.success("Thêm máy thành công!");
         }
-        return true;
+        return { success: true };
     } catch (error) {
-        toast.error(error.response?.data?.message || "Lưu thất bại!");
-        return false;
+        return { 
+            success: false, 
+            message: error.response?.data?.message || error.message || "Lỗi không xác định từ máy chủ!" 
+        };
     }
 };
 

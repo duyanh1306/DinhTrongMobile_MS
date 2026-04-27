@@ -219,10 +219,12 @@ export default function AssemblePhone() {
         
         if (assemblyImages.length + files.length > 5) {
             toast.warning("Bạn chỉ được tải lên tối đa 5 hình ảnh!");
+            e.target.value = null; 
             return;
         }
         
         setAssemblyImages(prev => [...prev, ...files]);
+        e.target.value = null; 
     };
     
     const removeImage = (index) => {

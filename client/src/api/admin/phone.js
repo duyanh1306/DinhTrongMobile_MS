@@ -19,9 +19,10 @@ export const fetchStoresAndModelsApi = async () => {
 };
 
 export const fetchPhonesApi = async (storeId) => {
-    if (!storeId) return [];
     try {
-        const { data } = await axiosClient.get(`/phones?storeId=${storeId}`);
+        const url = storeId ? `/phones?storeId=${storeId}` : `/phones`;
+        
+        const { data } = await axiosClient.get(url);
         return data.data || [];
     } catch (error) {
         toast.error("Lỗi tải danh sách máy");

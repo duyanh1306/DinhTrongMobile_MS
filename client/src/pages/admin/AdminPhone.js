@@ -202,18 +202,14 @@ export default function AdminPhone() {
     const fetchStoresAndModels = async () => {
         const { stores: fetchedStores, models: fetchedModels } = await fetchStoresAndModelsApi();
         setStores(fetchedStores);
-        if (fetchedStores.length > 0 && !selectedStoreFilter) setSelectedStoreFilter(fetchedStores[0]._id);
         setModels(fetchedModels);
     };
-
     const fetchPhones = async () => {
-        if (!selectedStoreFilter) return;
         setLoading(true);
         const phonesData = await fetchPhonesApi(selectedStoreFilter);
         setPhones(phonesData);
         setLoading(false);
     };
-
     const uniqueBrands = useMemo(() => {
         const brands = new Set();
         models.forEach(m => {
@@ -564,13 +560,6 @@ export default function AdminPhone() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-                        <select value={selectedStoreFilter} onChange={(e) => setSelectedStoreFilter(e.target.value)} className="appearance-none border border-gray-300 bg-white text-sm font-bold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 shadow-sm cursor-pointer">
-                            {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                    </div>
                     <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition shadow-sm">
                         <Plus size={20} /><span>Nhập Máy</span>
                     </button>
@@ -578,7 +567,7 @@ export default function AdminPhone() {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col md:flex-row gap-4">
-                <div className="relative min-w-[250px]">
+                <div className="relative min-w-[200px]">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                     <select value={selectedBrandFilter} onChange={(e) => setSelectedBrandFilter(e.target.value)} className="w-full appearance-none border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer">
                         <option value="">Tất cả Hãng (Brands)</option>
@@ -586,13 +575,23 @@ export default function AdminPhone() {
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                 </div>
-                <div className="relative flex-1 min-w-[300px]">
+                
+                <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input 
                         type="text" placeholder="Tìm theo tên dòng máy (Ví dụ: Iphone 13)..." 
                         value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} 
                         className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-500 text-sm" 
                     />
+                </div>
+
+                <div className="relative min-w-[200px]">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <select value={selectedStoreFilter} onChange={(e) => setSelectedStoreFilter(e.target.value)} className="w-full appearance-none border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer">
+                        <option value="">Tất cả các cửa hàng</option> 
+                        {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                 </div>
             </div>
 
@@ -746,6 +745,7 @@ export default function AdminPhone() {
                                                     {phone.status === 'in_stock' ? <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold inline-block">Sẵn sàng</span> : 
                                                      phone.status === 'waiting_for_tech_decision' ? <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold inline-block">Đang xử lý</span> :
                                                      phone.status === 'reserved' ? <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold inline-block">Đặt trước</span> :
+                                                     phone.status === 'defective' ? <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold inline-block">Thiếu linh kiện</span> :
                                                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold inline-block">{phone.status}</span>}
                                                 </div>
                                             </td>

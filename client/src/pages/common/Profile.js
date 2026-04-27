@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Camera, Lock, Shield, User, Eye, EyeOff, MapPin } from "lucide-react";
 import axiosClient from "../../api/axiosClient"; 
 import { updateProfileApi, changePasswordApi, getImageProfile  } from "../../api/common/profile";
@@ -268,7 +269,7 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       
-   
+      <ToastContainer position="top-right" autoClose={3000} />
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center gap-2">
           <User className="text-primary" /> Thông tin cá nhân
@@ -277,7 +278,15 @@ export default function Profile() {
         <form onSubmit={handleProfileSubmit} className="space-y-6">
           <div className="flex flex-col items-center mb-8 relative">
             <div className="w-32 h-32 rounded-full border-4 border-gray-100 overflow-hidden relative bg-gray-50 flex items-center justify-center shadow-md group">
-              <img src={preview} alt="Avatar" className="w-full h-full object-cover" />
+            <img 
+                src={preview} 
+                alt="Avatar" 
+                className="w-full h-full object-cover" 
+                onError={(e) => { 
+                    e.target.onerror = null; 
+                    e.target.src = "https://res.cloudinary.com/dtjfxho13/image/upload/v1775826960/default-avatar-icon-of-social-media-user-vector_iv5ipz.png" 
+                }} 
+            />
               <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                 <Camera size={24} className="mb-1" />
                 <span className="text-xs font-semibold">Đổi ảnh</span>
