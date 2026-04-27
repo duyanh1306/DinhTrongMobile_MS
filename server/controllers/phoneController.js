@@ -351,8 +351,8 @@ const createAssembledPhone = async (req, res) => {
 
         const outHeader = await InventoryTransaction.create({
             storeId: storeId,
-            transactionType: "REPAIR_CONSUMPTION",
-            referenceType: "CUSTOM_BUILD",
+            transactionType: "OUTBOUND",
+            referenceType: "TECH_BUILD",
             referenceId: savedPhone._id,
             totalItems: itemDocs.length,
             note: `Xuất linh kiện để dựng máy: ${serialCode}`
@@ -369,7 +369,7 @@ const createAssembledPhone = async (req, res) => {
         const inHeader = await InventoryTransaction.create({
             storeId: storeId,
             transactionType: "INBOUND",
-            referenceType: "CUSTOM_BUILD",
+            referenceType: "TECH_BUILD",
             referenceId: savedPhone._id,
             totalItems: 1,
             note: `Nhập kho máy tự ráp: ${serialCode}`

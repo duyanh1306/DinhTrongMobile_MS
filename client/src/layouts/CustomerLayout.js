@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, User, Package, Wrench, MapPin, Heart, LogOut, Search, Loader2, ShoppingCart } from "lucide-react";
+import { ChevronDown, User, Package, Wrench, MapPin, Heart, LogOut, Search, Loader2, ShoppingCart, ChevronRight, PhoneCall } from "lucide-react";
 import axiosClient from "../api/axiosClient";
 
 export default function CustomerLayout({ children }) {
@@ -286,8 +286,84 @@ export default function CustomerLayout({ children }) {
                 {children}
             </main>
 
-            <footer className="py-6 text-center text-gray-400 text-sm mt-auto bg-white border-t border-gray-200">
-                © 2026 DinhTrongMobile. All rights reserved.
+            <footer className="bg-white border-t border-gray-200 mt-auto pt-12 pb-6 font-sans">
+                <div className="container mx-auto max-w-7xl px-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+                        <div className="space-y-4">
+                            <Link to="/home" className="text-2xl font-black text-[#007bff] tracking-tight inline-block">
+                                DinhTrongMobile
+                            </Link>
+                            <p className="text-sm text-gray-500 leading-relaxed text-justify">
+                                Hệ thống bán lẻ điện thoại di động, máy tính bảng và linh kiện chính hãng. Tiên phong mang đến trải nghiệm công nghệ đỉnh cao và dịch vụ tận tâm.
+                            </p>
+                            <div className="space-y-3 pt-2">
+                                <div className="flex items-start gap-3 text-sm text-gray-600">
+                                    <MapPin size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                                    <span>Hà Nội, Việt Nam</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-sm text-gray-600">
+                                    <PhoneCall size={18} className="text-gray-400 flex-shrink-0" />
+                                    <span>0373.972.327</span>
+                                </div>
+                            </div>
+                        </div>
+
+               
+                        <div>
+                            <h3 className="font-extrabold text-gray-900 mb-6 uppercase text-sm tracking-widest relative inline-block">
+                                Chính sách hỗ trợ
+                                <span className="absolute -bottom-2 left-0 w-8 h-1 bg-blue-500 rounded-full"></span>
+                            </h3>
+                            <ul className="space-y-3 text-sm text-gray-600 font-medium">
+                                <li><Link to="/chinh-sach-bao-hanh" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Chính sách bảo hành</Link></li>
+                                <li><Link to="/chinh-sach-doi-tra" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Chính sách đổi trả</Link></li>
+                                <li><Link to="/giao-hang" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Giao hàng & Thanh toán</Link></li>
+                                <li><Link to="/huong-dan-tra-gop" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Hướng dẫn mua trả góp</Link></li>
+                            </ul>
+                        </div>
+
+   
+                        <div>
+                            <h3 className="font-extrabold text-gray-900 mb-6 uppercase text-sm tracking-widest relative inline-block">
+                                Dịch vụ nổi bật
+                                <span className="absolute -bottom-2 left-0 w-8 h-1 bg-blue-500 rounded-full"></span>
+                            </h3>
+                            <ul className="space-y-3 text-sm text-gray-600 font-medium">
+                                <li><Link to="/build-phone" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Tự ráp cấu hình máy</Link></li>
+                                <li><Link to="/order-history" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Kiểm tra đơn hàng</Link></li>
+                            </ul>
+                        </div>
+
+ 
+                        <div>
+                            <h3 className="font-extrabold text-gray-900 mb-6 uppercase text-sm tracking-widest relative inline-block">
+                                Tổng đài liên hệ
+                                <span className="absolute -bottom-2 left-0 w-8 h-1 bg-blue-500 rounded-full"></span>
+                            </h3>
+                            <div className="space-y-4">
+                                <div className="bg-gradient-to-r from-blue-50 to-white p-4 rounded-xl border border-blue-100 shadow-sm group hover:shadow-md transition-all">
+                                    <p className="font-semibold text-gray-600 text-xs mb-1 uppercase tracking-wider">Gọi mua hàng</p>
+                                    <p className="text-2xl font-black text-[#007bff] group-hover:scale-105 origin-left transition-transform">0373.972.327</p>
+                                </div>
+                                <div className="bg-gradient-to-r from-red-50 to-white p-4 rounded-xl border border-red-100 shadow-sm group hover:shadow-md transition-all">
+                                    <p className="font-semibold text-gray-600 text-xs mb-1 uppercase tracking-wider">Bảo hành & Khiếu nại</p>
+                                    <p className="text-xl font-bold text-red-600 group-hover:scale-105 origin-left transition-transform">0767.017.387</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+      
+                    <div className="border-t border-gray-200 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <p className="text-sm text-gray-500 font-medium">
+                            © {new Date().getFullYear()} DinhTrongMobile. All rights reserved.
+                        </p>
+                        <div className="flex gap-3 items-center">
+                            <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded font-bold text-xs border border-blue-100 shadow-sm">100% Chính hãng</span>
+                            <span className="px-3 py-1 bg-gray-50 text-gray-600 rounded font-bold text-xs border border-gray-200 shadow-sm">Đổi trả 30 ngày</span>
+                        </div>
+                    </div>
+                </div>
             </footer>
         </div>
     );
