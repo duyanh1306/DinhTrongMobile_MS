@@ -330,7 +330,7 @@ export default function CustomerLayout({ children }) {
                             </h3>
                             <ul className="space-y-3 text-sm text-gray-600 font-medium">
                                 <li><Link to="/build-phone" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Tự ráp cấu hình máy</Link></li>
-                                <li><Link to="/order-history" className="hover:text-[#007bff] transition-colors flex items-center gap-2 group"><ChevronRight size={14} className="text-gray-300 group-hover:text-[#007bff] transition-colors" /> Kiểm tra đơn hàng</Link></li>
+                            
                             </ul>
                         </div>
 

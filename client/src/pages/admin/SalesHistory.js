@@ -3,7 +3,6 @@ import { Search, Eye, X, FileText, Smartphone, Package } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API MỚI
 import { fetchSalesOrdersApi, fetchSalesOrderDetailsApi } from "../../api/admin/saleHistory";
 
 export default function SalesHistory() {
@@ -18,9 +17,6 @@ export default function SalesHistory() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // ==============================================================
-  // GỌI API QUA HÀM ĐÃ TÁCH
-  // ==============================================================
   useEffect(() => {
     loadOrders();
   }, []);
@@ -41,9 +37,6 @@ export default function SalesHistory() {
     setIsLoadingDetails(false);
   };
 
-  // ==============================================================
-  // LOGIC HIỂN THỊ UI
-  // ==============================================================
   const calculateGrandTotal = () => {
     return orderDetails.reduce((total, d) => {
       const pPrice = d.phoneId?.sellingPrice || 0;
@@ -55,6 +48,24 @@ export default function SalesHistory() {
 
   const formatCurrency = (amount) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
   const formatDate = (date) => date ? new Date(date).toLocaleString("vi-VN") : "N/A";
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Completed": return "Đã hoàn thành";
+      case "Pending": return "Đang xử lý";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Completed": return "bg-green-100 text-green-700";
+      case "Pending": return "bg-yellow-100 text-yellow-700";
+      case "Cancelled": return "bg-red-100 text-red-700";
+      default: return "bg-gray-100 text-gray-700";
+    }
+  };
 
   const filteredOrders = orders.filter(
     (o) =>
@@ -108,6 +119,7 @@ export default function SalesHistory() {
                 <th className="p-3 font-semibold text-gray-700">Khách hàng</th>
                 <th className="p-3 font-semibold text-gray-700">Tổng tiền</th>
                 <th className="p-3 font-semibold text-gray-700">Ngày tạo</th>
+                <th className="p-3 font-semibold text-gray-700">Trạng thái</th>
                 <th className="p-3 font-semibold text-gray-700 text-center">Chi tiết</th>
               </tr>
             </thead>
@@ -129,6 +141,11 @@ export default function SalesHistory() {
                   <td className="p-3 text-sm">
                     {formatDate(order.purchaseOrderDate)}
                   </td>
+                  <td className="p-3">
+                    <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusColor(order.status)}`}>
+                      {getStatusText(order.status)}
+                    </span>
+                  </td>
                   <td className="p-3 text-center">
                     <button
                       onClick={() => {
@@ -145,7 +162,7 @@ export default function SalesHistory() {
               ))}
               {currentOrders.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="p-6 text-center text-gray-500 italic">
+                  <td colSpan="6" className="p-6 text-center text-gray-500 italic">
                     Không tìm thấy đơn bán hàng nào.
                   </td>
                 </tr>
@@ -154,7 +171,6 @@ export default function SalesHistory() {
           </table>
         </div>
 
-        {/* Pagination UI */}
         {totalPages > 1 && (
           <div className="flex justify-center gap-2 mt-6">
             {[...Array(totalPages)].map((_, i) => (
@@ -170,13 +186,15 @@ export default function SalesHistory() {
         )}
       </div>
 
-      {/* --- MODAL CHI TIẾT --- */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="p-6 border-b flex justify-between items-center bg-white">
-              <h3 className="text-xl font-bold">
+              <h3 className="text-xl font-bold flex items-center gap-2">
                 Hóa đơn bán hàng #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
+                <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusColor(selectedOrder.status)}`}>
+                  {getStatusText(selectedOrder.status)}
+                </span>
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -191,6 +209,7 @@ export default function SalesHistory() {
                 <div>
                   <p className="text-xs text-gray-500 font-bold">KHÁCH HÀNG</p>
                   <p className="font-medium">{selectedOrder.customerName}</p>
+                  <p className="text-sm text-gray-600">{selectedOrder.customerPhone}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 font-bold">
@@ -258,7 +277,7 @@ export default function SalesHistory() {
                           </td>
                           <td className="p-3 text-center text-xs">
                             {detail.warranty ? (
-                              <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                              <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-bold">
                                 Có
                               </span>
                             ) : (

@@ -50,6 +50,16 @@ export default function RepairHistory() {
   const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
   const formatDate = (date) => date ? new Date(date).toLocaleString('vi-VN') : "N/A";
 
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Completed": return "Đã hoàn thành";
+      case "Pending": return "Chờ xử lý";
+      case "In Progress": return "Đang sửa chữa";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
+    }
+  };
+
   const getStatusBadge = (s) => {
     switch (s) {
       case "Completed": return "bg-green-100 text-green-800";
@@ -83,6 +93,7 @@ export default function RepairHistory() {
             <option value="Pending">Chờ xử lý</option>
             <option value="In Progress">Đang sửa chữa</option>
             <option value="Completed">Đã hoàn thành</option>
+            <option value="Cancelled">Đã hủy</option>
           </select>
         </div>
 
@@ -108,7 +119,11 @@ export default function RepairHistory() {
                   </td>
                   <td className="p-3 font-bold text-red-600">{formatCurrency(order.totalPrice)}</td>
                   <td className="p-3 text-sm">{formatDate(order.repairOrderDate)}</td>
-                  <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>{order.status}</span></td>
+                  <td className="p-3">
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
+                      {getStatusText(order.status)}
+                    </span>
+                  </td>
                   <td className="p-3 text-center">
                     <button 
                       onClick={() => { 
@@ -144,7 +159,12 @@ export default function RepairHistory() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="p-6 border-b flex justify-between items-center bg-white">
-              <h3 className="text-xl font-bold">Hóa đơn sửa chữa #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}</h3>
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                Hóa đơn sửa chữa #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
+                <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusBadge(selectedOrder.status)}`}>
+                  {getStatusText(selectedOrder.status)}
+                </span>
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500"><X size={24} /></button>
             </div>
 
