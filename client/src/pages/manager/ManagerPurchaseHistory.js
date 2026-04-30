@@ -3,7 +3,6 @@ import { Search, Eye, X, FileText, Calendar, Smartphone, Package } from "lucide-
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API VỪA TẠO
 import { fetchPurchaseOrdersApi, fetchOrderDetailsApi } from "../../api/manager/purchaseHistory";
 
 export default function ManagerPurchaseHistory() {
@@ -17,9 +16,6 @@ export default function ManagerPurchaseHistory() {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-    // ==============================================================
-    // GỌI API KHỞI TẠO DATA
-    // ==============================================================
     useEffect(() => {
         loadOrders();
     }, []);
@@ -44,9 +40,6 @@ export default function ManagerPurchaseHistory() {
         setIsLoadingDetails(false);
     };
 
-    // ==============================================================
-    // LOGIC TÍNH TOÁN UI
-    // ==============================================================
     const calculateGrandTotal = () => {
         return orderDetails.reduce((total, d) => {
             const pPrice = d.phoneId?.importPrice || d.purchasePrice || 0;
@@ -59,6 +52,16 @@ export default function ManagerPurchaseHistory() {
     const formatCurrency = (amount) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
     const formatDate = (date) => date ? new Date(date).toLocaleString("vi-VN") : "N/A";
     
+    const getStatusText = (status) => {
+      switch (status) {
+        case "Completed": return "Đã hoàn thành";
+        case "Pending": return "Đang xử lý";
+        case "Pending_Tech": return "Chờ kỹ thuật";
+        case "Cancelled": return "Đã hủy";
+        default: return status;
+      }
+    };
+
     const getStatusBadge = (s) =>
         s === "Completed" ? "bg-green-100 text-green-800"
         : s === "Pending" || s === "Pending_Tech" ? "bg-yellow-100 text-yellow-800"
@@ -83,7 +86,6 @@ export default function ManagerPurchaseHistory() {
                     <FileText className="text-blue-600" /> Lịch sử Giao dịch
                 </h2>
                 
-                {/* THANH TÌM KIẾM */}
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
@@ -105,7 +107,6 @@ export default function ManagerPurchaseHistory() {
                     </select>
                 </div>
 
-                {/* DANH SÁCH GIAO DỊCH */}
                 <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -129,7 +130,7 @@ export default function ManagerPurchaseHistory() {
                                     <td className="p-3 font-bold text-red-600">{formatCurrency(order.totalPrice)}</td>
                                     <td className="p-3 text-sm">{formatDate(order.purchaseOrderDate)}</td>
                                     <td className="p-3">
-                                        <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>{order.status}</span>
+                                        <span className={`px-2 py-1 text-xs rounded-full font-bold ${getStatusBadge(order.status)}`}>{getStatusText(order.status)}</span>
                                     </td>
                                     <td className="p-3 text-center">
                                         <button onClick={() => handleViewDetails(order)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100">
@@ -147,7 +148,6 @@ export default function ManagerPurchaseHistory() {
                     </table>
                 </div>
 
-                {/* PHÂN TRANG */}
                 {totalPages > 1 && (
                     <div className="flex justify-center gap-2 mt-6">
                         {[...Array(totalPages)].map((_, i) => (
@@ -162,12 +162,16 @@ export default function ManagerPurchaseHistory() {
                 )}
             </div>
 
-            {/* MODAL CHI TIẾT */}
             {isModalOpen && selectedOrder && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
                         <div className="p-6 border-b flex justify-between items-center bg-white">
-                            <h3 className="text-xl font-bold">Chi tiết giao dịch #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}</h3>
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                              Chi tiết giao dịch #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
+                              <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusBadge(selectedOrder.status)}`}>
+                                {getStatusText(selectedOrder.status)}
+                              </span>
+                            </h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500"><X size={24} /></button>
                         </div>
 
@@ -230,7 +234,7 @@ export default function ManagerPurchaseHistory() {
                                                     </td>
                                                     <td className="p-3 text-right font-bold">{formatCurrency(row.price)}</td>
                                                     <td className="p-3 text-center text-xs">
-                                                        {detail.warranty ? <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Có</span> : "Không"}
+                                                        {detail.warranty ? <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-bold">Có</span> : "Không"}
                                                     </td>
                                                     <td className="p-3 text-xs italic text-gray-500">{detail.note}</td>
                                                 </tr>

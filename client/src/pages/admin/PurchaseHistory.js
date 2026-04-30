@@ -10,7 +10,6 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API MỚI TẠO
 import { fetchOrdersApi, fetchOrderDetailsApi } from "../../api/admin/purchaseHistory";
 
 export default function PurchaseHistory() {
@@ -25,9 +24,6 @@ export default function PurchaseHistory() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // ==============================================================
-  // GỌI API QUA HÀM ĐÃ TÁCH
-  // ==============================================================
   useEffect(() => {
     loadOrders();
   }, []);
@@ -48,9 +44,6 @@ export default function PurchaseHistory() {
       setIsLoadingDetails(false);
   };
 
-  // ==============================================================
-  // CÁC HÀM XỬ LÝ LOGIC UI
-  // ==============================================================
   const calculateGrandTotal = () => {
     return orderDetails.reduce((total, d) => {
       const pPrice = d.phoneId?.importPrice || d.purchasePrice || 0;
@@ -63,12 +56,21 @@ export default function PurchaseHistory() {
   const formatCurrency = (amount) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
   const formatDate = (date) => date ? new Date(date).toLocaleString("vi-VN") : "N/A";
   
-  const getStatusBadge = (s) =>
-    s === "Completed"
-      ? "bg-green-100 text-green-800"
-      : s === "Pending"
-        ? "bg-yellow-100 text-yellow-800"
-        : "bg-red-100 text-red-800";
+  const getStatusText = (status) => {
+    switch (status) {
+      case "Completed": return "Đã hoàn thành";
+      case "Pending": return "Đang xử lý";
+      case "Pending_Tech": return "Chờ kỹ thuật";
+      case "Cancelled": return "Đã hủy";
+      default: return status;
+    }
+  };
+
+  const getStatusBadge = (s) => {
+    if (s === "Completed") return "bg-green-100 text-green-800";
+    if (s === "Pending" || s === "Pending_Tech") return "bg-yellow-100 text-yellow-800";
+    return "bg-red-100 text-red-800";
+  };
 
   const filteredOrders = orders.filter(
     (o) =>
@@ -143,11 +145,11 @@ export default function PurchaseHistory() {
                     {formatCurrency(order.totalPrice)}
                   </td>
                   <td className="p-3 text-sm">
-                    {formatDate(order.purchaseOrderDate)}
+                    {formatDate(order.purchaseOrderDate || order.createdAt)}
                   </td>
                   <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(order.status)}`}>
-                      {order.status}
+                      {getStatusText(order.status)}
                     </span>
                   </td>
                   <td className="p-3 text-center">
@@ -164,11 +166,17 @@ export default function PurchaseHistory() {
                   </td>
                 </tr>
               ))}
+              {currentOrders.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-6 text-center text-gray-500 italic">
+                    Không tìm thấy đơn thu mua nào.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination UI */}
         {totalPages > 1 && (
           <div className="flex justify-center gap-2 mt-6">
             {[...Array(totalPages)].map((_, i) => (
@@ -184,13 +192,15 @@ export default function PurchaseHistory() {
         )}
       </div>
 
-      {/* --- MODAL CHI TIẾT --- */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="p-6 border-b flex justify-between items-center bg-white">
-              <h3 className="text-xl font-bold">
+              <h3 className="text-xl font-bold flex items-center gap-2">
                 Chi tiết thu mua #{selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}
+                <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusBadge(selectedOrder.status)}`}>
+                  {getStatusText(selectedOrder.status)}
+                </span>
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -205,6 +215,7 @@ export default function PurchaseHistory() {
                 <div>
                   <p className="text-xs text-gray-500 font-bold">NGƯỜI BÁN</p>
                   <p className="font-medium">{selectedOrder.customerName}</p>
+                  <p className="text-sm text-gray-600">{selectedOrder.customerPhone}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 font-bold">TỔNG CHI</p>
@@ -266,7 +277,7 @@ export default function PurchaseHistory() {
                           </td>
                           <td className="p-3 text-center text-xs">
                             {detail.warranty ? (
-                              <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Có</span>
+                              <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-bold">Có</span>
                             ) : (
                               "Không"
                             )}

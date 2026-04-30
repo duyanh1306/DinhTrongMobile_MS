@@ -3,24 +3,20 @@ import { Search, ArrowRightLeft, Eye, X, Smartphone, Package } from "lucide-reac
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// IMPORT TỪ FILE API
 import { fetchTransactionsApi, fetchTransactionDetailsApi } from "../../api/admin/inventoryTransaction";
 
 export default function InventoryTransactionList() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // States Modal Chi tiết
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [transactionDetails, setTransactionDetails] = useState([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
   
-  // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -142,7 +138,6 @@ export default function InventoryTransactionList() {
                 <th className="p-3 font-semibold text-gray-700 uppercase text-xs text-center">Loại GD</th>
                 <th className="p-3 font-semibold text-gray-700 uppercase text-xs">Cửa hàng</th>
                 <th className="p-3 font-semibold text-gray-700 uppercase text-xs text-center">Tổng SL</th>
-                <th className="p-3 font-semibold text-gray-700 uppercase text-xs">Tham chiếu</th>
                 <th className="p-3 font-semibold text-gray-700 uppercase text-xs">Thời gian</th>
                 <th className="p-3 font-semibold text-gray-700 uppercase text-xs text-center">Chi tiết</th>
               </tr>
@@ -165,10 +160,6 @@ export default function InventoryTransactionList() {
                     <td className="p-3 text-center font-bold text-blue-600">
                       {transaction.totalItems || transaction.quantity || "-"} món
                     </td>
-                    <td className="p-3">
-                        <div className="text-xs font-bold text-gray-700">{transaction.referenceType || "N/A"}</div>
-                        <div className="text-[10px] text-gray-400 font-mono italic max-w-[150px] truncate">{transaction.note || "Không ghi chú"}</div>
-                    </td>
                     <td className="p-3 text-sm text-gray-600">
                       {formatDate(transaction.createdAt)}
                     </td>
@@ -182,7 +173,7 @@ export default function InventoryTransactionList() {
               })}
               {!loading && currentTransactions.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="p-10 text-center text-gray-500">
+                  <td colSpan="6" className="p-10 text-center text-gray-500">
                     <ArrowRightLeft className="w-10 h-10 mx-auto mb-3 opacity-20"/>
                     Không tìm thấy giao dịch nào.
                   </td>
@@ -213,7 +204,6 @@ export default function InventoryTransactionList() {
         )}
       </div>
 
-      {/* MODAL CHI TIẾT */}
       {isModalOpen && selectedTransaction && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
