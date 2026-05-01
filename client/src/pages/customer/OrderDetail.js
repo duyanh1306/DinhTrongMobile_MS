@@ -123,7 +123,13 @@ export default function OrderDetail() {
                             <div className="space-y-3 text-sm text-gray-600">
                                 <p><span className="font-medium text-gray-800">Người nhận:</span> {order.shippingInfo?.fullName}</p>
                                 <p><span className="font-medium text-gray-800">Điện thoại:</span> {order.shippingInfo?.phone}</p>
-                                <p><span className="font-medium text-gray-800">Địa chỉ:</span> {order.shippingInfo?.address}</p>
+                                <p className="leading-relaxed">
+                                    <span className="font-medium text-gray-800 block mb-1">Địa chỉ giao hàng:</span> 
+                                    {order.shippingInfo?.deliveryMethod === 'home' 
+                                        ? `${order.shippingInfo?.address}, ${order.shippingInfo?.ward}, ${order.shippingInfo?.district}, ${order.shippingInfo?.province}`
+                                        : 'Nhận tại cửa hàng'
+                                    }
+                                </p>
                                 {order.shippingInfo?.note && (
                                     <p className="p-2 bg-yellow-50 rounded-lg border border-yellow-100 text-yellow-800 mt-2">
                                         <strong>Ghi chú:</strong> {order.shippingInfo.note}

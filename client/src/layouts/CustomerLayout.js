@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ChevronDown, User, Package, Wrench, MapPin, Heart, LogOut, Search, Loader2, ShoppingCart, ChevronRight, PhoneCall } from "lucide-react";
 import axiosClient from "../api/axiosClient";
 
 export default function CustomerLayout({ children }) {
-    
     const navigate = useNavigate();
+    const location = useLocation(); 
+
+    useEffect(() => {
+        window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: "smooth" 
+        });
+    }, [location.pathname]);
     const user = JSON.parse(localStorage.getItem('user'));
     
     const [isMenuOpen, setIsMenuOpen] = useState(false);

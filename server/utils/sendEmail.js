@@ -47,14 +47,19 @@ const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
         let itemsHtml = '';
         fullOrder.items.forEach((item, index) => {
             let partsHtml = '';
+            let warrantyDisplay = `${item.warrantyPeriod || 12}T`; 
+
             if (item.selectedParts && item.selectedParts.length > 0) {
+   
+                warrantyDisplay = '<span style="font-size: 12px; color: #666; font-weight: normal; font-style: italic;">Theo linh kiện</span>';
+                
                 partsHtml = `
                     <div style="margin-top: 8px; font-size: 12px; color: #555; background: #f9f9f9; padding: 8px; border-radius: 4px; border-left: 3px solid #0056b3;">
                         <strong style="color: #333;">Chi tiết linh kiện lắp ráp:</strong>
                         <ul style="margin: 5px 0 0 0; padding-left: 20px; list-style-type: circle;">
                             ${item.selectedParts.map(part => `
                                 <li style="margin-bottom: 3px;">
-                                    ${part.name || 'Linh kiện'} - <strong>BH: ${part.warrantyPeriod || 0} tháng</strong>
+                                    ${part.name || 'Linh kiện'} - <strong style="color: #d70018;">BH: ${part.warrantyPeriod || 0} tháng</strong>
                                 </li>
                             `).join('')}
                         </ul>
@@ -73,7 +78,7 @@ const sendInvoiceEmail = async (orderEmail, orderData, customerName) => {
                         ${partsHtml}
                     </td>
                     <td style="padding: 12px 8px; border: 1px solid #ddd; text-align: center; color: #d70018; font-weight: bold;">
-                        ${item.warrantyPeriod || 12}T
+                        ${warrantyDisplay}
                     </td>
                     <td style="padding: 12px 8px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
                     <td style="padding: 12px 8px; border: 1px solid #ddd; text-align: right;">${formatMoney(item.price)}</td>
@@ -196,7 +201,7 @@ const sendConfirmRequestEmail = async (customerEmail, orderData, customerName) =
             service: "gmail", auth: { user: "tominhthanh75@gmail.com", pass: "twsexeefnogsvewu" }
         });
   
-        const historyLink = `http://localhost:3000/order-history`;
+        const historyLink = `https://ftech.io.vn/order-history`;
   
         await transporter.sendMail({
             from: '"Dinh Trong Mobile" <tominhthanh75@gmail.com>',
