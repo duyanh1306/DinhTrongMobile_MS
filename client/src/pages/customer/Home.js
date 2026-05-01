@@ -7,9 +7,9 @@ import { fetchHomeDataApi } from "../../api/customer/home";
 
 
 const BANNER_IMAGES = [
-    "https://res.cloudinary.com/dtjfxho13/image/upload/c_fill,g_auto,w_1200,h_400/v1/Frame21472288341_dht1ib",
-    "https://res.cloudinary.com/dtjfxho13/image/upload/c_fill,g_auto,w_1200,h_400/v1/REDMI-NOTE-15-HOME-0225_ta5u4v",
-    "https://res.cloudinary.com/dtjfxho13/image/upload/c_fill,g_auto,w_1200,h_400/v1/690x300_open_iPhone_17e_g9sgh9"
+    "https://res.cloudinary.com/dtjfxho13/image/upload/v1/Frame21472288341_dht1ib",
+    "https://res.cloudinary.com/dtjfxho13/image/upload/v1/REDMI-NOTE-15-HOME-0225_ta5u4v",
+    "https://res.cloudinary.com/dtjfxho13/image/upload/v1/690x300_open_iPhone_17e_g9sgh9"
 ];
 
 export default function Home() {
@@ -110,7 +110,7 @@ export default function Home() {
                     key={idx} 
                     className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
                 >
-                    <img src={img} alt={`Banner ${idx + 1}`} className="w-full h-full object-cover object-center" />
+                   <img src={img} alt={`Banner ${idx + 1}`} className="w-full h-full object-contain object-center bg-gray-50" />
                 </div>
             ))}
             
