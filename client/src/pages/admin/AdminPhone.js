@@ -782,7 +782,7 @@ export default function AdminPhone() {
             )}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[60] p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between p-5 border-b bg-gray-50 shrink-0">
                             <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Cập nhật Thông tin Máy' : 'Nhập Máy Mới Vào Kho'}</h2>
                             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition bg-white p-1 rounded-full"><X size={24} /></button>
