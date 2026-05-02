@@ -24,7 +24,14 @@ const parseCurrencyString = (value) => {
     if (!value) return 0;
     return parseInt(value.toString().replace(/\./g, ''), 10) || 0;
 };
-
+const formatCapacity = (value) => {
+    if (!value) return "";
+    const num = parseInt(value, 10);
+    if (num >= 1024 && num % 1024 === 0) {
+        return `${num / 1024}TB`;
+    }
+    return `${num}GB`;
+};
 export default function ImportInventory() {
     const [activeTab, setActiveTab] = useState('ITEMS'); 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -37,7 +44,10 @@ export default function ImportInventory() {
     
     const [filterGroup, setFilterGroup] = useState("");
     const [selectedType, setSelectedType] = useState(null);
-    const [pendingItemBatches, setPendingItemBatches] = useState([]);
+    const [pendingItemBatches, setPendingItemBatches] = useState(() => {
+        const saved = sessionStorage.getItem("pendingItemBatches");
+        return saved ? JSON.parse(saved) : [];
+    });
     const [itemFormData, setItemFormData] = useState({
         quantity: 1, batchSuffix: '', origin: 'new',
         baseCost: 0, price: 0, warrantyPeriod: 12, storeId: '', 
@@ -118,7 +128,7 @@ export default function ImportInventory() {
 
         const newBatch = {
             ...itemFormData,
-            capacity: (filterGroup === 'MB' && itemFormData.capacity) ? `${itemFormData.capacity}GB` : itemFormData.capacity,
+            capacity: (filterGroup === 'MB' && itemFormData.capacity) ? formatCapacity(itemFormData.capacity) : itemFormData.capacity,
             item_type: selectedType._id,
             typeName: selectedType.name,
             typeCode: selectedType.code,
@@ -144,6 +154,7 @@ export default function ImportInventory() {
             const previews = files.map(file => URL.createObjectURL(file));
             setPhoneFormData(prev => ({ ...prev, imageFiles: files, previewImages: previews }));
         }
+        e.target.value = null;
     };
 
     const handleAddBatchPhone = (e) => {
@@ -157,7 +168,7 @@ export default function ImportInventory() {
 
         const newBatch = {
             ...phoneFormData,
-            capacity: phoneFormData.capacity ? `${phoneFormData.capacity}GB` : '',
+            capacity: formatCapacity(phoneFormData.capacity),
             modelName: selectedModel?.name,
             storeName: userStore?.name || "Kho của tôi"
         };
