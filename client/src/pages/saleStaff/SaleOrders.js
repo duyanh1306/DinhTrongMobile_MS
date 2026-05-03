@@ -56,7 +56,7 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
             <th className="border border-gray-800 p-2 text-center w-12">STT</th>
             <th className="border border-gray-800 p-2 text-left">Tên hàng hóa / Dịch vụ</th>
             <th className="border border-gray-800 p-2 text-center w-16">SL</th>
-            <th className="border border-gray-800 p-2 text-center">Số Serial / IMEI</th>
+            <th className="border border-gray-800 p-2 text-center">Số Serial (SN)</th>
             <th className="border border-gray-800 p-2 text-center w-32">Bảo hành</th>
             <th className="border border-gray-800 p-2 text-right w-32">Thành tiền</th>
           </tr>
@@ -70,7 +70,7 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
 
             if (activeTab === "REPAIR") {
                 const targetPhone = d.targetPhoneId?.phoneModelId?.name || "Máy khách";
-                serial = d.targetPhoneId?.serialCode || d.targetPhoneId?.imei || "-";
+                serial = d.targetPhoneId?.serialCode || "-";
                 
                 const services = d.serviceId || [];
                 const items = d.itemIds || [];
@@ -90,7 +90,7 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
             } 
             else {
                 itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
-                serial = d.phoneId ? d.phoneId.imei || d.phoneId.serialCode || d.phoneId._id?.substring(d.phoneId._id.length - 6).toUpperCase() : (d.itemId?.serialCode || d.identifier || "");
+                serial = d.phoneId ? (d.phoneId.serialCode || "N/A") : (d.itemId?.serialCode || d.identifier || "");
                 if (d.warrantyExpireDate) {
                     warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
                 } else if (d.warranty || d.phoneId?.warrantyPeriod) {
@@ -104,7 +104,7 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
                 <td className="border border-gray-800 p-2 font-medium">{itemName}</td>
                 <td className="border border-gray-800 p-2 text-center">1</td>
                 <td className="border border-gray-800 p-2 text-center font-mono text-xs">{serial}</td>
-                <td className="border border-gray-800 p-2 text-center text-xs">{warrantyText}</td>
+                <td className="border border-gray-800 p-2 text-center text-xs font-semibold">{warrantyText}</td>
                 <td className="border border-gray-800 p-2 text-right font-bold">{formatCurrency(price)}</td>
               </tr>
             );
@@ -466,16 +466,24 @@ export default function SaleOrders() {
                        let itemName = "";
                        let serial = "";
                        let price = detail.purchasePrice || detail.price || 0;
+                       let warrantyText = "Không";
                        
                        if (activeTab === "REPAIR") {
                            itemName = detail.serviceId && detail.serviceId.length > 0 ? detail.serviceId.map(s => s.name).join(" + ") : "Dịch vụ sửa chữa";
                            const servicePrice = detail.serviceId?.reduce((sum, s) => sum + (s.price || 0), 0) || 0;
                            const itemsPrice = detail.itemIds?.reduce((sum, i) => sum + (i.price || i.sellingPrice || 0), 0) || 0;
                            price = servicePrice + itemsPrice;
-                           serial = detail.targetPhoneId ? (detail.targetPhoneId.serialCode || detail.targetPhoneId.imei || "-") : "-";
+                           serial = detail.targetPhoneId ? (detail.targetPhoneId.serialCode || "-") : "-";
+                           warrantyText = "Bảo hành DV";
                        } else {
                            itemName = detail.phoneId?.phoneModelId?.name || detail.itemId?.item_type?.name || detail.name || "Sản phẩm";
-                           serial = detail.phoneId ? `Mã máy: ${detail.phoneId._id?.substring(detail.phoneId._id.length - 6).toUpperCase()}` : `SN: ${detail.itemId?.serialCode || detail.identifier}`;
+                           serial = detail.phoneId ? `SN: ${detail.phoneId.serialCode || "N/A"}` : `SN: ${detail.itemId?.serialCode || detail.identifier || "N/A"}`;
+                           
+                           if (detail.warrantyExpireDate) {
+                               warrantyText = `Đến ${dayjs(detail.warrantyExpireDate).format('DD/MM/YYYY')}`;
+                           } else if (detail.warranty || detail.phoneId?.warrantyPeriod) {
+                               warrantyText = "Tiêu chuẩn";
+                           }
                        }
 
                        return (
@@ -499,7 +507,7 @@ export default function SaleOrders() {
                                    <span className="font-bold text-gray-500 uppercase text-[9px]">Linh kiện thay:</span>
                                    {detail.itemIds.map(item => (
                                        <div key={item._id} className="flex justify-between text-gray-600">
-                                           <span>- {item.name} <span className="text-[10px] font-mono ml-1 text-gray-400">(SN: {item.serialCode})</span></span>
+                                           <span>- {item.name} <span className="text-[10px] font-mono ml-1 text-gray-400">(SN: {item.serialCode || "N/A"})</span></span>
                                            <span>{formatCurrency(item.price || item.sellingPrice)}</span>
                                        </div>
                                    ))}
@@ -508,8 +516,8 @@ export default function SaleOrders() {
                             </td>
                             <td className="p-4 text-right font-black text-gray-800">{formatCurrency(price)}</td>
                             <td className="p-4 text-center">
-                                <span className={`text-[10px] ${activeTab === "REPAIR" ? "text-blue-600 bg-blue-50" : "text-green-600 bg-green-50"} font-bold px-2 py-1 rounded`}>
-                                    {activeTab === "REPAIR" ? "Bảo hành DV" : "CÓ BH"}
+                                <span className={`text-[10px] ${warrantyText !== "Không" ? "text-green-600 bg-green-50" : "text-gray-500 bg-gray-100"} font-bold px-2 py-1 rounded`}>
+                                    {warrantyText}
                                 </span>
                             </td>
                         </tr>

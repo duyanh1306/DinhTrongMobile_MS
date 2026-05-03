@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 const getAllRepairOrders = async (req, res) => {
   try {
     const { technicianId } = req.query;
-    
     let userStoreId = null;
     
     if (req.user && req.user.storeId) {
@@ -24,18 +23,17 @@ const getAllRepairOrders = async (req, res) => {
       const userId = new mongoose.Types.ObjectId(req.user?.id);
       
       const allStores = await Store.find({});
-      
       const userStore = await Store.findOne({ staff: userId });
       
       if (userStore) {
         userStoreId = userStore._id;
       }
     }
+    
     let query = RepairOrder.find();
     if (userStoreId) {
       query = query.where({ storeId: userStoreId });
     }
-    
     if (technicianId) {
       query = query.where({ technicianId: technicianId });
     }
@@ -64,7 +62,6 @@ const getAllRepairOrders = async (req, res) => {
 const getRepairOrderById = async (req, res) => {
   try {
     const { id } = req.params;
-    
     const order = await RepairOrder.findById(id)
       .populate("storeId", "name code")
       .populate("createdBy", "fullName");
@@ -82,7 +79,6 @@ const getRepairOrderById = async (req, res) => {
 const getFilteredRepairOrders = async (req, res) => {
   try {
     const { status, type, storeId } = req.query;
-    
     let userStoreId = null;
     
     if (req.user && req.user.storeId) {
@@ -99,9 +95,6 @@ const getFilteredRepairOrders = async (req, res) => {
     if (!userStoreId) {
       const Store = require("../models/Store");
       const userId = new mongoose.Types.ObjectId(req.user?.id);
-      
-      const allStores = await Store.find({});
-      
       const userStore = await Store.findOne({ staff: userId });
       
       if (userStore) {
@@ -128,11 +121,8 @@ const getFilteredRepairOrders = async (req, res) => {
       .sort({ repairOrderDate: 1 });
     
     if (type && type !== 'ALL') {
-      const orderIdsWithType = await RepairOrderDetail.find({ type: type })
-        .distinct('repairOrderId');
-      
+      const orderIdsWithType = await RepairOrderDetail.find({ type: type }).distinct('repairOrderId');
       const orderIdsWithString = orderIdsWithType.map(id => id.toString());
-      
       orders = orders.filter(order => orderIdsWithString.includes(order._id.toString()));
     }
     
@@ -155,7 +145,6 @@ const getFilteredRepairOrders = async (req, res) => {
 const getRepairOrderDetailsById = async (req, res) => {
   try {
     const { id } = req.params;
-
     const details = await RepairOrderDetail.find({ repairOrderId: id })
       .populate("serviceId", "name price")
       .populate({
@@ -188,7 +177,6 @@ const acceptRepairOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
     }
-    
     if (order.status !== "Pending") {
       return res.status(400).json({ message: "Chỉ có thể chấp nhận đơn đang ở trạng thái chờ xử lý" });
     }
@@ -221,17 +209,14 @@ const acceptRepairOrder = async (req, res) => {
 const cancelRepairOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    
     const order = await RepairOrder.findById(id);
     
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
     }
-    
     if (order.status === "Completed") {
       return res.status(400).json({ message: "Không thể hủy đơn đã hoàn thành" });
     }
-    
     if (order.status === "Cancelled") {
       return res.status(400).json({ message: "Đơn đã bị hủy trước đó" });
     }
@@ -339,15 +324,13 @@ const updateRepairOrderDetailsWithTransfer = async (req, res) => {
 
         try {
           const requestedBy = req.user?.id || repairOrder.createdBy || new mongoose.Types.ObjectId();
-
           transferRequests = await createTransferRequestForRepairOrder(
               id,
               itemsNeedingTransfer,
               repairOrder.storeId,
               requestedBy
           );
-        } catch (transferError) {
-        }
+        } catch (transferError) {}
       }
     }
 
@@ -371,15 +354,12 @@ const completeRepairOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn sửa chữa" });
     }
-    
     if (order.status === "Completed") {
       return res.status(400).json({ message: "Đơn sửa chữa đã hoàn thành" });
     }
-    
     if (order.status === "Cancelled") {
       return res.status(400).json({ message: "Không thể hoàn thành đơn đã bị hủy" });
     }
-    
     if (order.status !== "In Progress") {
       return res.status(400).json({ message: "Chỉ có thể hoàn thành đơn đang trong tiến trình" });
     }
@@ -389,16 +369,43 @@ const completeRepairOrder = async (req, res) => {
     if (phoneModelId !== undefined) order.phoneModelId = phoneModelId;
     await order.save();
 
-    if (serviceId !== undefined || itemIds !== undefined) {
-      const details = await RepairOrderDetail.findOne({ repairOrderId: id });
-      if (details) {
-        if (serviceId !== undefined) {
-          details.serviceId = Array.isArray(serviceId) ? serviceId : (serviceId ? [serviceId] : []);
-        }
-        if (itemIds !== undefined) {
-          details.itemIds = itemIds;
-        }
-        await details.save();
+    const details = await RepairOrderDetail.findOne({ repairOrderId: id });
+    let finalItemIds = [];
+
+    if (details) {
+      if (serviceId !== undefined) {
+        details.serviceId = Array.isArray(serviceId) ? serviceId : (serviceId ? [serviceId] : []);
+      }
+      if (itemIds !== undefined) {
+        details.itemIds = itemIds;
+      }
+      await details.save();
+      finalItemIds = itemIds !== undefined ? itemIds : details.itemIds;
+    }
+
+    if (finalItemIds && finalItemIds.length > 0) {
+      const Item = require("../models/Item");
+      const InventoryTransaction = require("../models/Inventory_transaction");
+
+      const itemsToConsume = await Item.find({ _id: { $in: finalItemIds } });
+
+      if (itemsToConsume.length > 0) {
+        await Item.updateMany(
+          { _id: { $in: finalItemIds } },
+          { $set: { status: 'sold' } }
+        );
+
+        const newTransaction = new InventoryTransaction({
+          storeId: order.storeId,
+          transactionType: "REPAIR_CONSUMPTION",
+          referenceType: "RepairOrder",
+          referenceId: order._id,
+          quantity: itemsToConsume.length,
+          note: `Xuất kho ${itemsToConsume.length} linh kiện cho Đơn sửa chữa #${order._id.toString().substring(order._id.toString().length - 6).toUpperCase()}`,
+          createdBy: req.user?.id || req.user?._id || order.createdBy
+        });
+        
+        await newTransaction.save();
       }
     }
     
