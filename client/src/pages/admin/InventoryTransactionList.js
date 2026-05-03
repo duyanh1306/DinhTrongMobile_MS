@@ -91,6 +91,22 @@ export default function InventoryTransactionList() {
     }
   };
 
+  const generatePagination = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, "...", totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+      }
+    }
+    return pages;
+  };
+
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />
@@ -189,14 +205,20 @@ export default function InventoryTransactionList() {
               Hiển thị <span className="font-semibold text-gray-900">{indexOfFirstItem + 1}</span> - <span className="font-semibold text-gray-900">{Math.min(indexOfLastItem, filteredTransactions.length)}</span> trên tổng số <span className="font-semibold text-gray-900">{filteredTransactions.length}</span> giao dịch
             </span>
             <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, index) => (
+              {generatePagination().map((page, index) => (
                 <button
-                  key={index} onClick={() => paginate(index + 1)}
+                  key={index}
+                  onClick={() => typeof page === "number" ? paginate(page) : null}
+                  disabled={page === "..."}
                   className={`w-8 h-8 rounded-md text-sm font-medium transition ${
-                    currentPage === index + 1 ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100 border border-transparent"
+                    currentPage === page 
+                      ? "bg-blue-600 text-white" 
+                      : page === "..."
+                      ? "text-gray-400 cursor-default border-transparent"
+                      : "text-gray-700 hover:bg-gray-100 border border-transparent"
                   }`}
                 >
-                  {index + 1}
+                  {page}
                 </button>
               ))}
             </div>
