@@ -83,9 +83,9 @@ export default function SaleTransferExportList() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredRequests.map(req => {
+                   {filteredRequests.map(req => {
                         const totalItems = (req.itemType || []).reduce((sum, i) => sum + i.quantity, 0);
-                        const totalPhones = (req.phoneModel || []).reduce((sum, p) => sum + p.quantity, 0);
+                        const totalPhones = (req.phones || []).length;
                         
                         return (
                             <div key={req._id} className="bg-white p-5 rounded-xl shadow-sm border border-blue-100 hover:shadow-md transition">

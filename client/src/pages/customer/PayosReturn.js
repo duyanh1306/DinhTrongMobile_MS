@@ -14,6 +14,11 @@ export default function PayosReturn() {
         const cancel = searchParams.get('cancel');
         const statusParam = searchParams.get('status');
 
+        if (cancel === 'true' || statusParam === 'CANCELLED' || code !== '00') {
+            setStatus('failed');
+            return; 
+        }
+
         if (code === '00' || statusParam === 'PAID') {
             setStatus('success');
             const user = JSON.parse(localStorage.getItem('user'));
@@ -22,8 +27,6 @@ export default function PayosReturn() {
                     .then(() => { window.dispatchEvent(new Event('cartUpdated')); })
                     .catch(err => console.log(err));
             }
-        } else if (cancel === 'true' || statusParam === 'CANCELLED' || code !== '00') {
-            setStatus('failed');
         }
     }, [searchParams]);
 

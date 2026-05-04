@@ -342,18 +342,32 @@ export default function ManagerTransferRequestList() {
                   <tr><td colSpan="8" className="p-10 text-center text-gray-500 font-medium align-middle">Không có dữ liệu trong mục này.</td></tr>
                 ) : (
                   currentRequests.map((req, index) => {
-                    const itemTypes = req.itemType || [];
-                    const phoneModels = req.phoneModel || [];
+                   const itemTypes = req.itemType || [];
+                    const phonesList = req.phones || [];
                     
                     const totalItemQty = itemTypes.reduce((sum, item) => sum + (item.quantity || 0), 0);
-                    const totalPhoneQty = phoneModels.reduce((sum, phone) => sum + (phone.quantity || 0), 0);
+  
+                    const totalPhoneQty = phonesList.length;
                     const totalQuantity = totalItemQty + totalPhoneQty;
 
                     const isExpanded = expandedRows[req._id];
 
+                    const phoneGroupMap = {};
+                    phonesList.forEach(p => {
+                        const name = p.phoneModelId?.name || "Máy điện thoại";
+                        const color = p.colorName || "N/A";
+                        const capacity = p.capacity || "N/A";
+                        const key = `${name} (${color} - ${capacity})`;
+                        phoneGroupMap[key] = (phoneGroupMap[key] || 0) + 1;
+                    });
+                    
+                    const phoneDisplayNames = Object.entries(phoneGroupMap).map(
+                        ([key, count]) => `${key} x${count}`
+                    );
+
                     const allItems = [
-                      ...phoneModels.map(p => p.phoneModels?.name || "Máy điện thoại"),
-                      ...itemTypes.map(it => it.itemTypes?.name || "Linh kiện")
+                      ...phoneDisplayNames,
+                      ...itemTypes.map(it => `${it.itemTypes?.name || "Linh kiện"} x${it.quantity || 0}`)
                     ];
 
                     const displayNames = allItems.slice(0, 2).join(', ');

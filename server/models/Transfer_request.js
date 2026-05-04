@@ -46,12 +46,9 @@ const transferRequestSchema = new Schema(
             },
             quantity: Number,
         }],
-        phoneModel: [{
-           phoneModels: {
-               type: Schema.Types.ObjectId,
-               ref: "Phone_model"
-           },
-           quantity: Number
+        phones: [{
+            type: Schema.Types.ObjectId,
+            ref: "Phone"
         }]
     },
     {

@@ -60,12 +60,16 @@ const createOrder = async (req, res) => {
         const savedOrder = await newOrder.save();
 
         if (paymentMethod === 'PAYOS') {
+            const payosReturnUrl = process.env.VNP_RETURN_URL 
+                ? process.env.VNP_RETURN_URL.replace('vnpay', 'payos') 
+                : `https://ftech.io.vn/payos-return`;
+
             const body = {
                 orderCode: payosOrderCode,
                 amount: totalAmount,
                 description: `DTM${payosOrderCode}`,
-                returnUrl: `http://localhost:9999/api/payos/return`,
-                cancelUrl: `http://localhost:9999/api/payos/return`
+                returnUrl: payosReturnUrl,
+                cancelUrl: payosReturnUrl
             };
             const paymentLinkRes = await payos.paymentRequests.create(body);
 
