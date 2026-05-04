@@ -105,8 +105,18 @@ exports.vnpayReturn = async (req, res) => {
                 const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
                 
                 sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
+                
                 reserveInventoryForOrder(updatedOrder).catch(err => console.error(err));
             }
+        } else {
+        
+ 
+            await Order.findByIdAndUpdate(
+                orderId,
+                { paymentStatus: 'Failed', orderStatus: 'Cancelled' } 
+            );
+
+           
         }
 
 		const clientReturn = process.env.VNP_CLIENT_RETURN_URL || process.env.VNP_FRONTEND_RETURN_URL;
