@@ -41,7 +41,6 @@ export default function SaleTransferExportDetail() {
         fetchData();
     }, [id]);
 
-    // Luôn focus vào ô nhập mã vạch khi tải xong
     useEffect(() => {
         if (!loading && inputRef.current) inputRef.current.focus();
     }, [loading]);
@@ -68,44 +67,51 @@ export default function SaleTransferExportDetail() {
         if (!scannedSerial.trim()) return;
 
         const serial = scannedSerial.trim().toUpperCase(); 
-        setScannedSerial(""); // Xóa ngay ô input để sẵn sàng quét mã tiếp theo
+        setScannedSerial(""); 
         
-        // Đảm bảo con trỏ luôn focus lại vào ô input sau khi enter
         if (inputRef.current) inputRef.current.focus();
 
-        // 1. Kiểm tra mã trùng trong giỏ
         if (scannedItems.some(i => i.serialCode.toUpperCase() === serial) || scannedPhones.some(p => p.serialCode.toUpperCase() === serial)) {
             toast.warning("Mã này đã được đưa vào giỏ xuất rồi!");
             return;
         }
 
-        // 2. Tìm trong kho Điện Thoại
-        const foundPhone = storePhones.find(p => p.serialCode.toUpperCase() === serial && p.status === 'in_stock');
+       const foundPhone = storePhones.find(p => p.serialCode.toUpperCase() === serial && p.status === 'in_stock');
         if (foundPhone) {
             const modelId = foundPhone.phoneModelId?._id || foundPhone.phoneModelId;
-            const requiredPhone = requestData.phoneModel?.find(p => (p.phoneModels?._id || p.phoneModels) === modelId);
+            const color = foundPhone.colorName;
+            const capacity = foundPhone.capacity;
+            const variationKey = `${modelId}_${color}_${capacity}`;
+
+            const phoneRequiredMap = {};
+            (requestData.phones || []).forEach(phone => {
+                const key = `${phone.phoneModelId?._id || phone.phoneModelId}_${phone.colorName}_${phone.capacity}`;
+                phoneRequiredMap[key] = (phoneRequiredMap[key] || 0) + 1;
+            });
+
+            const requiredQty = phoneRequiredMap[variationKey] || 0;
             
-            if (!requiredPhone) {
-                toast.error("Phiếu này không yêu cầu Dòng máy này!");
+            if (requiredQty === 0) {
+                toast.error("Phiếu này không yêu cầu máy có cấu hình (Màu sắc/Dung lượng) này!");
                 return;
             }
 
-            const currentScannedQty = scannedPhones.filter(p => (p.phoneModelId?._id || p.phoneModelId) === modelId).length;
-            if (currentScannedQty >= requiredPhone.quantity) {
-                toast.warning("Đã quét đủ số lượng cho dòng máy này rồi!");
+            const currentScannedQty = scannedPhones.filter(p => 
+                `${p.phoneModelId?._id || p.phoneModelId}_${p.colorName}_${p.capacity}` === variationKey
+            ).length;
+
+            if (currentScannedQty >= requiredQty) {
+                toast.warning("Đã quét đủ số lượng cho dòng máy cấu hình này rồi!");
                 return;
             }
 
-            // Thêm trực tiếp vào giỏ
             setScannedPhones(prev => [...prev, foundPhone]);
             toast.success(`Đã thêm: ${foundPhone.phoneModelId?.name}`);
             return;
         }
 
-        // 3. Tìm trong kho Linh kiện
         const foundItem = storeItems.find(i => i.serialCode.toUpperCase() === serial && i.status === 'in_stock');
         if (foundItem) {
-            // CHẶN LINH KIỆN CŨ
             if (foundItem.origin !== 'new') {
                 toast.error("Lỗi: Chỉ được xuất linh kiện MỚI 100%. Hàng cũ/bóc máy không được phép!");
                 return;
@@ -125,13 +131,11 @@ export default function SaleTransferExportDetail() {
                 return;
             }
 
-            // Thêm trực tiếp vào giỏ
             setScannedItems(prev => [...prev, foundItem]);
             toast.success(`Đã thêm: ${foundItem.name || foundItem.item_type?.name}`);
             return;
         }
 
-        // 4. Không tìm thấy
         toast.error(`Sai mã: Serial "${serial}" không tồn tại hoặc không còn trong kho!`);
     };
 
@@ -151,11 +155,25 @@ export default function SaleTransferExportDetail() {
             if (scannedCount < req.quantity) isItemsComplete = false;
         });
 
+
         let isPhonesComplete = true;
-        (requestData.phoneModel || []).forEach(req => {
-            const modelId = req.phoneModels?._id || req.phoneModels;
-            const scannedCount = scannedPhones.filter(p => (p.phoneModelId?._id || p.phoneModelId) === modelId).length;
-            if (scannedCount < req.quantity) isPhonesComplete = false;
+        
+        const phoneRequiredMap = {};
+        (requestData.phones || []).forEach(phone => {
+            const variationKey = `${phone.phoneModelId?._id || phone.phoneModelId}_${phone.colorName}_${phone.capacity}`;
+            phoneRequiredMap[variationKey] = (phoneRequiredMap[variationKey] || 0) + 1;
+        });
+
+        const phoneScannedMap = {};
+        scannedPhones.forEach(phone => {
+            const variationKey = `${phone.phoneModelId?._id || phone.phoneModelId}_${phone.colorName}_${phone.capacity}`;
+            phoneScannedMap[variationKey] = (phoneScannedMap[variationKey] || 0) + 1;
+        });
+
+        Object.keys(phoneRequiredMap).forEach(key => {
+             if ((phoneScannedMap[key] || 0) < phoneRequiredMap[key]) {
+                 isPhonesComplete = false;
+             }
         });
 
         return isItemsComplete && isPhonesComplete;
@@ -252,14 +270,30 @@ export default function SaleTransferExportDetail() {
                                 )
                             })}
                             
-                            {(requestData.phoneModel || []).map((req, idx) => {
-                                const modelId = req.phoneModels?._id || req.phoneModels;
-                                const scannedQty = scannedPhones.filter(p => (p.phoneModelId?._id || p.phoneModelId) === modelId).length;
-                                const isDone = scannedQty >= req.quantity;
+                          {Object.entries((requestData.phones || []).reduce((acc, phone) => {
+                                const modelId = phone.phoneModelId?._id || phone.phoneModelId;
+                                const modelName = phone.phoneModelId?.name || "Máy điện thoại";
+                                const variationKey = `${modelId}_${phone.colorName}_${phone.capacity}`;
+                                
+                                if (!acc[variationKey]) {
+                                    acc[variationKey] = {
+                                        name: `${modelName} (${phone.colorName} - ${phone.capacity})`,
+                                        required: 0
+                                    };
+                                }
+                                acc[variationKey].required += 1;
+                                return acc;
+                            }, {})).map(([variationKey, data], idx) => {
+                                const scannedQty = scannedPhones.filter(p => 
+                                    `${p.phoneModelId?._id || p.phoneModelId}_${p.colorName}_${p.capacity}` === variationKey
+                                ).length;
+                                
+                                const isDone = scannedQty >= data.required;
+                                
                                 return (
                                     <div key={`p${idx}`} className="flex justify-between items-center text-sm">
-                                        <span className={`font-medium ${isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{req.phoneModels?.name || 'Điện thoại'}</span>
-                                        <span className={`font-bold ${isDone ? 'text-emerald-500' : 'text-blue-600'}`}>{scannedQty} / {req.quantity}</span>
+                                        <span className={`font-medium ${isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{data.name}</span>
+                                        <span className={`font-bold ${isDone ? 'text-emerald-500' : 'text-blue-600'}`}>{scannedQty} / {data.required}</span>
                                     </div>
                                 )
                             })}
