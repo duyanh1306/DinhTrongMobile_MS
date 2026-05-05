@@ -61,17 +61,18 @@ const addToCart = async (req, res) => {
         if (!cart) {
             cart = new Cart({ userId, items: [], totalPrice: 0 });
         }
-        
-        const existingItemIndex = cart.items.findIndex(i => {
-            if (i.productType !== item.productType || i.storeId?.toString() !== item.storeId) return false;
 
+        const itemQuantity = item.quantity ? Number(item.quantity) : 1;
+        item.quantity = itemQuantity;
+
+        const existingItemIndex = cart.items.findIndex(i => {
+            if (i.productType !== item.productType || i.storeId?.toString() !== item.storeId?.toString()) return false;
             
             if (item.productType === 'CUSTOM_BUILD') {
                 return false; 
             } 
-           
             else {
-                return i.phoneModelId?.toString() === item.phoneModelId && 
+                return i.phoneModelId?.toString() === item.phoneModelId?.toString() && 
                        i.colorName === item.colorName && 
                        i.capacity === item.capacity &&
                        i.grade === item.grade;
@@ -79,7 +80,7 @@ const addToCart = async (req, res) => {
         });
 
         if (existingItemIndex > -1) {
-            cart.items[existingItemIndex].quantity += 1; 
+            cart.items[existingItemIndex].quantity += itemQuantity; 
         } else {
             cart.items.push(item); 
         }
