@@ -89,13 +89,16 @@ const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
                 warrantyText = "Bảo hành DV";
             } 
             else {
+               const isPhoneIdObj = typeof d.phoneId === 'object' && d.phoneId !== null;
                 itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
                 serial = d.phoneId ? (d.phoneId.serialCode || "N/A") : (d.itemId?.serialCode || d.identifier || "");
-                if (d.warrantyExpireDate) {
-                    warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
-                } else if (d.warranty || d.phoneId?.warrantyPeriod) {
-                    warrantyText = "Tiêu chuẩn";
-                }
+                 if (d.warrantyExpireDate) {
+                                    warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
+                                } else if (d.warrantyPeriod || (isPhoneIdObj && d.phoneId.warrantyPeriod)) {
+                                    warrantyText = `${d.warrantyPeriod || d.phoneId.warrantyPeriod} tháng`;
+                                } else {
+                                    warrantyText = "CÓ BH (Tiêu chuẩn)";
+                                }
             }
 
             return (

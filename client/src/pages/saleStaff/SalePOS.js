@@ -1,17 +1,21 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  CheckCircle, Eye, Search, X, Calendar, Smartphone, Package,
-  Printer, XCircle, ChevronLeft, ChevronRight, Filter, Phone, Wrench,Settings, FileText,Download, ShieldCheck, AlertTriangle, CheckSquare, Hammer, MonitorSmartphone, ScanLine, Send, Save, Trash2, ShoppingCart, User
-} from "lucide-react";
+import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { useReactToPrint } from "react-to-print";
 import dayjs from "dayjs";
-import "react-toastify/dist/ReactToastify.css";
 import html2pdf from "html2pdf.js";
-
-import { fetchInventoryApi, createPurchaseOrderApi, confirmOrderPaymentApi, fetchWarrantyInvoicesApi, fetchOfflineDetailsApi, fetchOnlineDetailsApi, fetchRepairDetailsApi, createWarrantyOrderApi } from "../../api/saleStaff/pos";
-import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi, pollNewPurchaseOrdersApi } from "../../api/saleStaff/saleOrders";
 import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
+import { 
+  fetchInventoryApi, 
+  createPurchaseOrderApi, 
+  confirmOrderPaymentApi, 
+  fetchWarrantyInvoicesApi, 
+  fetchOfflineDetailsApi, 
+  fetchOnlineDetailsApi, 
+  fetchRepairDetailsApi, 
+  createWarrantyOrderApi 
+} from "../../api/saleStaff/pos";
 
 const InvoicePrint = ({ order, details, formatCurrency, contentRef, activeTab }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
@@ -73,12 +77,19 @@ const InvoicePrint = ({ order, details, formatCurrency, contentRef, activeTab })
                 }
                 price = d.serviceId?.price || 0;
             } else {
-                itemName = d.phoneId?.phoneModelId?.name || d.itemId?.item_type?.name || d.name || "Sản phẩm";
-                serial = d.phoneId ? d.phoneId.imei || d.phoneId.serialCode || d.phoneId._id?.substring(d.phoneId._id.length - 6).toUpperCase() : (d.itemId?.serialCode || d.identifier || "");
+                const isPhoneIdObj = typeof d.phoneId === 'object' && d.phoneId !== null;
+                const isItemIdObj = typeof d.itemId === 'object' && d.itemId !== null;
+                
+                itemName = d.displayName || d.name || (isPhoneIdObj ? d.phoneId.phoneModelId?.name : null) || (isItemIdObj ? d.itemId.item_type?.name : null) || "Sản phẩm";
+                serial = d.identifier || d.serialCode || (isPhoneIdObj ? (d.phoneId.serialCode || d.phoneId.imei) : null) || (isItemIdObj ? d.itemId.serialCode : null) || "N/A";
+                price = d.displayPrice || d.price || d.purchasePrice || (isPhoneIdObj ? d.phoneId.sellingPrice : 0) || 0;
+                
                 if (d.warrantyExpireDate) {
                     warrantyText = `Đến ${dayjs(d.warrantyExpireDate).format('DD/MM/YYYY')}`;
-                } else if (d.warranty || d.phoneId?.warrantyPeriod) {
-                    warrantyText = `${d.phoneId?.warrantyPeriod || 0} tháng`;
+                } else if (d.warrantyPeriod || (isPhoneIdObj && d.phoneId.warrantyPeriod)) {
+                    warrantyText = `${d.warrantyPeriod || d.phoneId.warrantyPeriod} tháng`;
+                } else {
+                    warrantyText = "CÓ BH (Tiêu chuẩn)";
                 }
             }
 
@@ -819,23 +830,51 @@ export default function SalePOS() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orderDetails.map((detail, idx) => (
-                        <tr key={idx} className="border-t hover:bg-gray-50">
-                          <td className="p-3">
-                            <div className="flex items-center gap-2 font-bold italic">
-                              {detail.isPhone || detail.phoneId ? <Smartphone size={16} className="text-blue-500" /> : <Package size={16} className="text-emerald-500" />}
-                              {detail.displayName || detail.phoneId?.phoneModelId?.name || detail.itemId?.item_type?.name || detail.name || "Sản phẩm"}
-                            </div>
-                            <div className="text-[10px] text-gray-400 ml-6">
-                              SN: {detail.identifier || detail.phoneId?.serialCode || detail.itemId?.serialCode}
-                            </div>
-                          </td>
-                          <td className="p-3 text-right font-black">{formatCurrency(detail.displayPrice || detail.purchasePrice || detail.phoneId?.sellingPrice || detail.price || 0)}</td>
-                          <td className="p-3 text-center">
-                            <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded">CÓ BH</span>
-                          </td>
-                        </tr>
-                      ))}
+                      {orderDetails.map((detail, idx) => {
+                        let itemName = "Sản phẩm";
+                        let serial = "";
+                        let price = 0;
+                        let isCustomBuild = false;
+
+                        if (detail.productType === 'CUSTOM_BUILD') {
+                           itemName = detail.name || "Máy tự ráp (Custom Build)";
+                           serial = "Theo linh kiện";
+                           price = detail.price || detail.purchasePrice || 0;
+                           isCustomBuild = true;
+                        } else {
+                           const isPhoneIdObj = typeof detail.phoneId === 'object' && detail.phoneId !== null;
+                           const isItemIdObj = typeof detail.itemId === 'object' && detail.itemId !== null;
+                           
+                           itemName = detail.displayName || detail.name || (isPhoneIdObj ? detail.phoneId.phoneModelId?.name : null) || (isItemIdObj ? detail.itemId.item_type?.name : null) || "Sản phẩm";
+                           serial = detail.identifier || detail.serialCode || (isPhoneIdObj ? (detail.phoneId.serialCode || detail.phoneId.imei) : null) || (isItemIdObj ? detail.itemId.serialCode : null) || "N/A";
+                           price = detail.displayPrice || detail.purchasePrice || detail.price || (isPhoneIdObj ? detail.phoneId.sellingPrice : 0) || 0;
+                        }
+
+                        return (
+                          <tr key={idx} className="border-t hover:bg-gray-50">
+                            <td className="p-3">
+                              <div className="flex items-center gap-2 font-bold italic">
+                                {isCustomBuild ? <MonitorSmartphone size={16} className="text-blue-500" /> : (detail.isPhone || detail.phoneId ? <Smartphone size={16} className="text-blue-500" /> : <Package size={16} className="text-emerald-500" />)}
+                                {itemName}
+                              </div>
+                              <div className="text-[10px] text-gray-400 ml-6">
+                                SN: {serial}
+                              </div>
+                              {isCustomBuild && detail.selectedParts && detail.selectedParts.length > 0 && (
+                                <div className="mt-2 ml-6 text-xs text-gray-500">
+                                  {detail.selectedParts.map((p, pidx) => (
+                                    <div key={pidx}>- {p.name || p.item_type?.name} (SN: {p.serialCode})</div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3 text-right font-black">{formatCurrency(price)}</td>
+                            <td className="p-3 text-center">
+                              <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded">CÓ BH</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
