@@ -62,21 +62,14 @@ const addToCart = async (req, res) => {
             cart = new Cart({ userId, items: [], totalPrice: 0 });
         }
         
-        const existingItemIndex = cart.items.findIndex(i => {
-            if (i.productType !== item.productType || i.storeId?.toString() !== item.storeId) return false;
-
-            
-            if (item.productType === 'CUSTOM_BUILD') {
-                return false; 
-            } 
-           
-            else {
-                return i.phoneModelId?.toString() === item.phoneModelId && 
-                       i.colorName === item.colorName && 
-                       i.capacity === item.capacity &&
-                       i.grade === item.grade;
-            }
-        });
+        const existingItemIndex = cart.items.findIndex(i => 
+            i.productType === item.productType && 
+            i.phoneModelId?.toString() === item.phoneModelId && 
+            i.colorName === item.colorName && 
+            i.capacity === item.capacity &&
+            i.grade === item.grade && 
+            i.storeId?.toString() === item.storeId 
+        );
 
         if (existingItemIndex > -1) {
             cart.items[existingItemIndex].quantity += 1; 
