@@ -1,21 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download } from "lucide-react";
+import {
+  CheckCircle, Eye, Search, X, Calendar, Smartphone, Package,
+  Printer, XCircle, ChevronLeft, ChevronRight, Filter, Phone, Wrench,Settings, FileText,Download, ShieldCheck, AlertTriangle, CheckSquare, Hammer, MonitorSmartphone, ScanLine, Send, Save, Trash2, ShoppingCart, User
+} from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { useReactToPrint } from "react-to-print";
 import dayjs from "dayjs";
+import "react-toastify/dist/ReactToastify.css";
 import html2pdf from "html2pdf.js";
+
+import { fetchInventoryApi, createPurchaseOrderApi, confirmOrderPaymentApi, fetchWarrantyInvoicesApi, fetchOfflineDetailsApi, fetchOnlineDetailsApi, fetchRepairDetailsApi, createWarrantyOrderApi } from "../../api/saleStaff/pos";
+import { fetchOrdersApi, fetchOrderDetailsApi, confirmPaymentApi, cancelOrderApi, pollNewPurchaseOrdersApi } from "../../api/saleStaff/saleOrders";
 import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
-import { 
-  fetchInventoryApi, 
-  createPurchaseOrderApi, 
-  confirmOrderPaymentApi, 
-  fetchWarrantyInvoicesApi, 
-  fetchOfflineDetailsApi, 
-  fetchOnlineDetailsApi, 
-  fetchRepairDetailsApi, 
-  createWarrantyOrderApi 
-} from "../../api/saleStaff/pos";
 
 const InvoicePrint = ({ order, details, formatCurrency, contentRef, activeTab }) => {
   let invoiceTitle = "PHIẾU XUẤT KHO KIÊM BẢO HÀNH";
@@ -355,7 +351,36 @@ export default function SalePOS() {
 
             if (items.length > 0) {
                 items.forEach(item => {
-                    if (item.phoneId || item.productType === 'PHONE') { 
+                    if (item.productType === 'CUSTOM_BUILD') {
+                        let maxWarranty = 0;
+                        let partsList = [];
+                        
+                        if (item.selectedParts && Array.isArray(item.selectedParts)) {
+                            item.selectedParts.forEach(part => {
+                                const wMonths = part.warrantyPeriod || part.item_type?.warrantyPeriod || 0;
+                                if (wMonths > maxWarranty) maxWarranty = wMonths;
+                                partsList.push({
+                                    name: part.name || part.item_type?.name || "Linh kiện",
+                                    serialCode: part.serialCode || "N/A",
+                                    warrantyMonths: wMonths
+                                });
+                            });
+                        }
+
+                        if (maxWarranty === 0) maxWarranty = item.warrantyPeriod || 12;
+
+                        warrantableItems.push({
+                            originalItem: item,
+                            phoneId: item.phoneId?._id || item.phoneId || item._id, 
+                            name: item.name || "Máy tự ráp (Custom Build)",
+                            serialCode: "Theo linh kiện",
+                            color: item.colorName || "-",
+                            warrantyMonths: maxWarranty,
+                            purchaseDate: invoice.createdAt,
+                            isCustomBuild: true,
+                            parts: partsList
+                        });
+                    } else if (item.phoneId || item.productType === 'PHONE') {
                         warrantableItems.push({
                             originalItem: item,
                             phoneId: item.phoneId?._id || item.phoneId,
@@ -594,6 +619,20 @@ export default function SalePOS() {
                                                         <p>Thời gian BH: <strong>{wItem.warrantyMonths} tháng</strong></p>
                                                         <p>Hạn cuối: <strong className={isExpired ? "text-red-600" : "text-green-600"}>{expiryDate.format('DD/MM/YYYY')}</strong></p>
                                                     </div>
+                                                    
+                                                    {wItem.isCustomBuild && wItem.parts && wItem.parts.length > 0 && (
+                                                        <div className="mt-3 border-t border-blue-200/50 pt-3">
+                                                            <p className="text-xs font-bold text-gray-700 mb-2 uppercase">Chi tiết linh kiện ráp máy:</p>
+                                                            <div className="space-y-1 bg-white/50 rounded-lg p-2">
+                                                                {wItem.parts.map((p, pIdx) => (
+                                                                    <div key={pIdx} className="flex justify-between items-center text-xs text-gray-700 border-b last:border-0 border-blue-100 pb-1 last:pb-0">
+                                                                        <span>- {p.name} <span className="font-mono text-gray-500">(SN: {p.serialCode})</span></span>
+                                                                        <span className="font-bold text-blue-600">{p.warrantyMonths}T</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 
                                                 <div className="flex flex-col items-center gap-2 flex-shrink-0">
