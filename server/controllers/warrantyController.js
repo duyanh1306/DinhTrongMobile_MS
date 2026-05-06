@@ -92,29 +92,35 @@ const createWarrantyRequest = async (req, res) => {
       issueDescription,
       createdBy 
     } = req.body;
-
-    if (!storeId || !customerName || !phoneId || !phoneModel || !serialCode || !purchaseDate || !issueDescription || !createdBy) {
+    if (!storeId || !customerName || !phoneModel || !serialCode || !purchaseDate || !issueDescription || !createdBy) {
       return res.status(400).json({ message: "Vui lòng điền đầy đủ thông tin bắt buộc" });
-    }
-
-    const phone = await Phone.findById(phoneId);
-    if (!phone) {
-      return res.status(404).json({ message: "Không tìm thấy thiết bị" });
     }
 
     const purchaseDateTime = new Date(purchaseDate);
     const now = new Date();
     const daysSincePurchase = Math.floor((now - purchaseDateTime) / (1000 * 60 * 60 * 24));
     
+    let isNewDevice = false;
+    let notes = `Máy tự ráp/Linh kiện (Nguồn: Không xác định). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`;
 
-    const isNewDevice = phone.source === 'supplier';
+
+    if (phoneId) {
+      const phone = await Phone.findById(phoneId);
+      if (phone) {
+        isNewDevice = phone.source === 'supplier';
+        notes = isNewDevice
+          ? `Máy mới chính hãng (Nguồn: Nhập từ NCC). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`
+          : `Máy cũ/Lắp ráp (Nguồn: ${phone.source === 'assembled' ? 'Tự ráp' : 'Thu cũ'}). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`;
+      }
+    }
+
     const warrantyType = "REPAIR";
 
     const newWarranty = new Warranty({
       storeId,
       customerName,
       customerPhone: customerPhone || "",
-      phoneId,
+      phoneId: phoneId || null,
       phoneModel,
       serialCode,
       purchaseDate: purchaseDateTime,
@@ -123,9 +129,7 @@ const createWarrantyRequest = async (req, res) => {
       warrantyType,
       status: "Pending",
       createdBy,
-      notes: isNewDevice
-        ? `Máy mới chính hãng (Nguồn: Nhập từ NCC). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`
-        : `Máy cũ/Lắp ráp (Nguồn: ${phone.source === 'assembled' ? 'Tự ráp' : 'Thu cũ'}). Đã mua ${daysSincePurchase} ngày. Bảo hành sửa chữa.`
+      notes: notes
     });
 
     await newWarranty.save();
@@ -210,7 +214,7 @@ const processWarrantyRequest = async (req, res) => {
         serviceId: [],
         itemIds: [],
         type: "WARRANTY",
-        targetPhoneId: warranty.phoneId,
+        targetPhoneId: warranty.phoneId || null, 
         isInternal: true,
         note: warranty.issueDescription
       });
