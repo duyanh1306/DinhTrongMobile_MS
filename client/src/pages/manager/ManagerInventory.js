@@ -331,7 +331,7 @@ export default function ManagerInventory() {
         }
     };
 
-    const handlePrintQR = async (type, id) => {
+    const handlePrintQR = async (type, id, serialCode) => {
         const blob = await getQrBlobApi(type, id);
         if (!blob) return;
 
@@ -357,11 +357,18 @@ export default function ManagerInventory() {
               <style>
                 @page { margin: 0; }
                 html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
-                body { display: flex; align-items: center; justify-content: center; }
+                body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                .qr-container { display: flex; flex-direction: column; align-items: center; gap: 10px; }
                 img { width: 180px; height: 180px; object-fit: contain; }
+                .serial-code { font-family: monospace; font-size: 14px; font-weight: bold; color: #000; }
               </style>
             </head>
-            <body><img id="qr-print-image" src="${qrUrl}" alt="QR code" /></body>
+            <body>
+              <div class="qr-container">
+                <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                <div class="serial-code">${serialCode}</div>
+              </div>
+            </body>
           </html>
         `);
         iframeDoc.close();
@@ -947,7 +954,7 @@ export default function ManagerInventory() {
                                                 <div className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</div>
                                                 <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border truncate max-w-full">{item.serialCode}</div>
                                             </td>
-                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('item', item._id)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
+                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('item', item._id, item.serialCode)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
                                             <td className="px-4 py-4 text-xs text-gray-600 truncate">
                                                 <div className="mb-1.5">{item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Bóc máy</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Hàng mới</span>}</div>
                                                 {(item.ram || item.capacity || item.color) ? (<div className="flex gap-2 truncate">{item.ram && <span>RAM: <strong>{item.ram}</strong></span>}{item.capacity && <span>ROM: <strong>{item.capacity}</strong></span>}{item.color && <span>Màu: <strong>{item.color}</strong></span>}</div>) : <span className="text-gray-400 italic">Tiêu chuẩn</span>}
@@ -1030,7 +1037,7 @@ export default function ManagerInventory() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('phone', phone._id)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
+                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('phone', phone._id, phone.serialCode)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
                                             <td className="px-4 py-4 text-xs text-gray-600 truncate">
                                                 <div className="mb-1.5"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">{phone.grade}</span></div>
                                                 <div className="flex gap-2 truncate"><span>Màu: <strong>{phone.colorName}</strong></span><span>ROM: <strong>{phone.capacity}</strong></span></div>

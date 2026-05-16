@@ -190,7 +190,7 @@ export default function AdminItem() {
         }
     };
 
-    const handleGenerateQR = async (itemId) => {
+    const handleGenerateQR = async (itemId, serialCode) => {
         const blobData = await fetchItemQrCodeApi(itemId);
         if (!blobData) { 
             return Swal.fire({
@@ -225,8 +225,22 @@ export default function AdminItem() {
         iframeDoc.write(`
           <!doctype html>
           <html>
-            <head><style>@page { margin: 0; } html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; display: flex; align-items: center; justify-content: center; } img { width: 180px; height: 180px; object-fit: contain; }</style></head>
-            <body><img id="qr-print-image" src="${qrUrl}" alt="QR code" /></body>
+            <head>
+              <style>
+                @page { margin: 0; }
+                html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+                body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                .qr-container { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+                img { width: 180px; height: 180px; object-fit: contain; }
+                .serial-code { font-family: monospace; font-size: 14px; font-weight: bold; color: #000; }
+              </style>
+            </head>
+            <body>
+              <div class="qr-container">
+                <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                <div class="serial-code">${serialCode}</div>
+              </div>
+            </body>
           </html>
         `);
         iframeDoc.close();
@@ -576,7 +590,7 @@ export default function AdminItem() {
                                                 <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border truncate max-w-full">{item.serialCode}</div>
                                             </td>
                                             <td className="px-4 py-4 text-center">
-                                                <button onClick={() => handleGenerateQR(item._id)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition inline-flex justify-center" title="In mã QR">
+                                                <button onClick={() => handleGenerateQR(item._id, item.serialCode)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition inline-flex justify-center" title="In mã QR">
                                                     <QrCode size={18} />
                                                 </button>
                                             </td>
