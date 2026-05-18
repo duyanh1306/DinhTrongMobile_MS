@@ -1,25 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Settings, CheckCircle, X, Hammer, Scissors, Save, Plus, Trash2, Package, Search, Download, Wrench } from "lucide-react";
 import WaitingDecisionTable from "./WaitingDecisionTable";
-
-const parseChecklistFromNote = (noteStr) => {
-  if (!noteStr) return [];
-  const lines = noteStr.split('\n');
-  const parsed = [];
-  lines.forEach(line => {
-    const cleanLine = line.trim();
-    if (cleanLine.startsWith('-') && !cleanLine.includes('Cấu hình') && !cleanLine.includes('Ghi chú thêm')) {
-      const parts = cleanLine.split(':');
-      if (parts.length >= 2) {
-        const name = parts[0].replace('-', '').trim();
-        const statusStr = parts.slice(1).join(':').trim();
-        const isBroken = statusStr.toLowerCase().includes('hỏng') || statusStr.toLowerCase().includes('kém');
-        parsed.push({ name, statusStr, isBroken });
-      }
-    }
-  });
-  return parsed;
-};
+import axiosClient from "../../../api/axiosClient";
 
 const WaitingDecisionTab = ({ 
   waitingPhones = [], 
@@ -46,11 +28,37 @@ const WaitingDecisionTab = ({
   const [showPartSelector, setShowPartSelector] = useState(false);
   const [partCategoryToReplace, setPartCategoryToReplace] = useState("");
   const [searchPart, setSearchPart] = useState("");
-
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [typeSearchTerm, setTypeSearchTerm] = useState("");
+  const [criteriaList, setCriteriaList] = useState([]);
 
-  const parsedChecklist = selectedDecisionPhone ? parseChecklistFromNote(selectedDecisionPhone.notes || selectedDecisionPhone.note || "") : [];
+  useEffect(() => {
+    const fetchCriteria = async () => {
+      try {
+        const res = await axiosClient.get("/evaluation-criteria");
+        setCriteriaList(res.data.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchCriteria();
+  }, []);
+
+  let parsedChecklist = [];
+  if (selectedDecisionPhone && selectedDecisionPhone.checklistData) {
+    try {
+      const rawList = JSON.parse(selectedDecisionPhone.checklistData);
+      parsedChecklist = rawList.map(item => {
+        const matchedCriteria = criteriaList.find(c => c.partCode === item.code);
+        return {
+          ...item,
+          name: item.name || matchedCriteria?.partName || item.code
+        };
+      });
+    } catch (e) {
+      console.log(e);
+    }
+  }
 
   const handleOpenPartSelector = (categoryName) => {
     setPartCategoryToReplace(categoryName);
@@ -76,16 +84,21 @@ const WaitingDecisionTab = ({
       parsedItem.name.toLowerCase().includes(it.name.toLowerCase())
     );
     
+    const defaultRetailPrice = matchedType?.price || 0;
+    const deduction = parsedItem.deductionPercent || 0;
+    const calculatedRetailPrice = defaultRetailPrice * (1 - deduction / 100);
+    const calculatedBaseCost = calculatedRetailPrice * 0.6;
+
     onAddPart({
       itemTypeId: matchedType ? matchedType._id : "",
-      name: `${parsedItem.name} bóc máy`,
+      name: `${parsedItem.name} bóc máy (${parsedItem.label})`,
       serialCode: "",
       quality: "Zin bóc máy",
       ram: "",
       capacity: "",
-      color: "",
-      baseCost: "",
-      price: ""
+      color: selectedDecisionPhone?.colorName || "",
+      baseCost: Math.floor(calculatedBaseCost),
+      price: Math.floor(calculatedRetailPrice)
     });
   };
 
@@ -93,7 +106,7 @@ const WaitingDecisionTab = ({
   let submitButtonText = "XÁC NHẬN LƯU KHO";
 
   if (decision === "SELL") {
-    const brokenParts = parsedChecklist.filter(i => i.isBroken);
+    const brokenParts = parsedChecklist.filter(i => i.isFaulty);
     const hasFullReplacements = brokenParts.every(bp => replacementParts.some(rp => rp.category === bp.name));
     const hasSellPrice = sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
 
@@ -153,8 +166,8 @@ const WaitingDecisionTab = ({
                       {parsedChecklist.map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border">
                             <span className="font-semibold text-gray-700">{item.name}</span>
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${item.isBroken ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                              {item.statusStr}
+                            <span className={`text-xs font-bold px-2 py-1 rounded ${item.isFaulty ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                              {item.label} {item.deductionPercent > 0 ? `(-${item.deductionPercent}%)` : ""}
                             </span>
                         </div>
                       ))}
@@ -174,15 +187,15 @@ const WaitingDecisionTab = ({
                 <div className="space-y-6">
                   <div className="bg-white p-5 rounded-xl border shadow-sm">
                      <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Wrench size={18}/> Đề xuất thay thế linh kiện</h4>
-                     <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị "Kém/Hỏng". Hệ thống sẽ tự động tạo phiếu xuất kho linh kiện.</p>
+                     <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị lỗi nặng. Hệ thống sẽ chỉ hiển thị các linh kiện tương thích với máy này.</p>
                      
-                     {parsedChecklist.filter(i => i.isBroken).map((item, idx) => {
+                     {parsedChecklist.filter(i => i.isFaulty).map((item, idx) => {
                         const isReplaced = replacementParts.some(rp => rp.category === item.name);
 
                         return (
                         <div key={idx} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 mb-3 border rounded-xl transition-all ${isReplaced ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/30"}`}>
                             <span className={`font-bold ${isReplaced ? "text-green-700" : "text-red-700"} mb-2 sm:mb-0`}>
-                              {item.name} bị {item.statusStr.toLowerCase()}
+                              {item.name} bị {item.label.toLowerCase()}
                             </span>
                             {!isReplaced ? (
                                 <button onClick={() => handleOpenPartSelector(item.name)} className="bg-white border border-red-300 text-red-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-100 transition shadow-sm w-full sm:w-auto">
@@ -196,7 +209,7 @@ const WaitingDecisionTab = ({
                         </div>
                         )
                      })}
-                     {parsedChecklist.filter(i => i.isBroken).length === 0 && (
+                     {parsedChecklist.filter(i => i.isFaulty).length === 0 && (
                        <p className="text-sm text-green-600 italic bg-green-50 p-3 rounded border border-green-200">Không phát hiện linh kiện nào hỏng từ báo cáo.</p>
                      )}
 
@@ -247,14 +260,13 @@ const WaitingDecisionTab = ({
                     </button>
                   </div>
 
-                  <p className="text-xs text-gray-500 mb-3">Gợi ý (Bấm vào các món "Tốt" để gọi Form nhập nhanh):</p>
+                  <p className="text-xs text-gray-500 mb-3">Gợi ý (Bấm vào linh kiện để gọi Form tự động trừ tiền theo % khấu hao):</p>
                   <div className="flex flex-wrap gap-2 mb-6">
-                      {parsedChecklist.filter(i => !i.isBroken).map((item, idx) => (
-                          <span key={idx} onClick={() => handleExtractPart(item)} className="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-full text-xs font-bold text-gray-700 cursor-pointer hover:bg-blue-100 hover:border-blue-300 hover:text-blue-700 transition shadow-sm">
-                              + Bóc {item.name}
+                      {parsedChecklist.map((item, idx) => (
+                          <span key={idx} onClick={() => handleExtractPart(item)} className={`px-3 py-1.5 border rounded-full text-xs font-bold cursor-pointer transition shadow-sm ${item.isFaulty ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100' : 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'}`}>
+                              + Bóc {item.name} {item.deductionPercent > 0 ? `(Lỗi -${item.deductionPercent}%)` : "(Ngon)"}
                           </span>
                       ))}
-                      {parsedChecklist.filter(i => !i.isBroken).length === 0 && <span className="text-xs text-gray-400 italic">Không có linh kiện tốt</span>}
                   </div>
                   
                   <div className="space-y-6">
@@ -270,7 +282,7 @@ const WaitingDecisionTab = ({
                                                   setActiveDropdown(null);
                                               } else {
                                                   setActiveDropdown(idx);
-                                                  setTypeSearchTerm(part.name ? part.name.replace(/bóc máy/gi, '').trim() : "");
+                                                  setTypeSearchTerm(part.name ? part.name.split('(')[0].replace(/bóc máy/gi, '').trim() : "");
                                               }
                                           }}
                                           className={`w-full p-2.5 border rounded-lg bg-white text-sm cursor-pointer flex justify-between items-center transition ${activeDropdown === idx ? 'ring-2 ring-red-500 border-red-500' : ''}`}
@@ -305,9 +317,6 @@ const WaitingDecisionTab = ({
                                                           {it.name}
                                                       </div>
                                                   ))}
-                                                  {itemTypes.filter(it => it.name.toLowerCase().includes(typeSearchTerm.toLowerCase())).length === 0 && (
-                                                      <div className="p-3 text-sm text-center text-gray-400 italic">Không tìm thấy loại này</div>
-                                                  )}
                                               </div>
                                           </div>
                                       )}
@@ -376,19 +385,24 @@ const WaitingDecisionTab = ({
             </div>
 
             <div className="p-5 border-t bg-white flex justify-end gap-4 rounded-b-2xl">
-              <button onClick={onCloseModal} className="px-6 py-2.5 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition">Đóng</button>
+              <button 
+                onClick={onCloseModal} 
+                className="px-8 py-3 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition"
+              >
+                Hủy
+              </button>
               <button 
                 onClick={onSubmit} 
                 disabled={!canSubmit}
-                className={`px-8 py-2.5 rounded-xl font-black text-white shadow-md transition-all flex items-center gap-2 ${
+                className={`px-8 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 shadow-lg transition-transform hover:-translate-y-1 ${
                   !canSubmit 
                     ? "bg-gray-400 cursor-not-allowed" 
                     : decision === "SELL" 
-                        ? "bg-green-600 hover:bg-green-700 hover:-translate-y-1 shadow-green-200" 
-                        : "bg-red-600 hover:bg-red-700 hover:-translate-y-1 shadow-red-200"
+                        ? "bg-green-600 hover:bg-green-700 shadow-green-200" 
+                        : decision === "DISMANTLE" ? "bg-red-600 hover:bg-red-700 shadow-red-200" : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"
                 }`}
               >
-                <Save size={18}/> {submitButtonText}
+                <Save size={20}/> {submitButtonText}
               </button>
             </div>
           </div>
@@ -415,11 +429,30 @@ const WaitingDecisionTab = ({
                       </div>
                       
                       <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                          {/* ĐOẠN NÀY LÀ TRÁI TIM CỦA VIỆC MAPPING */}
                           {availablePartsInStock
                               .filter(p => {
+                                  // Lấy ID và Tên của dòng máy hiện tại
+                                  const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
+                                  const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
+
+                                  // Kiểm tra Tương Thích (Mapping)
+                                  const isCompatible = 
+                                      p.phoneModelId === currentModelId || 
+                                      p.item_type?.phoneModelId === currentModelId || 
+                                      (p.item_type?.compatibleModels && p.item_type.compatibleModels.includes(currentModelId)) ||
+                                      (p.compatibleModels && p.compatibleModels.includes(currentModelId)) ||
+                                      p.name.toLowerCase().includes(currentModelName) || 
+                                      p.item_type?.name?.toLowerCase().includes(currentModelName);
+
+                                  // Nếu không tương thích -> vứt
+                                  if (!isCompatible) return false;
+
+                                  // Lọc tiếp theo tên linh kiện (Màn hình, Pin...) và thanh Search
                                   const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
                                                           p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
                                   const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
+                                  
                                   return searchPart ? matchesSearch : matchesCategory;
                               })
                               .map(part => (
@@ -434,14 +467,30 @@ const WaitingDecisionTab = ({
                               </div>
                           ))}
                           
-                          {availablePartsInStock.filter(p => 
-                              searchPart 
-                                ? p.name.toLowerCase().includes(searchPart.toLowerCase()) 
-                                : p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase())
-                          ).length === 0 && (
+                          {/* Render báo lỗi nếu kho không có linh kiện nào tương thích */}
+                          {availablePartsInStock.filter(p => {
+                              const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
+                              const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
+
+                              const isCompatible = 
+                                  p.phoneModelId === currentModelId || 
+                                  p.item_type?.phoneModelId === currentModelId || 
+                                  (p.item_type?.compatibleModels && p.item_type.compatibleModels.includes(currentModelId)) ||
+                                  (p.compatibleModels && p.compatibleModels.includes(currentModelId)) ||
+                                  p.name.toLowerCase().includes(currentModelName) || 
+                                  p.item_type?.name?.toLowerCase().includes(currentModelName);
+
+                              if (!isCompatible) return false;
+
+                              const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
+                                                      p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
+                              const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
+                              
+                              return searchPart ? matchesSearch : matchesCategory;
+                          }).length === 0 && (
                               <div className="text-center py-8">
-                                  <p className="text-gray-500 text-sm font-bold">Không tìm thấy "{searchPart || partCategoryToReplace}" trong kho!</p>
-                                  <p className="text-gray-400 text-xs mt-1">Hãy xóa bớt chữ ở ô tìm kiếm hoặc tạo phiếu Nhập kho mới.</p>
+                                  <p className="text-gray-500 text-sm font-bold">Không tìm thấy "{searchPart || partCategoryToReplace}" tương thích với máy này!</p>
+                                  <p className="text-gray-400 text-xs mt-1">Hãy nhập thêm linh kiện vào kho.</p>
                               </div>
                           )}
                       </div>

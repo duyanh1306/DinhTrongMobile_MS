@@ -8,7 +8,6 @@ import TabNavigation from "../../components/technician/TabNavigation";
 import TradeInTab from "../../components/technician/trade-in/TradeInTab";
 import WaitingDecisionTab from "../../components/technician/waiting-decision/WaitingDecisionTab";
 import RepairOrdersTab from "../../components/technician/repair-orders/RepairOrdersTab";
-import { initialChecklist } from "../../constraints";
 
 const RepairOrderList = () => {
   const [activeTab, setActiveTab] = useState("TRADE_IN");
@@ -26,7 +25,7 @@ const RepairOrderList = () => {
     ram: "",
   });
 
-  const [checklist, setChecklist] = useState(initialChecklist);
+  const [checklist, setChecklist] = useState({});
   const isBasicInfoFilled =
     valuation.phoneModelId &&
     valuation.colorName &&
@@ -119,10 +118,10 @@ const RepairOrderList = () => {
     }
   };
 
-  const handleChecklistChange = (key, field, value) => {
+  const handleChecklistChange = (partCode, conditionObj) => {
     setChecklist((prev) => ({
       ...prev,
-      [key]: { ...prev[key], [field]: value },
+      [partCode]: conditionObj
     }));
   };
 
@@ -131,9 +130,19 @@ const RepairOrderList = () => {
       return toast.error("Vui lòng điền đủ thông tin cấu hình!");
     if (!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
 
-    const checklistStr = Object.values(checklist)
-      .map((item) => `- ${item.name}: ${item.status === "OK" ? "Hoạt động tốt" : `Kém/Hỏng (${item.detail})`}`)
+    const checklistArr = Object.entries(checklist).map(([code, item]) => ({
+      code,
+      name: item.partName || code, // <-- Chỗ này lấy đúng tên Tiếng Việt (Màn hình, Pin...)
+      label: item.label,
+      value: item.value,
+      isFaulty: item.isFaulty,
+      deductionPercent: item.deductionPercent
+    }));
+
+    const checklistStr = checklistArr
+      .map((item) => `- ${item.name}: ${item.label}`)
       .join("\n");
+      
     const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM\n${checklistStr}\n- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
 
     try {
@@ -141,6 +150,7 @@ const RepairOrderList = () => {
         totalPrice: Number(valuation.price),
         status: "Pending",
         note: reportNote,
+        checklistData: JSON.stringify(checklistArr), 
         tempPhoneData: {
           phoneModelId: valuation.phoneModelId,
           capacity: valuation.capacity,
@@ -418,7 +428,7 @@ const RepairOrderList = () => {
           onValuate={(req) => {
             setSelectedTradeIn(req);
             setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
-            setChecklist(initialChecklist);
+            setChecklist({});
           }}
           onCloseModal={() => setSelectedTradeIn(null)}
           onValuationChange={setValuation}

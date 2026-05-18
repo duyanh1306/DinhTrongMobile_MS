@@ -8,7 +8,8 @@ const TradeInModal = ({
   selectedTradeIn, 
   valuation, 
   checklist, 
-  phoneModels, 
+  phoneModels,
+  criteriaList,
   isBasicInfoFilled,
   onClose, 
   onValuationChange, 
@@ -56,6 +57,7 @@ const TradeInModal = ({
 
             {isBasicInfoFilled && (
               <ChecklistForm 
+                criteriaList={criteriaList}
                 checklist={checklist} 
                 onChange={onChecklistChange} 
               />
@@ -77,16 +79,17 @@ const TradeInModal = ({
           >
             Hủy bỏ
           </button>
+          
           <button 
             onClick={() => onSubmit(selectedTradeIn)} 
             disabled={!isBasicInfoFilled}
             className={`px-8 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 transition-all ${
               isBasicInfoFilled 
-                ? "bg-purple-600 shadow-lg hover:bg-purple-700 hover:-translate-y-1 shadow-purple-200" 
+                ? "bg-blue-600 shadow-lg hover:bg-blue-700 hover:-translate-y-1 shadow-blue-200" 
                 : "bg-gray-300 cursor-not-allowed"
             }`}
           >
-            <CheckCircle size={20}/> LƯU BÁO CÁO & CHỐT GIÁ
+            <CheckCircle size={20}/> CHUYỂN VỀ SALE XÁC NHẬN
           </button>
         </div>
       </div>
