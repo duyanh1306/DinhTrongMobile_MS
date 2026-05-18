@@ -716,10 +716,10 @@ export default function SalePOS() {
                 </div>
             ) : (
                 <div className="bg-white flex-1 p-6 rounded-xl shadow-sm border flex flex-col justify-center text-center">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Gửi yêu cầu Kỹ Thuật</h3>
-                <p className="text-sm text-gray-500 mb-8">Vui lòng kiểm tra lại thông tin khách hàng và ghi chú trước khi chuyển cho Tech định giá.</p>
+                {/* <h3 className="text-lg font-bold text-gray-800 mb-4">Tạo đơn mua </h3> */}
+                <p className="text-sm text-gray-500 mb-8">Vui lòng kiểm tra lại thông tin khách hàng và ghi chú trước khi tạo đơn.</p>
                 <button onClick={handleSendToTech} className="w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-xl bg-purple-600 text-white hover:bg-purple-700 transition-transform hover:-translate-y-1">
-                    <Send size={20} /> CHUYỂN CHO TECH ĐỊNH GIÁ
+                    <Send size={20} /> Tạo đơn mua
                 </button>
                 </div>
             )}

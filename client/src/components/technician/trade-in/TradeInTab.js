@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Calculator } from "lucide-react";
 import TradeInTable from "./TradeInTable";
 import TradeInModal from "./TradeInModal";
+import axiosClient from "../../../api/axiosClient";
 
 const TradeInTab = ({ 
   tradeInRequests, 
@@ -17,6 +18,20 @@ const TradeInTab = ({
   onChecklistChange, 
   onSubmit 
 }) => {
+  const [criteriaList, setCriteriaList] = useState([]);
+
+  useEffect(() => {
+    const fetchCriteria = async () => {
+      try {
+        const res = await axiosClient.get("/evaluation-criteria");
+        setCriteriaList(res.data.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchCriteria();
+  }, []);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
@@ -44,6 +59,7 @@ const TradeInTab = ({
         valuation={valuation}
         checklist={checklist}
         phoneModels={phoneModels}
+        criteriaList={criteriaList}
         isBasicInfoFilled={isBasicInfoFilled}
         onClose={onCloseModal}
         onValuationChange={onValuationChange}
