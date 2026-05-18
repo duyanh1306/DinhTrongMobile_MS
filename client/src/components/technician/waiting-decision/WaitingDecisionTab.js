@@ -187,7 +187,7 @@ const WaitingDecisionTab = ({
                 <div className="space-y-6">
                   <div className="bg-white p-5 rounded-xl border shadow-sm">
                      <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Wrench size={18}/> Đề xuất thay thế linh kiện</h4>
-                     <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị lỗi nặng. Hệ thống sẽ tự động tạo phiếu xuất kho linh kiện.</p>
+                     <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị lỗi nặng. Hệ thống sẽ chỉ hiển thị các linh kiện tương thích với máy này.</p>
                      
                      {parsedChecklist.filter(i => i.isFaulty).map((item, idx) => {
                         const isReplaced = replacementParts.some(rp => rp.category === item.name);
@@ -429,11 +429,30 @@ const WaitingDecisionTab = ({
                       </div>
                       
                       <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                          {/* ĐOẠN NÀY LÀ TRÁI TIM CỦA VIỆC MAPPING */}
                           {availablePartsInStock
                               .filter(p => {
+                                  // Lấy ID và Tên của dòng máy hiện tại
+                                  const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
+                                  const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
+
+                                  // Kiểm tra Tương Thích (Mapping)
+                                  const isCompatible = 
+                                      p.phoneModelId === currentModelId || 
+                                      p.item_type?.phoneModelId === currentModelId || 
+                                      (p.item_type?.compatibleModels && p.item_type.compatibleModels.includes(currentModelId)) ||
+                                      (p.compatibleModels && p.compatibleModels.includes(currentModelId)) ||
+                                      p.name.toLowerCase().includes(currentModelName) || 
+                                      p.item_type?.name?.toLowerCase().includes(currentModelName);
+
+                                  // Nếu không tương thích -> vứt
+                                  if (!isCompatible) return false;
+
+                                  // Lọc tiếp theo tên linh kiện (Màn hình, Pin...) và thanh Search
                                   const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
                                                           p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
                                   const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
+                                  
                                   return searchPart ? matchesSearch : matchesCategory;
                               })
                               .map(part => (
@@ -448,14 +467,30 @@ const WaitingDecisionTab = ({
                               </div>
                           ))}
                           
-                          {availablePartsInStock.filter(p => 
-                              searchPart 
-                                ? p.name.toLowerCase().includes(searchPart.toLowerCase()) 
-                                : p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase())
-                          ).length === 0 && (
+                          {/* Render báo lỗi nếu kho không có linh kiện nào tương thích */}
+                          {availablePartsInStock.filter(p => {
+                              const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
+                              const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
+
+                              const isCompatible = 
+                                  p.phoneModelId === currentModelId || 
+                                  p.item_type?.phoneModelId === currentModelId || 
+                                  (p.item_type?.compatibleModels && p.item_type.compatibleModels.includes(currentModelId)) ||
+                                  (p.compatibleModels && p.compatibleModels.includes(currentModelId)) ||
+                                  p.name.toLowerCase().includes(currentModelName) || 
+                                  p.item_type?.name?.toLowerCase().includes(currentModelName);
+
+                              if (!isCompatible) return false;
+
+                              const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
+                                                      p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
+                              const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
+                              
+                              return searchPart ? matchesSearch : matchesCategory;
+                          }).length === 0 && (
                               <div className="text-center py-8">
-                                  <p className="text-gray-500 text-sm font-bold">Không tìm thấy "{searchPart || partCategoryToReplace}" trong kho!</p>
-                                  <p className="text-gray-400 text-xs mt-1">Hãy xóa bớt chữ ở ô tìm kiếm hoặc tạo phiếu Nhập kho mới.</p>
+                                  <p className="text-gray-500 text-sm font-bold">Không tìm thấy "{searchPart || partCategoryToReplace}" tương thích với máy này!</p>
+                                  <p className="text-gray-400 text-xs mt-1">Hãy nhập thêm linh kiện vào kho.</p>
                               </div>
                           )}
                       </div>
