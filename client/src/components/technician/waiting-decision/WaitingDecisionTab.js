@@ -28,8 +28,6 @@ const WaitingDecisionTab = ({
   const [showPartSelector, setShowPartSelector] = useState(false);
   const [partCategoryToReplace, setPartCategoryToReplace] = useState("");
   const [searchPart, setSearchPart] = useState("");
-  const [activeDropdown, setActiveDropdown] = useState(null);
-  const [typeSearchTerm, setTypeSearchTerm] = useState("");
   const [criteriaList, setCriteriaList] = useState([]);
 
   useEffect(() => {
@@ -79,26 +77,46 @@ const WaitingDecisionTab = ({
   };
 
   const handleExtractPart = (parsedItem) => {
-    const matchedType = itemTypes.find(it => 
-      it.name.toLowerCase().includes(parsedItem.name.toLowerCase()) || 
-      parsedItem.name.toLowerCase().includes(it.name.toLowerCase())
-    );
+    const currentModelName = selectedDecisionPhone?.phoneModelId?.name || "";
+    const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
+
+    const matchedType = itemTypes.find(it => {
+        const isNameMatch = it.name.toLowerCase().includes(parsedItem.name.toLowerCase()) || 
+                            parsedItem.name.toLowerCase().includes(it.name.toLowerCase());
+        const isModelMatch = it.phoneModelId === currentModelId || 
+                             (it.compatibleModels && it.compatibleModels.includes(currentModelId)) ||
+                             it.name.toLowerCase().includes(currentModelName.toLowerCase());
+        return isNameMatch && isModelMatch;
+    });
     
     const defaultRetailPrice = matchedType?.price || 0;
-    const deduction = parsedItem.deductionPercent || 0;
-    const calculatedRetailPrice = defaultRetailPrice * (1 - deduction / 100);
-    const calculatedBaseCost = calculatedRetailPrice * 0.6;
+    const calculatedBaseCost = defaultRetailPrice * 0.6; 
+
+
+    const lowerName = parsedItem.name.toLowerCase();
+    let partRam = "";
+    let partCapacity = "";
+    let partColor = "";
+
+    if (lowerName.includes("main") || lowerName.includes("board")) {
+        partRam = selectedDecisionPhone?.ram || "";
+        partCapacity = selectedDecisionPhone?.capacity || "";
+    }
+    if (lowerName.includes("vỏ") || lowerName.includes("lưng") || lowerName.includes("casing") || lowerName.includes("housing")) {
+        partColor = selectedDecisionPhone?.colorName || "";
+    }
 
     onAddPart({
-      itemTypeId: matchedType ? matchedType._id : "",
-      name: `${parsedItem.name} bóc máy (${parsedItem.label})`,
-      serialCode: "",
-      quality: "Zin bóc máy",
-      ram: "",
-      capacity: "",
-      color: selectedDecisionPhone?.colorName || "",
-      baseCost: Math.floor(calculatedBaseCost),
-      price: Math.floor(calculatedRetailPrice)
+        originalCode: parsedItem.code,
+        itemTypeId: matchedType ? matchedType._id : "",
+        name: matchedType ? `${matchedType.name} (Bóc máy)` : `${parsedItem.name} ${currentModelName} (Zin bóc máy)`,
+        serialCode: "",
+        quality: "Zin 100% bóc máy",
+        ram: partRam,
+        capacity: partCapacity,
+        color: partColor,
+        baseCost: Math.floor(calculatedBaseCost),
+        price: Math.floor(defaultRetailPrice)
     });
   };
 
@@ -131,7 +149,7 @@ const WaitingDecisionTab = ({
           <div className="bg-blue-100 p-3 rounded-full"><Settings className="w-8 h-8 text-blue-600" /></div>
           <div>
             <h3 className="text-lg font-semibold text-blue-900">Danh sách thiết bị chờ Quyết định</h3>
-            <p className="text-blue-700">Tổng số: {waitingPhones.length} máy thu cũ đang chờ phân loại (Tân trang / Rã xác)</p>
+            <p className="text-blue-700">Tổng số: {waitingPhones.length} máy thu cũ đang chờ phân loại</p>
           </div>
         </div>
       </div>
@@ -187,11 +205,10 @@ const WaitingDecisionTab = ({
                 <div className="space-y-6">
                   <div className="bg-white p-5 rounded-xl border shadow-sm">
                      <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Wrench size={18}/> Đề xuất thay thế linh kiện</h4>
-                     <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị lỗi nặng. Hệ thống sẽ chỉ hiển thị các linh kiện tương thích với máy này.</p>
+                     <p className="text-xs text-gray-500 mb-4">Chọn linh kiện từ Kho để thay thế cho các phần bị lỗi nặng.</p>
                      
                      {parsedChecklist.filter(i => i.isFaulty).map((item, idx) => {
                         const isReplaced = replacementParts.some(rp => rp.category === item.name);
-
                         return (
                         <div key={idx} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 mb-3 border rounded-xl transition-all ${isReplaced ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/30"}`}>
                             <span className={`font-bold ${isReplaced ? "text-green-700" : "text-red-700"} mb-2 sm:mb-0`}>
@@ -255,18 +272,30 @@ const WaitingDecisionTab = ({
                 <div className="bg-white p-5 rounded-xl border shadow-sm">
                   <div className="flex justify-between items-center mb-4 pb-4 border-b">
                     <label className="font-bold text-gray-800 flex items-center gap-2 text-lg"><Package className="text-red-600"/> Khai báo linh kiện tháo rời</label>
-                    <button onClick={() => onAddPart({})} className="bg-red-50 text-red-600 border px-4 py-2 rounded-lg font-bold flex items-center gap-1 hover:bg-red-100 text-sm transition shadow-sm">
-                      <Plus size={16}/> Thêm form trống
-                    </button>
                   </div>
 
-                  <p className="text-xs text-gray-500 mb-3">Gợi ý (Bấm vào linh kiện để gọi Form tự động trừ tiền theo % khấu hao):</p>
+                 <p className="text-sm font-bold text-gray-700 mb-3">Linh kiện đạt chuẩn 100% (Bấm để bóc tự động):</p>
                   <div className="flex flex-wrap gap-2 mb-6">
-                      {parsedChecklist.map((item, idx) => (
-                          <span key={idx} onClick={() => handleExtractPart(item)} className={`px-3 py-1.5 border rounded-full text-xs font-bold cursor-pointer transition shadow-sm ${item.isFaulty ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100' : 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'}`}>
-                              + Bóc {item.name} {item.deductionPercent > 0 ? `(Lỗi -${item.deductionPercent}%)` : "(Ngon)"}
-                          </span>
-                      ))}
+                      {parsedChecklist.filter(i => !i.isFaulty).map((item, idx) => {
+                          const isExtracted = dismantleParts.some(p => p.originalCode === item.code);
+                          if (isExtracted) {
+                              return (
+                                  <span key={idx} className="px-4 py-2 border border-green-200 bg-green-50 text-green-600 rounded-lg text-xs font-bold flex items-center gap-1 opacity-60 cursor-not-allowed">
+                                      <CheckCircle size={14}/> Đã bóc {item.name}
+                                  </span>
+                              );
+                          }
+                          return (
+                              <button 
+                                  key={idx} 
+                                  onClick={() => handleExtractPart(item)} 
+                                  className="px-4 py-2 border border-green-400 bg-green-50 text-green-700 hover:bg-green-100 hover:-translate-y-0.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+                              >
+                                  + Bóc {item.name}
+                              </button>
+                          );
+                      })}
+                      {parsedChecklist.filter(i => !i.isFaulty).length === 0 && <span className="text-sm text-gray-400 italic">Máy nát bét, không có linh kiện 100% để tái sử dụng.</span>}
                   </div>
                   
                   <div className="space-y-6">
@@ -274,67 +303,26 @@ const WaitingDecisionTab = ({
                           <div key={idx} className="p-4 rounded-xl border border-gray-200 relative bg-gray-50 shadow-sm group hover:border-red-300 transition">
                               <button onClick={() => onRemovePart(idx)} className="absolute top-2 right-2 text-gray-400 hover:text-red-600 bg-white p-2 rounded-full shadow border transition"><Trash2 size={16}/></button>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mr-10 mb-3">
-                                  <div className="relative">
-                                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Loại LK *</label>
-                                      <div 
-                                          onClick={() => {
-                                              if (activeDropdown === idx) {
-                                                  setActiveDropdown(null);
-                                              } else {
-                                                  setActiveDropdown(idx);
-                                                  setTypeSearchTerm(part.name ? part.name.split('(')[0].replace(/bóc máy/gi, '').trim() : "");
-                                              }
-                                          }}
-                                          className={`w-full p-2.5 border rounded-lg bg-white text-sm cursor-pointer flex justify-between items-center transition ${activeDropdown === idx ? 'ring-2 ring-red-500 border-red-500' : ''}`}
-                                      >
-                                          <span className={part.itemTypeId ? "text-gray-800 font-bold" : "text-gray-400"}>
-                                              {part.itemTypeId ? itemTypes.find(it => it._id === part.itemTypeId)?.name : "-- Tìm / Chọn loại --"}
-                                          </span>
-                                      </div>
-
-                                      {activeDropdown === idx && (
-                                          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl">
-                                              <div className="p-2 border-b bg-gray-50 rounded-t-lg">
-                                                  <input 
-                                                      type="text" 
-                                                      autoFocus
-                                                      placeholder="Tìm loại linh kiện..." 
-                                                      value={typeSearchTerm} 
-                                                      onChange={(e) => setTypeSearchTerm(e.target.value)} 
-                                                      className="w-full p-2 border rounded outline-none text-sm focus:ring-2 focus:ring-red-500"
-                                                  />
-                                              </div>
-                                              <div className="max-h-48 overflow-y-auto">
-                                                  {itemTypes.filter(it => it.name.toLowerCase().includes(typeSearchTerm.toLowerCase())).map(it => (
-                                                      <div 
-                                                          key={it._id} 
-                                                          onClick={() => {
-                                                              onPartChange(idx, "itemTypeId", it._id);
-                                                              setActiveDropdown(null);
-                                                          }} 
-                                                          className="p-3 text-sm hover:bg-red-50 cursor-pointer border-b last:border-0 font-medium text-gray-700 hover:text-red-700"
-                                                      >
-                                                          {it.name}
-                                                      </div>
-                                                  ))}
-                                              </div>
-                                          </div>
-                                      )}
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1">Loại LK (Auto Map) 🔒</label>
+                                      <select disabled className="w-full p-2.5 border border-gray-200 rounded-lg outline-none text-sm bg-gray-100 text-gray-600 cursor-not-allowed font-medium">
+                                          <option value="">{itemTypes.find(it => it._id === part.itemTypeId)?.name || "Chưa map được loại trong kho"}</option>
+                                      </select>
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tên hiển thị *</label>
-                                      <input type="text" value={part.name || ''} onChange={(e) => onPartChange(idx, "name", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500"/>
+                                      <input type="text" value={part.name || ''} onChange={(e) => onPartChange(idx, "name", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500 font-bold"/>
                                   </div>
                               </div>
 
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Serial (SN)</label>
-                                      <input type="text" placeholder="Tự sinh nếu trống" value={part.serialCode} onChange={(e) => onPartChange(idx, "serialCode", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm font-mono bg-white focus:ring-2 focus:ring-red-500"/>
+                                      <input type="text" placeholder="Auto tạo" value={part.serialCode} onChange={(e) => onPartChange(idx, "serialCode", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm font-mono bg-white focus:ring-2 focus:ring-red-500"/>
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tình trạng</label>
-                                      <input type="text" value={part.quality} onChange={(e) => onPartChange(idx, "quality", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500"/>
+                                      <input type="text" value={part.quality} onChange={(e) => onPartChange(idx, "quality", e.target.value)} className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500 font-bold text-green-600"/>
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Dung lượng</label>
@@ -355,7 +343,6 @@ const WaitingDecisionTab = ({
                                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Giá vốn nhập</label>
                                       <input 
                                         type="text" 
-                                        placeholder="0" 
                                         value={part.baseCost ? new Intl.NumberFormat('vi-VN').format(part.baseCost) : ''} 
                                         onChange={(e) => onPartChange(idx, "baseCost", e.target.value.replace(/\D/g, ''))} 
                                         className="w-full p-2.5 border rounded-lg outline-none text-sm font-bold text-gray-700 bg-white focus:ring-2 focus:ring-red-500"
@@ -365,10 +352,9 @@ const WaitingDecisionTab = ({
                                       <label className="block text-[10px] font-bold text-red-600 uppercase mb-1">Giá bán lẻ (VND) *</label>
                                       <input 
                                         type="text" 
-                                        placeholder="0" 
                                         value={part.price ? new Intl.NumberFormat('vi-VN').format(part.price) : ''} 
                                         onChange={(e) => onPartChange(idx, "price", e.target.value.replace(/\D/g, ''))} 
-                                        className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none text-sm font-bold text-red-600 bg-white focus:border-red-500"
+                                        className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none text-sm font-black text-red-600 bg-white focus:border-red-500"
                                       />
                                   </div>
                               </div>
@@ -376,7 +362,8 @@ const WaitingDecisionTab = ({
                       ))}
                       {dismantleParts.length === 0 && (
                           <div className="text-center py-10 bg-white rounded-xl border-2 border-dashed border-red-200">
-                              <p className="text-gray-500 text-sm">Bấm "Thêm form trống" hoặc các Gợi ý bên trên để khai báo</p>
+                              <Scissors className="mx-auto h-8 w-8 text-red-300 mb-2"/>
+                              <p className="text-gray-500 text-sm font-medium">Chưa bóc linh kiện nào. Hãy click vào các mục 100% bên trên.</p>
                           </div>
                       )}
                   </div>
@@ -429,14 +416,11 @@ const WaitingDecisionTab = ({
                       </div>
                       
                       <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                          {/* ĐOẠN NÀY LÀ TRÁI TIM CỦA VIỆC MAPPING */}
                           {availablePartsInStock
                               .filter(p => {
-                                  // Lấy ID và Tên của dòng máy hiện tại
                                   const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
                                   const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
 
-                                  // Kiểm tra Tương Thích (Mapping)
                                   const isCompatible = 
                                       p.phoneModelId === currentModelId || 
                                       p.item_type?.phoneModelId === currentModelId || 
@@ -445,10 +429,8 @@ const WaitingDecisionTab = ({
                                       p.name.toLowerCase().includes(currentModelName) || 
                                       p.item_type?.name?.toLowerCase().includes(currentModelName);
 
-                                  // Nếu không tương thích -> vứt
                                   if (!isCompatible) return false;
 
-                                  // Lọc tiếp theo tên linh kiện (Màn hình, Pin...) và thanh Search
                                   const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
                                                           p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
                                   const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
@@ -467,7 +449,6 @@ const WaitingDecisionTab = ({
                               </div>
                           ))}
                           
-                          {/* Render báo lỗi nếu kho không có linh kiện nào tương thích */}
                           {availablePartsInStock.filter(p => {
                               const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
                               const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
