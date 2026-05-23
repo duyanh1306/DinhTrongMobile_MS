@@ -48,7 +48,6 @@ import RepairHistory from "./pages/admin/RepairHistory";
 import InventoryTransactionList from "./pages/admin/InventoryTransactionList";
 import TransferRequestList from "./pages/admin/TransferRequestList";
 import ManageStaffStore from "./pages/admin/ManageStaffStore";
-import ManageEvaluationCriteria from "./pages/admin/ManageEvaluationCriteria";
 
 import SaleDashboard from "./pages/saleStaff/SaleDashboard";
 import SaleCreateRepairOrder from "./pages/saleStaff/saleCreateRepairOrder";
@@ -199,16 +198,6 @@ function App() {
             <PrivateRoute allowedRoles={["ADMIN"]}>
               <AdminLayout>
                 <AdminPhone />
-              </AdminLayout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/admin/evaluation-criteria"
-          element={
-            <PrivateRoute allowedRoles={["ADMIN"]}>
-              <AdminLayout>
-                <ManageEvaluationCriteria />
               </AdminLayout>
             </PrivateRoute>
           }

@@ -174,10 +174,10 @@ const confirmPayment = async (req, res) => {
           source: "customer_trade_in",
           capacity: tempPhoneData.capacity || "Chưa rõ",
           colorName: tempPhoneData.colorName || "Chưa rõ",
-          ram: tempPhoneData.ram || "Chưa rõ", // <-- FIX SÓT RAM CỦA TAO NHÉ
+          ram: tempPhoneData.ram || "Chưa rõ",
           grade: "Cũ Đẹp",
           notes: orderToConfirm.note,
-          checklistData: orderToConfirm.checklistData // <-- FIX: ĐEM CHECKLIST SANG BẢNG PHONE
+          checklistData: orderToConfirm.checklistData 
         });
         
         const savedPhone = await newPhone.save();
@@ -250,7 +250,7 @@ const confirmPayment = async (req, res) => {
 const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { totalPrice, status, note, tempPhoneData, checklistData } = req.body; // <-- NHẬN CHECKLIST
+    const { totalPrice, status, note, tempPhoneData, checklistData } = req.body; 
 
     const order = await Purchase_order.findById(id);
     if (!order) {
@@ -279,7 +279,7 @@ const updatePurchaseOrder = async (req, res) => {
         order.markModified('tempPhoneData');
     }
     
-    if (checklistData) { // <-- LƯU VÀO DB
+    if (checklistData) { 
         order.checklistData = checklistData;
     }
 
