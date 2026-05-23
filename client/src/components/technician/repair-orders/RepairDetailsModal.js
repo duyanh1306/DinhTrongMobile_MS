@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { X, User, Phone, Store, Check, Wrench,CheckCircle, Package, Search, XCircle, Smartphone, Printer, Download, ScanLine } from "lucide-react";
 import dayjs from "dayjs";
 import { useReactToPrint } from "react-to-print";
@@ -11,6 +11,104 @@ import axiosClient from "../../../api/axiosClient";
 import { docSoThanhChu } from "../../../utils/formatCurrency"; 
 
 const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+
+const getPartCodeFromServiceName = (serviceName = "") => {
+  const lower = serviceName.toLowerCase();
+  if (lower.includes("camera trước")) return "CAM-F";
+  if (lower.includes("camera sau") || lower.includes("camera")) return "CAM-R";
+  if (lower.includes("pin") || lower.includes("battery")) return "BAT";
+  if (lower.includes("màn") || lower.includes("screen")) return "SCR";
+  if (lower.includes("main") || lower.includes("mainboard")) return "MB";
+  if (lower.includes("vỏ") || lower.includes("housing")) return "HSG";
+  if (lower.includes("sạc") || lower.includes("chân sạc")) return "CPT";
+  if (lower.includes("loa")) return "SPK";
+  if (lower.includes("mặt kính")) return "FGL";
+  if (lower.includes("kính lưng")) return "BGL";
+  return null;
+};
+
+const getBaseCodeFromItemType = (code = "", name = "") => {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("camera trước")) return "CAM-F";
+  if (lowerName.includes("camera sau") || lowerName.includes("camera")) return "CAM-R";
+  if (lowerName.includes("main")) return "MB";
+  if (lowerName.includes("màn")) return "SCR";
+  if (lowerName.includes("pin")) return "BAT";
+  if (lowerName.includes("vỏ")) return "HSG";
+  if (lowerName.includes("sạc")) return "CPT";
+  if (lowerName.includes("loa")) return "SPK";
+  if (lowerName.includes("mặt kính")) return "FGL";
+  if (lowerName.includes("kính lưng")) return "BGL";
+
+  if (!code) return "OTH";
+  const parts = code.split("-");
+  if (parts[0] === "CAM" && parts[1]) return `CAM-${parts[1]}`;
+  const baseCodes = ["MB", "SCR", "BAT", "HSG", "CPT", "SPK", "FGL", "BGL", "OTH"];
+  if (baseCodes.includes(parts[0])) return parts[0];
+  return "OTH";
+};
+
+const normalizeModelKey = (name = "") =>
+  name
+    .toLowerCase()
+    .replace(/samsung\s+galaxy\s+/g, "samsung ")
+    .replace(/\s+/g, "");
+
+const detectBrand = (text = "") => {
+  const lower = text.toLowerCase();
+  if (lower.includes("iphone") || lower.includes("apple")) return "apple";
+  if (lower.includes("samsung")) return "samsung";
+  if (lower.includes("xiaomi") || lower.includes("redmi")) return "xiaomi";
+  if (lower.includes("oppo")) return "oppo";
+  if (lower.includes("vivo")) return "vivo";
+  if (lower.includes("huawei")) return "huawei";
+  if (lower.includes("realme")) return "realme";
+  if (lower.includes("nokia")) return "nokia";
+  return null;
+};
+
+const getItemSearchText = (item) =>
+  `${item.item_type?.name || ""} ${item.item_type?.code || ""} ${item.name || ""} ${item.serialCode || ""}`.toLowerCase();
+
+const itemMatchesPhoneModel = (item, modelName = "") => {
+  if (!modelName) return false;
+
+  const combined = getItemSearchText(item);
+  const modelLower = modelName.toLowerCase().trim();
+  const modelKey = normalizeModelKey(modelName);
+  const modelWithoutGalaxy = modelLower.replace(/samsung\s+galaxy\s+/g, "samsung ");
+
+  const modelBrand = detectBrand(modelName);
+  const itemBrand = detectBrand(combined);
+
+  if (modelBrand && itemBrand && modelBrand !== itemBrand) return false;
+  if (modelBrand === "samsung" && (combined.includes("iphone") || combined.includes("apple"))) return false;
+  if (modelBrand === "apple" && combined.includes("samsung")) return false;
+
+  if (combined.includes(modelLower) || combined.includes(modelWithoutGalaxy)) return true;
+  if (combined.replace(/\s+/g, "").includes(modelKey)) return true;
+
+  const serialChunk = (item.serialCode || "").toLowerCase().split("-")[1] || "";
+  if (serialChunk) {
+    const chunk = serialChunk.replace(/\s+/g, "");
+    if (modelKey.includes(chunk) || chunk.includes(modelKey.replace("samsung", ""))) return true;
+  }
+
+  const stopWords = new Set(["plus", "pro", "max", "lite", "galaxy", "samsung", "pin", "thay", "cụm"]);
+  const modelTokens = modelWithoutGalaxy
+    .split(/\s+/)
+    .filter((t) => t.length > 1 && !stopWords.has(t));
+
+  if (modelTokens.length === 0) return false;
+
+  const allTokensInItem = modelTokens.every((t) => combined.includes(t));
+  if (!allTokensInItem) return false;
+
+  const modelNums = (modelName.match(/\d+/g) || []).map(String);
+  if (modelNums.length > 0 && !modelNums.every((n) => combined.includes(n))) return false;
+
+  return true;
+};
 
 const InvoicePrintA4 = ({ order, details, activeTab, contentRef }) => {
   let invoiceTitle = "PHIẾU THANH TOÁN KIÊM BẢO HÀNH SỬA CHỮA";
@@ -138,17 +236,102 @@ const RepairDetailsModal = ({
 
   const [phoneModels, setPhoneModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
-
+  const [selectedModelName, setSelectedModelName] = useState("");
+  const [recipes, setRecipes] = useState([]);
   const printRef = useRef(null);
+
+  const getResolvedModelName = useCallback(() => {
+    if (selectedModelName) return selectedModelName;
+    const fromList = phoneModels.find((m) => String(m._id) === String(selectedModel))?.name;
+    if (fromList) return fromList;
+    const fromOrder = selectedOrder?.phoneModelId;
+    if (fromOrder && typeof fromOrder === "object" && fromOrder.name) return fromOrder.name;
+    const detail = orderDetails?.find((d) => d.targetPhoneId);
+    return detail?.targetPhoneId?.phoneModelId?.name || "";
+  }, [selectedModelName, phoneModels, selectedModel, selectedOrder, orderDetails]);
 
   const isWarranty = selectedOrder?.repairType === "Bảo hành" || orderDetails?.some(d => d.type === "WARRANTY");
   const isReadOnly = selectedOrder?.status === "Completed" || selectedOrder?.status === "Cancelled";
+
+  const selectedPartCodes = useMemo(() => {
+    return repairServices
+      .filter((s) => selectedServices.some((id) => String(id) === String(s._id)))
+      .map((s) => getPartCodeFromServiceName(s.name))
+      .filter(Boolean);
+  }, [repairServices, selectedServices]);
+
+  const recipeForModel = useMemo(() => {
+    if (!selectedModel) return null;
+    return recipes.find(
+      (r) => String(r.phoneModelId?._id || r.phoneModelId) === String(selectedModel)
+    );
+  }, [recipes, selectedModel]);
+
+  const recipeAllowedTypes = useMemo(() => {
+    if (!recipeForModel?.requiredParts?.length || selectedPartCodes.length === 0) {
+      return null;
+    }
+    const ids = new Set();
+    const names = new Set();
+    recipeForModel.requiredParts.forEach((part) => {
+      if (selectedPartCodes.includes(part.partCode)) {
+        (part.acceptedItemTypes || []).forEach((t) => {
+          if (t._id || t) ids.add(String(t._id || t));
+          if (t.name) names.add(t.name.toLowerCase().trim());
+        });
+      }
+    });
+    return ids.size > 0 || names.size > 0 ? { ids, names } : null;
+  }, [recipeForModel, selectedPartCodes]);
+
+  const isItemAllowedForSelection = useCallback(
+    (item) => {
+      if (!item || isWarranty) return true;
+      if (!selectedModel || selectedServices.length === 0) return false;
+      if (selectedPartCodes.length === 0) return false;
+
+      const serial = (item.serialCode || "").toUpperCase();
+      const itemBaseCode = getBaseCodeFromItemType(
+        item.item_type?.code || serial,
+        item.item_type?.name || item.name || ""
+      );
+      if (!selectedPartCodes.includes(itemBaseCode)) return false;
+
+      if (serial && !selectedPartCodes.some((pc) => serial.startsWith(`${pc}-`))) return false;
+
+      const modelName = getResolvedModelName();
+      if (!modelName || !itemMatchesPhoneModel(item, modelName)) return false;
+
+      if (recipeAllowedTypes) {
+        const itemTypeId = String(item.item_type?._id || item.item_type || "");
+        const itemTypeName = (item.item_type?.name || "").toLowerCase().trim();
+        if (itemTypeId && itemTypeId !== "undefined" && recipeAllowedTypes.ids.has(itemTypeId)) {
+          return true;
+        }
+        if (itemTypeName && recipeAllowedTypes.names.has(itemTypeName)) return true;
+        return false;
+      }
+
+      return true;
+    },
+    [
+      isWarranty,
+      selectedModel,
+      selectedServices,
+      selectedPartCodes,
+      getResolvedModelName,
+      recipeAllowedTypes,
+    ]
+  );
+
+  const canScanParts = isWarranty || (!!selectedModel && selectedServices.length > 0 && selectedPartCodes.length > 0);
 
   useEffect(() => {
     if (showDetailsModal) {
       fetchRepairServices();
       fetchItems();
-      fetchPhoneModels(); 
+      fetchPhoneModels();
+      fetchRecipes();
 
       if (orderDetails && orderDetails.length > 0) {
         const existingServiceIds = orderDetails.flatMap(detail => 
@@ -177,12 +360,29 @@ const RepairDetailsModal = ({
     }
   }, [showDetailsModal, orderDetails, selectedOrder]);
 
+  useEffect(() => {
+    if (!selectedModel || !phoneModels.length) return;
+    const model = phoneModels.find((m) => String(m._id) === String(selectedModel));
+    if (model?.name) setSelectedModelName(model.name);
+  }, [selectedModel, phoneModels]);
+
   const fetchPhoneModels = async () => {
     try {
       const res = await axiosClient.get("/phone_models/all");
       setPhoneModels(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const fetchRecipes = async () => {
+    try {
+      const res = await axiosClient.get("/recipes/all");
+      const data = res.data?.data || res.data || [];
+      setRecipes(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      setRecipes([]);
     }
   };
 
@@ -215,19 +415,82 @@ const RepairDetailsModal = ({
     });
   };
 
+  useEffect(() => {
+    if (isReadOnly || isWarranty || !items.length) return;
+    setSelectedItems((prev) =>
+      prev.filter((id) => {
+        const item = items.find((i) => String(i._id) === String(id));
+        return item && isItemAllowedForSelection(item);
+      })
+    );
+  }, [selectedModel, selectedServices, recipes, items, isItemAllowedForSelection, isReadOnly, isWarranty]);
+
+  const validateBeforeSave = () => {
+    if (isWarranty) return true;
+    if (!selectedModel) {
+      toast.error("Vui lòng chọn mẫu điện thoại");
+      return false;
+    }
+    if (selectedServices.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một dịch vụ sửa chữa");
+      return false;
+    }
+    if (selectedPartCodes.length === 0) {
+      toast.error("Không xác định được loại linh kiện từ dịch vụ đã chọn");
+      return false;
+    }
+    const invalidItems = selectedItems
+      .map((id) => items.find((i) => String(i._id) === String(id)))
+      .filter((item) => item && !isItemAllowedForSelection(item));
+    if (invalidItems.length > 0) {
+      toast.error(`Linh kiện "${invalidItems[0].name}" không phù hợp với mẫu máy và dịch vụ đã chọn`);
+      return false;
+    }
+    return true;
+  };
+
   const handleScan = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       const code = scanInput.trim().toUpperCase();
       if (!code) return;
-      
-      const foundItem = items.find(item => item.serialCode && item.serialCode.toUpperCase() === code);
+
+      if (!isWarranty) {
+        if (!selectedModel) {
+          toast.error("Vui lòng chọn mẫu điện thoại trước khi quét linh kiện");
+          setScanInput("");
+          return;
+        }
+        if (selectedServices.length === 0) {
+          toast.error("Vui lòng chọn dịch vụ sửa chữa trước khi quét linh kiện");
+          setScanInput("");
+          return;
+        }
+        if (selectedPartCodes.length === 0) {
+          toast.error("Dịch vụ đã chọn chưa được ánh xạ loại linh kiện (vd: Thay pin, Thay màn...)");
+          setScanInput("");
+          return;
+        }
+      }
+
+      const foundItem = items.find(
+        (item) => item.serialCode && item.serialCode.toUpperCase() === code
+      );
       if (foundItem) {
-        if (selectedItems.includes(foundItem._id)) {
-            toast.warning("Linh kiện này đã được quét và thêm vào đơn!");
+        if (!isWarranty && !isItemAllowedForSelection(foundItem)) {
+          const modelName = getResolvedModelName();
+          const itemPart = getBaseCodeFromItemType(
+            foundItem.item_type?.code || "",
+            foundItem.item_type?.name || foundItem.name || ""
+          );
+          toast.error(
+            `Linh kiện "${foundItem.name}" (${itemPart}) không phù hợp! Chỉ chấp nhận ${selectedPartCodes.join(", ")} cho ${modelName} — ${getSelectedServiceNames()}`
+          );
+        } else if (selectedItems.some((id) => String(id) === String(foundItem._id))) {
+          toast.warning("Linh kiện này đã được quét và thêm vào đơn!");
         } else {
-            setSelectedItems([...selectedItems, foundItem._id]);
-            toast.success(`Đã thêm linh kiện: ${foundItem.name}`);
+          setSelectedItems((prev) => [...prev, foundItem._id]);
+          toast.success(`Đã thêm linh kiện: ${foundItem.name}`);
         }
       } else {
         toast.error(`Không tìm thấy linh kiện có Serial Code: ${code} trong kho`);
@@ -343,13 +606,18 @@ const RepairDetailsModal = ({
                   <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Mẫu điện thoại</label>
                   <select 
                     value={selectedModel} 
-                    onChange={(e) => setSelectedModel(e.target.value)} 
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedModel(id);
+                      const model = phoneModels.find((m) => String(m._id) === String(id));
+                      setSelectedModelName(model?.name || "");
+                    }} 
                     disabled={isReadOnly}
                     className={`w-full p-2 border border-gray-300 rounded-md outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 ${isReadOnly ? "bg-gray-100 cursor-not-allowed" : "bg-white"}`}
                   >
                     <option value="">-- Chọn mẫu điện thoại --</option>
                     {phoneModels.map(m => (
-                      <option key={m._id} value={m._id}>{m.name}</option>
+                      <option key={m._id} value={String(m._id)}>{m.name}</option>
                     ))}
                   </select>
                 </div>
@@ -453,17 +721,37 @@ const RepairDetailsModal = ({
                   <input
                     ref={scanInputRef}
                     type="text"
-                    placeholder="Quét mã vạch (SN) linh kiện..."
+                    placeholder={
+                      !selectedModel
+                        ? "Chọn mẫu điện thoại trước..."
+                        : selectedServices.length === 0
+                          ? "Chọn dịch vụ sửa chữa trước..."
+                          : selectedPartCodes.length === 0
+                            ? "Dịch vụ chưa khớp loại linh kiện..."
+                            : "Quét mã vạch (SN) linh kiện..."
+                    }
                     value={scanInput}
                     onChange={(e) => setScanInput(e.target.value)}
                     onKeyDown={handleScan}
-                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all uppercase tracking-widest font-mono text-lg"
+                    disabled={!canScanParts}
+                    className={`w-full pl-12 pr-4 py-4 border-2 rounded-xl outline-none transition-all uppercase tracking-widest font-mono text-lg ${
+                      !canScanParts
+                        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "border-gray-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    }`}
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity">
                     <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 italic">* Sử dụng súng quét mã vạch hoặc nhập thủ công Serial Code của linh kiện.</p>
+                <p className="text-xs text-gray-500 mt-2 italic">
+                  * Chọn mẫu máy + dịch vụ trước. Ví dụ iPhone 14 + Thay pin → chỉ quét được mã pin iPhone 14.
+                </p>
+                {!isWarranty && selectedModel && selectedServices.length > 0 && selectedPartCodes.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-1 font-medium">
+                    Đang lọc: {getResolvedModelName()} — {getSelectedServiceNames()} (chỉ {selectedPartCodes.join(", ")})
+                  </p>
+                )}
               </div>
             )}
 
@@ -556,6 +844,7 @@ const RepairDetailsModal = ({
               {selectedOrder.status === "Pending" && onAccept && (
                 <button
                   onClick={() => {
+                    if (!validateBeforeSave()) return;
                     onAccept(selectedOrder._id, selectedServices, selectedItems, getGrandTotal(), selectedModel);
                     onClose();
                   }}
@@ -567,6 +856,7 @@ const RepairDetailsModal = ({
               {selectedOrder.status === "In Progress" && onOrderUpdate && (
                 <button
                   onClick={() => {
+                    if (!validateBeforeSave()) return;
                     onOrderUpdate(selectedOrder._id, selectedServices, selectedItems, getGrandTotal(), selectedModel);
                     onClose();
                   }}
