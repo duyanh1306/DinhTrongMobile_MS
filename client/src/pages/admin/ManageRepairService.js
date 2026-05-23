@@ -8,6 +8,7 @@ import {
     updateRepairServiceApi,
     deleteRepairServiceApi
 } from "../../api/admin/repairService";
+import { PART_CODES, getPartLabel } from "../../constants/partCodes";
 
 const formatPriceInput = (val) => {
     if (!val && val !== 0) return '';
@@ -173,7 +174,7 @@ export default function ManageRepairService() {
 
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({name: '', price: ''});
+    const [formData, setFormData] = useState({ name: '', price: '', partCode: '' });
     const [editingId, setEditingId] = useState(null);
 
 
@@ -209,7 +210,7 @@ export default function ManageRepairService() {
 
     const handleCreate = () => {
         setIsEditing(false);
-        setFormData({name: '', price: ''});
+        setFormData({ name: '', price: '', partCode: '' });
         setEditingId(null);
         setShowModal(true);
     };
@@ -218,7 +219,8 @@ export default function ManageRepairService() {
         setIsEditing(true);
         setFormData({
             name: service.name,
-            price: service.price ? service.price.toString() : ''
+            price: service.price ? service.price.toString() : '',
+            partCode: service.partCode || '',
         });
         setEditingId(service._id);
         setShowModal(true);
@@ -268,9 +270,21 @@ export default function ManageRepairService() {
             return;
         }
 
+        if (!formData.partCode) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi',
+                text: 'Vui lòng chọn nhóm linh kiện (Pin, Màn hình...)',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700' }
+            });
+            return;
+        }
+
         const payload = {
             name: formData.name.trim(),
-            ...(formData.price && {price: parseFloat(parsePriceInput(formData.price))})
+            partCode: formData.partCode,
+            ...(formData.price && { price: parseFloat(parsePriceInput(formData.price)) }),
         };
 
         let isSuccess = false;
@@ -384,6 +398,9 @@ export default function ManageRepairService() {
                                         )}
                                     </div>
                                 </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nhóm LK
+                                </th>
                                 <th
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                     onClick={() => handleSort('price')}
@@ -404,13 +421,13 @@ export default function ManageRepairService() {
                             <tbody className="bg-white divide-y divide-gray-200">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
                                         Đang tải...
                                     </td>
                                 </tr>
                             ) : repairServices.length === 0 ? (
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
                                         Không tìm thấy dịch vụ sửa chữa nào
                                     </td>
                                 </tr>
@@ -421,6 +438,11 @@ export default function ManageRepairService() {
                                             <div className="text-sm font-medium text-gray-900">
                                                 {service.name}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            {service.partCode
+                                                ? `${getPartLabel(service.partCode)} (${service.partCode})`
+                                                : <span className="text-red-500 italic">Chưa gán</span>}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
@@ -490,6 +512,22 @@ export default function ManageRepairService() {
                                         placeholder="Nhập tên dịch vụ"
                                         required
                                     />
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Nhóm linh kiện (khớp Recipe)
+                                    </label>
+                                    <select
+                                        value={formData.partCode}
+                                        onChange={(e) => setFormData({ ...formData, partCode: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    >
+                                        <option value="">-- Chọn nhóm --</option>
+                                        {PART_CODES.map((p) => (
+                                            <option key={p.code} value={p.code}>{p.label} ({p.code})</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">

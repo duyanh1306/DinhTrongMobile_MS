@@ -44,7 +44,7 @@ const getRepairServices = async (req, res) => {
 // POST /api/repair_services/create
 const createRepairService = async (req, res) => {
     try {
-        const { name, price } = req.body;
+        const { name, price, partCode } = req.body;
         
         if (!name || !name.trim()) {
             return res.status(400).json({
@@ -63,7 +63,8 @@ const createRepairService = async (req, res) => {
         
         const repairService = new Repair_service({
             name: name.trim(),
-            price: price || 0
+            price: price || 0,
+            partCode: partCode ? String(partCode).trim() : "",
         });
         
         await repairService.save();
@@ -93,7 +94,7 @@ const createRepairService = async (req, res) => {
 const updateRepairService = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, price } = req.body;
+        const { name, price, partCode } = req.body;
         
         const repairService = await Repair_service.findById(id);
         if (!repairService) {
@@ -114,7 +115,8 @@ const updateRepairService = async (req, res) => {
         }
         
         if (name) repairService.name = name.trim();
-        if (price) repairService.price = price;
+        if (price !== undefined) repairService.price = price;
+        if (partCode !== undefined) repairService.partCode = String(partCode).trim();
         
         await repairService.save();
         

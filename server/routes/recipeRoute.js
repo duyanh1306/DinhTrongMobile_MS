@@ -5,7 +5,9 @@ const {
     getAllRecipes,
     createRecipe,
     updateRecipe,
-    deleteRecipe
+    deleteRecipe,
+    getPartCodes,
+    validateRepairItem,
 } = require("../controllers/recipeController");
 
 /**
@@ -357,5 +359,8 @@ router.put("/update/:id", authInternal, updateRecipe);
  *         description: Internal server error
  */
 router.delete("/delete/:id", authInternal, deleteRecipe);
+
+router.get("/part-codes", authInternal, getPartCodes);
+router.post("/validate-item", authInternal, validateRepairItem);
 
 module.exports = router;
