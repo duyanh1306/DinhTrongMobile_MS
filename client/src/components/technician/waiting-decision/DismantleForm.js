@@ -48,7 +48,7 @@ const DismantleForm = ({ dismantleParts, itemTypes, onRemovePart, onPartChange, 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mr-12 mb-5">
               <div>
                 <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5 flex items-center gap-1">
-                  Loại linh kiện (Auto Map) <Lock size={12} className="text-gray-400"/>
+                  Loại linh kiện <Lock size={12} className="text-gray-400"/>
                 </label>
                 <select disabled className="w-full p-2.5 bg-gray-100 border border-gray-200 rounded-lg outline-none text-gray-600 cursor-not-allowed font-medium">
                   <option value="">{itemTypes.find(it => it._id === part.itemTypeId)?.name || "Chưa map được loại trong kho"}</option>

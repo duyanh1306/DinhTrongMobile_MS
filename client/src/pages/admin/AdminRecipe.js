@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
-import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter, Search, ListChecks } from "lucide-react";
 
 import { 
     fetchInitialDataApi, 
@@ -22,7 +22,6 @@ const BASE_CODES = [
     { code: "BGL", label: "Kính lưng" },
     { code: "OTH", label: "Khác" }
 ];
-
 
 const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
     const [editingDots, setEditingDots] = useState(null); 
@@ -115,9 +114,7 @@ export default function AdminRecipe() {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
     
- 
     const [selectedBrand, setSelectedBrand] = useState('');
- 
     const endOfListRef = useRef(null);
 
     const [formData, setFormData] = useState({
@@ -144,7 +141,6 @@ export default function AdminRecipe() {
         setRecipes(data.recipes);
     };
 
-
     const uniqueBrands = useMemo(() => {
         const brandsMap = new Map();
         phoneModels.forEach(m => {
@@ -162,7 +158,6 @@ export default function AdminRecipe() {
         return phoneModels.filter(m => (m.brand?._id || m.brand) === selectedBrand);
     }, [phoneModels, selectedBrand]);
 
-
     const totalPages = Math.ceil(recipes.length / itemsPerPage);
     const paginatedRecipes = recipes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -178,8 +173,8 @@ export default function AdminRecipe() {
                 phoneModelId: recipe.phoneModelId?._id || recipe.phoneModelId,
                 description: recipe.description || '',
                 requiredParts: recipe.requiredParts.map(part => {
-                    let guessedCode = '';
-                    if (part.acceptedItemTypes.length > 0) {
+                    let guessedCode = part.partCode || '';
+                    if (!guessedCode && part.acceptedItemTypes.length > 0) {
                         const firstItem = itemTypes.find(t => t._id === (part.acceptedItemTypes[0]._id || part.acceptedItemTypes[0]));
                         if (firstItem) {
                             const matchedBase = BASE_CODES.find(b => firstItem.code.toUpperCase().includes(b.code));
@@ -190,7 +185,10 @@ export default function AdminRecipe() {
                     return {
                         ...part,
                         filterCode: guessedCode,
-                        acceptedItemTypes: part.acceptedItemTypes.map(type => type._id || type)
+                        acceptedItemTypes: part.acceptedItemTypes.map(type => type._id || type),
+                        conditions: part.conditions && part.conditions.length > 0 ? part.conditions : [
+                            { label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }
+                        ]
                     };
                 })
             });
@@ -202,9 +200,9 @@ export default function AdminRecipe() {
                 phoneModelId: '', 
                 description: '', 
                 requiredParts: [
-                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'MB' },
-                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'SCR' },
-                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'BAT' }
+                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'MB', conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }] },
+                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'SCR', conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }] },
+                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'BAT', conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }] }
                 ] 
             });
         }
@@ -219,7 +217,13 @@ export default function AdminRecipe() {
     const handleAddPart = () => {
         setFormData(prev => ({
             ...prev,
-            requiredParts: [...prev.requiredParts, { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: '' }]
+            requiredParts: [...prev.requiredParts, { 
+                isRequired: true, 
+                acceptedItemTypes: [], 
+                quantity: 1, 
+                filterCode: '',
+                conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }]
+            }]
         }));
 
         setTimeout(() => {
@@ -252,6 +256,27 @@ export default function AdminRecipe() {
         }
         setFormData(prev => ({ ...prev, requiredParts: newParts }));
     };
+
+
+    const handleAddCondition = (partIndex) => {
+        const newParts = [...formData.requiredParts];
+        if (!newParts[partIndex].conditions) newParts[partIndex].conditions = [];
+        newParts[partIndex].conditions.push({ label: "", value: "", deductionPercent: 0, isFaulty: false });
+        setFormData(prev => ({ ...prev, requiredParts: newParts }));
+    };
+
+    const handleRemoveCondition = (partIndex, condIndex) => {
+        const newParts = [...formData.requiredParts];
+        newParts[partIndex].conditions.splice(condIndex, 1);
+        setFormData(prev => ({ ...prev, requiredParts: newParts }));
+    };
+
+    const handleConditionChange = (partIndex, condIndex, field, value) => {
+        const newParts = [...formData.requiredParts];
+        newParts[partIndex].conditions[condIndex][field] = value;
+        setFormData(prev => ({ ...prev, requiredParts: newParts }));
+    };
+
 
     const handleDelete = async (id) => {
         const result = await Swal.fire({
@@ -300,6 +325,16 @@ export default function AdminRecipe() {
                 return Swal.fire({ icon: 'error', title: 'Lỗi cấu hình!', text: `Nhóm "${baseLabel}" bị trùng lặp. Mỗi nhóm chỉ được xuất hiện 1 lần trong cấu hình!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
             }
             usedCodes.add(part.filterCode);
+
+
+            if (part.conditions) {
+                for (let j = 0; j < part.conditions.length; j++) {
+                    const c = part.conditions[j];
+                    if (!c.label || !c.value) {
+                        return Swal.fire({ icon: 'error', title: 'Thiếu thông tin!', text: `Tình trạng đánh giá ở Slot ${i + 1} không được để trống Tên Lỗi hoặc Mã Lỗi!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
+                    }
+                }
+            }
         }
 
         const payload = {
@@ -307,10 +342,12 @@ export default function AdminRecipe() {
             requiredParts: formData.requiredParts.map(part => {
                 const baseLabel = BASE_CODES.find(b => b.code === part.filterCode)?.label || "Linh kiện";
                 return {
+                    partCode: part.filterCode, 
                     name: baseLabel,
                     acceptedItemTypes: part.acceptedItemTypes,
                     quantity: part.quantity,
-                    isRequired: part.isRequired
+                    isRequired: part.isRequired,
+                    conditions: part.conditions || []
                 };
             })
         };
@@ -350,7 +387,7 @@ export default function AdminRecipe() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                     <Settings className="text-blue-600" size={28} />
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý cấu hình Máy Dựng</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Quản lý cấu hình Máy Dựng & Tiêu chí Thu Cũ</h1>
                 </div>
                 <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition">
                     <Plus size={20} /> <span>Tạo cấu hình mới</span>
@@ -392,7 +429,6 @@ export default function AdminRecipe() {
                     </table>
                 </div>
                 
-             
                 {recipes.length > 0 && (
                     <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4 mt-auto">
                         <span className="text-sm text-gray-600">Trang <span className="font-bold text-blue-600">{currentPage}</span> / <span className="font-bold">{totalPages || 1}</span> | Tổng: <span className="font-bold text-gray-800">{recipes.length}</span> cấu hình</span>
@@ -405,7 +441,6 @@ export default function AdminRecipe() {
                 )}
             </div>
 
-        
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -470,13 +505,13 @@ export default function AdminRecipe() {
                                                 .filter((p, pIndex) => pIndex !== index && p.filterCode !== '')
                                                 .map(p => p.filterCode);
 
-                                                const filteredItemTypes = itemTypes.filter(type => {
-                                                    if (!part.filterCode) return false;
-                                                    const matchGroup = type.code.toUpperCase().includes(part.filterCode.toUpperCase());
-                                                    const keyword = (part.searchKeyword || '').toLowerCase();
-                                                    const matchSearch = (type.name || '').toLowerCase().includes(keyword) || (type.code || '').toLowerCase().includes(keyword);
-                                                    return matchGroup && matchSearch;
-                                                });
+                                            const filteredItemTypes = itemTypes.filter(type => {
+                                                if (!part.filterCode) return false;
+                                                const matchGroup = type.code.toUpperCase().includes(part.filterCode.toUpperCase());
+                                                const keyword = (part.searchKeyword || '').toLowerCase();
+                                                const matchSearch = (type.name || '').toLowerCase().includes(keyword) || (type.code || '').toLowerCase().includes(keyword);
+                                                return matchGroup && matchSearch;
+                                            });
 
                                             return (
                                                 <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white relative shadow-sm">
@@ -520,22 +555,22 @@ export default function AdminRecipe() {
                                                         </div>
                                                     </div>
 
-                                                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
-                                                        <label className="block text-sm font-semibold text-blue-800">2. Tick chọn các danh mục cho phép:</label>
-                                                        {part.filterCode && (
-                                                            <div className="relative w-full md:w-64">
-                                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="Tìm tên hoặc mã linh kiện..."
-                                                                    value={part.searchKeyword || ''}
-                                                                    onChange={(e) => handlePartChange(index, 'searchKeyword', e.target.value)}
-                                                                    className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4">
+                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+                                                            <label className="block text-sm font-semibold text-blue-800">2. Tick chọn các danh mục cho phép:</label>
+                                                            {part.filterCode && (
+                                                                <div className="relative w-full md:w-64">
+                                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Tìm tên hoặc mã linh kiện..."
+                                                                        value={part.searchKeyword || ''}
+                                                                        onChange={(e) => handlePartChange(index, 'searchKeyword', e.target.value)}
+                                                                        className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         
                                                         {!part.filterCode ? (
                                                             <div className="text-sm text-gray-500 italic p-4 text-center border border-dashed border-gray-300 rounded bg-white">
@@ -558,6 +593,51 @@ export default function AdminRecipe() {
                                                             </div>
                                                         )}
                                                     </div>
+
+                                                    {/* --- MỤC MỚI: QUẢN LÝ TIÊU CHÍ (CONDITIONS) TRỰC TIẾP TRONG NÀY --- */}
+                                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                                        <div className="flex justify-between items-center mb-3">
+                                                            <label className="block text-sm font-semibold text-purple-800 flex items-center gap-2">
+                                                                <ListChecks size={16}/> 3. Tiêu chí đánh giá Tình trạng:
+                                                            </label>
+                                                            <button type="button" onClick={() => handleAddCondition(index)} className="text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 px-2 py-1.5 rounded-md font-bold flex items-center gap-1 transition">
+                                                                <Plus size={14}/> Thêm tình trạng
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            {(part.conditions || []).map((cond, cIndex) => (
+                                                                <div key={cIndex} className={`p-3 rounded-lg border text-sm flex flex-wrap md:flex-nowrap gap-3 items-center relative ${cond.isFaulty ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                                                    <button type="button" onClick={() => handleRemoveCondition(index, cIndex)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"><Trash2 size={16}/></button>
+                                                                    
+                                                                    <div className="w-full md:w-1/3">
+                                                                        <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Tên hiển thị lỗi</label>
+                                                                        <input type="text" placeholder="VD: Kính xước nhẹ" value={cond.label} onChange={(e) => handleConditionChange(index, cIndex, 'label', e.target.value)} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-purple-500 text-sm" required />
+                                                                    </div>
+                                                                    <div className="w-full md:w-1/4">
+                                                                        <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Mã code</label>
+                                                                        <input type="text" placeholder="VD: SCR_XR" value={cond.value} onChange={(e) => handleConditionChange(index, cIndex, 'value', e.target.value)} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-purple-500 text-sm font-mono" required />
+                                                                    </div>
+                                                                    <div className="w-full md:w-1/4">
+                                                                        <label className="text-[10px] uppercase font-bold text-red-500 mb-1 block">Khấu hao (%)</label>
+                                                                        <div className="relative">
+                                                                            <input type="number" min="0" max="100" placeholder="0" value={cond.deductionPercent} onChange={(e) => handleConditionChange(index, cIndex, 'deductionPercent', Number(e.target.value))} className="w-full p-2 border border-red-200 rounded outline-none focus:ring-1 focus:ring-red-500 text-sm text-red-600 font-bold" />
+                                                                            <span className="absolute right-3 top-2 text-gray-400 text-sm">%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="w-full md:w-auto flex items-center pr-6 pt-5">
+                                                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                                                            <input type="checkbox" checked={cond.isFaulty} onChange={(e) => handleConditionChange(index, cIndex, 'isFaulty', e.target.checked)} className="w-4 h-4 accent-red-600" />
+                                                                            <span className={`text-xs font-bold ${cond.isFaulty ? 'text-red-600' : 'text-gray-500'}`}>Hỏng/Nặng</span>
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {(!part.conditions || part.conditions.length === 0) && (
+                                                                <div className="text-xs text-center p-4 border border-dashed border-gray-300 rounded-lg text-gray-400 bg-gray-50">Chưa có tiêu chí nào. Mặc định máy thu vào tình trạng linh kiện là 100% (Hoạt động tốt).</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
                                                 </div>
                                             )
                                         })}
@@ -568,7 +648,7 @@ export default function AdminRecipe() {
                             </div>
                         </div>
 
-                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0 rounded-b-2xl">
                             <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 bg-white border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-100 transition shadow-sm">Hủy bỏ</button>
                             <button onClick={handleSubmit} className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md flex items-center gap-2 transition">
                                 <Save size={18}/> {isEditing ? 'Lưu cập nhật' : 'Hoàn tất tạo'}

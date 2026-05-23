@@ -20,7 +20,15 @@ export const fetchInitialDataApi = async () => {
         return { recipes: [], phoneModels: [], itemTypes: [] };
     }
 };
-
+export const getAllRecipesApi = async () => {
+    try {
+        const response = await axiosClient.get("/recipes/all");
+        return response.data?.data || response.data || [];
+    } catch (error) {
+        console.error("Lỗi lấy danh sách Recipe:", error);
+        return [];
+    }
+};
 // Hàm tạo mới Công thức
 export const createRecipeApi = async (payload) => {
     try {

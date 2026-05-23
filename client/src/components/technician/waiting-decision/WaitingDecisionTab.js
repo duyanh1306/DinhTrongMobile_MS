@@ -90,7 +90,7 @@ const WaitingDecisionTab = ({
     });
     
     const defaultRetailPrice = matchedType?.price || 0;
-    const calculatedBaseCost = defaultRetailPrice * 0.6; 
+    // const calculatedBaseCost = defaultRetailPrice * 0.6; 
 
 
     const lowerName = parsedItem.name.toLowerCase();
@@ -111,11 +111,11 @@ const WaitingDecisionTab = ({
         itemTypeId: matchedType ? matchedType._id : "",
         name: matchedType ? `${matchedType.name} (Bóc máy)` : `${parsedItem.name} ${currentModelName} (Zin bóc máy)`,
         serialCode: "",
-        quality: "Zin 100% bóc máy",
+        quality: "Bóc máy",
         ram: partRam,
         capacity: partCapacity,
         color: partColor,
-        baseCost: Math.floor(calculatedBaseCost),
+        baseCost: "",
         price: Math.floor(defaultRetailPrice)
     });
   };
@@ -304,7 +304,7 @@ const WaitingDecisionTab = ({
                               <button onClick={() => onRemovePart(idx)} className="absolute top-2 right-2 text-gray-400 hover:text-red-600 bg-white p-2 rounded-full shadow border transition"><Trash2 size={16}/></button>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mr-10 mb-3">
                                   <div>
-                                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1">Loại LK (Auto Map) 🔒</label>
+                                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1">Loại LK</label>
                                       <select disabled className="w-full p-2.5 border border-gray-200 rounded-lg outline-none text-sm bg-gray-100 text-gray-600 cursor-not-allowed font-medium">
                                           <option value="">{itemTypes.find(it => it._id === part.itemTypeId)?.name || "Chưa map được loại trong kho"}</option>
                                       </select>

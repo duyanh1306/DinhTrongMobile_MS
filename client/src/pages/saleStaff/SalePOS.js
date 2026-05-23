@@ -501,7 +501,7 @@ export default function SalePOS() {
             <h2 className="font-bold text-gray-800 flex items-center gap-2"><Settings size={20} /> Điểm bán hàng (POS)</h2>
             <div className="flex bg-white rounded-lg p-1 border shadow-sm">
               <button onClick={() => setOrderType("SALE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "SALE" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BÁN RA</button>
-              <button onClick={() => setOrderType("PURCHASE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "PURCHASE" ? "bg-purple-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>THU CŨ / MUA VÀO</button>
+              {/* <button onClick={() => setOrderType("PURCHASE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "PURCHASE" ? "bg-purple-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>THU CŨ / MUA VÀO</button> */}
               <button onClick={() => setOrderType("WARRANTY")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "WARRANTY" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BẢO HÀNH</button>
             </div>
           </div>

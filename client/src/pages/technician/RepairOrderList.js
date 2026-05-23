@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
-import { Wrench } from "lucide-react";
+import { Wrench, Plus } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import LoadingSpinner from "../../components/technician/shared/LoadingSpinner";
@@ -127,23 +127,19 @@ const RepairOrderList = () => {
 
   const submitValuationDetailed = async (req) => {
     if (!valuation.phoneModelId || !valuation.colorName || !valuation.capacity || !valuation.ram)
-      return toast.error("Vui lòng điền đủ thông tin cấu hình!");
-    if (!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
+      return toast.error("Vui lòng điền đủ thông tin!");
+    if (!valuation.price) return toast.error("Vui lòng chốt giá!");
 
     const checklistArr = Object.entries(checklist).map(([code, item]) => ({
       code,
-      name: item.partName || code, // <-- Chỗ này lấy đúng tên Tiếng Việt (Màn hình, Pin...)
+      name: item.partName || code,
       label: item.label,
       value: item.value,
       isFaulty: item.isFaulty,
       deductionPercent: item.deductionPercent
     }));
 
-    const checklistStr = checklistArr
-      .map((item) => `- ${item.name}: ${item.label}`)
-      .join("\n");
-      
-    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM\n${checklistStr}\n- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
+    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM\n- Ghi chú: ${valuation.techNote || "Không có"}`;
 
     try {
       const payload = {
@@ -159,7 +155,7 @@ const RepairOrderList = () => {
         },
       };
       await axiosClient.put(`/purchase-orders/${req._id}`, payload);
-      toast.success("Đã lưu báo cáo định giá!");
+      toast.success("Đã lưu!");
       setSelectedTradeIn(null);
       fetchTradeInRequests();
       fetchAllCounts();
@@ -167,7 +163,6 @@ const RepairOrderList = () => {
       toast.error("Lỗi cập nhật");
     }
   };
-
   const fetchWaitingPhones = async () => {
     try {
       setLoading(true);
@@ -326,7 +321,11 @@ const RepairOrderList = () => {
       setOrderDetails([]);
     }
   };
-
+const handleOpenNewPurchase = () => {
+    setSelectedTradeIn({ isNewPurchase: true, customerName: "", customerPhone: "" });
+    setValuation({ price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" });
+    setChecklist({});
+};
   const acceptRepairOrder = async (orderId, serviceId = [], itemIds = [], totalPrice = 0, phoneModelId = null) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/accept`, {
@@ -416,25 +415,33 @@ const RepairOrderList = () => {
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
       </div>
 
-      {activeTab === "TRADE_IN" && (
-        <TradeInTab
-          tradeInRequests={tradeInRequests}
-          loading={loading}
-          selectedTradeIn={selectedTradeIn}
-          valuation={valuation}
-          checklist={checklist}
-          phoneModels={phoneModels}
-          isBasicInfoFilled={isBasicInfoFilled}
-          onValuate={(req) => {
-            setSelectedTradeIn(req);
-            setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
-            setChecklist({});
-          }}
-          onCloseModal={() => setSelectedTradeIn(null)}
-          onValuationChange={setValuation}
-          onChecklistChange={handleChecklistChange}
-          onSubmit={submitValuationDetailed}
-        />
+     {activeTab === "TRADE_IN" && (
+        <>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Danh sách thu mua</h2>
+                <button onClick={handleOpenNewPurchase} className="bg-purple-600 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-700 shadow-md">
+                    <Plus size={18} /> Thu máy cũ
+                </button>
+            </div>
+            <TradeInTab
+                tradeInRequests={tradeInRequests}
+                loading={loading}
+                selectedTradeIn={selectedTradeIn}
+                valuation={valuation}
+                checklist={checklist}
+                phoneModels={phoneModels}
+                isBasicInfoFilled={isBasicInfoFilled}
+                onValuate={(req) => {
+                    setSelectedTradeIn(req);
+                    setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
+                    setChecklist({});
+                }}
+                onCloseModal={() => setSelectedTradeIn(null)}
+                onValuationChange={setValuation}
+                onChecklistChange={handleChecklistChange}
+                onSubmit={submitValuationDetailed}
+            />
+        </>
       )}
 
       {activeTab === "WAITING_DECISION" && (
