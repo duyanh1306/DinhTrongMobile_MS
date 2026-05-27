@@ -82,9 +82,10 @@ const getOrderDetailsById = async (req, res) => {
 
 const createPurchaseOrder = async (req, res) => {
   try {
+
     const {
       storeId, customerName, customerPhone, totalPrice, createdBy,
-      orderType, status, details, note, tempPhoneData,
+      orderType, status, details, note, tempPhoneData, checklistData 
     } = req.body;
 
     if (!storeId || storeId === "undefined" || storeId === "null") {
@@ -96,7 +97,11 @@ const createPurchaseOrder = async (req, res) => {
 
     const newOrder = new Purchase_order({
       storeId, customerName, customerPhone, totalPrice: Number(totalPrice) || 0, createdBy,
-      orderType, status: status || "Pending", note: note || "", tempPhoneData: tempPhoneData || null,
+      orderType, 
+      status: status || "Pending",
+      note: note || "", 
+      tempPhoneData: tempPhoneData || null,
+      checklistData: checklistData || null 
     });
 
     const savedOrder = await newOrder.save();

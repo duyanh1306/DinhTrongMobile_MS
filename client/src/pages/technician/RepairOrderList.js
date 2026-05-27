@@ -127,40 +127,64 @@ const RepairOrderList = () => {
 
   const submitValuationDetailed = async (req) => {
     if (!valuation.phoneModelId || !valuation.colorName || !valuation.capacity || !valuation.ram)
-      return toast.error("Vui lòng điền đủ thông tin!");
-    if (!valuation.price) return toast.error("Vui lòng chốt giá!");
+      return toast.error("Vui lòng điền đủ thông tin máy!");
+    if (!valuation.price) return toast.error("Vui lòng nhập giá thu mua dự kiến!");
 
-    const checklistArr = Object.entries(checklist).map(([code, item]) => ({
+    const isNew = req.isNewPurchase;
+    const userString = localStorage.getItem("user");
+    const user = userString ? JSON.parse(userString) : null;
+
+    const checklistArr = Object.entries(checklist || {}).map(([code, item]) => ({
       code,
       name: item.partName || code,
       label: item.label,
-      value: item.value,
       isFaulty: item.isFaulty,
       deductionPercent: item.deductionPercent
     }));
 
-    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM\n- Ghi chú: ${valuation.techNote || "Không có"}`;
+    const checklistStr = checklistArr.map((item) => `- ${item.name}: ${item.label}`).join("\n");
+    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: ${valuation.capacity} | ${valuation.ram} RAM | Màu ${valuation.colorName}\n- Tình trạng:\n${checklistStr || "Máy bình thường"}\n- Ghi chú: ${valuation.techNote || "Không có"}`;
+
+    const payload = {
+      totalPrice: Number(valuation.price),
+      status: "Pending", 
+      note: reportNote,
+      checklistData: JSON.stringify(checklistArr), 
+      tempPhoneData: {
+        phoneModelId: valuation.phoneModelId,
+        capacity: valuation.capacity,
+        colorName: valuation.colorName,
+        ram: valuation.ram,
+      },
+      orderType: "PURCHASE",
+      customerName: req.customerName,
+      customerPhone: req.customerPhone,
+      storeId: user?.storeId?._id || user?.storeId,
+      createdBy: user?._id || user?.id
+    };
 
     try {
-      const payload = {
-        totalPrice: Number(valuation.price),
-        status: "Pending",
-        note: reportNote,
-        checklistData: JSON.stringify(checklistArr), 
-        tempPhoneData: {
-          phoneModelId: valuation.phoneModelId,
-          capacity: valuation.capacity,
-          colorName: valuation.colorName,
-          ram: valuation.ram,
-        },
-      };
-      await axiosClient.put(`/purchase-orders/${req._id}`, payload);
-      toast.success("Đã lưu!");
+      if (isNew) {
+        await axiosClient.post("/purchase-orders", payload);
+        toast.success("Đã tạo đơn và chuyển thẳng cho Sale thanh toán!");
+      } else {
+
+        const orderId = req._id || req.id;
+        if (!orderId) {
+            return toast.error("Lỗi: Không lấy được ID đơn hàng để cập nhật!");
+        }
+        await axiosClient.put(`/purchase-orders/${orderId}`, payload);
+        toast.success("Đã cập nhật báo cáo và chuyển về Sale!");
+      }
+      
       setSelectedTradeIn(null);
+      setValuation({ price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" });
+      setChecklist({});
       fetchTradeInRequests();
       fetchAllCounts();
     } catch (err) {
-      toast.error("Lỗi cập nhật");
+      toast.error("Lỗi hệ thống: " + (err.response?.data?.message || err.message));
+      console.error(err);
     }
   };
   const fetchWaitingPhones = async () => {

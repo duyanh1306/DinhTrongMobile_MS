@@ -29,17 +29,22 @@ const WaitingDecisionTab = ({
   const [partCategoryToReplace, setPartCategoryToReplace] = useState("");
   const [searchPart, setSearchPart] = useState("");
   const [criteriaList, setCriteriaList] = useState([]);
+  const [recipes, setRecipes] = useState([]);
 
   useEffect(() => {
-    const fetchCriteria = async () => {
+    const fetchCriteriaAndRecipes = async () => {
       try {
-        const res = await axiosClient.get("/evaluation-criteria");
-        setCriteriaList(res.data.data || []);
+        const [resCriteria, resRecipes] = await Promise.all([
+          axiosClient.get("/evaluation-criteria"),
+          axiosClient.get("/recipes/all")
+        ]);
+        setCriteriaList(resCriteria.data.data || []);
+        setRecipes(resRecipes.data.data || resRecipes.data || []);
       } catch (err) {
         console.error(err);
       }
     };
-    fetchCriteria();
+    fetchCriteriaAndRecipes();
   }, []);
 
   let parsedChecklist = [];
@@ -78,20 +83,18 @@ const WaitingDecisionTab = ({
 
   const handleExtractPart = (parsedItem) => {
     const currentModelName = selectedDecisionPhone?.phoneModelId?.name || "";
-    const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
+    const currentModelId = String(selectedDecisionPhone?.phoneModelId?._id || selectedDecisionPhone?.phoneModelId || "");
 
     const matchedType = itemTypes.find(it => {
         const isNameMatch = it.name.toLowerCase().includes(parsedItem.name.toLowerCase()) || 
                             parsedItem.name.toLowerCase().includes(it.name.toLowerCase());
-        const isModelMatch = it.phoneModelId === currentModelId || 
-                             (it.compatibleModels && it.compatibleModels.includes(currentModelId)) ||
+        const isModelMatch = String(it.phoneModelId) === currentModelId || 
+                             (it.compatibleModels && it.compatibleModels.map(id => String(id)).includes(currentModelId)) ||
                              it.name.toLowerCase().includes(currentModelName.toLowerCase());
         return isNameMatch && isModelMatch;
     });
     
     const defaultRetailPrice = matchedType?.price || 0;
-    // const calculatedBaseCost = defaultRetailPrice * 0.6; 
-
 
     const lowerName = parsedItem.name.toLowerCase();
     let partRam = "";
@@ -141,7 +144,42 @@ const WaitingDecisionTab = ({
       submitButtonText = "ĐIỀN ĐỦ THÔNG TIN RÃ XÁC";
     }
   }
+const filteredPartsList = availablePartsInStock.filter(p => {
+    if (!showPartSelector) return false;
+    
+    const currentModelId = String(selectedDecisionPhone?.phoneModelId?._id || selectedDecisionPhone?.phoneModelId || "");
+    const matchedRecipe = recipes.find(r => String(r.phoneModelId?._id || r.phoneModelId || "") === currentModelId);
 
+    const isSearchMatch = searchPart ? p.name.toLowerCase().includes(searchPart.toLowerCase()) : true;
+
+    // 1. NẾU CÓ RECIPE -> LỌC THEO CẤU HÌNH
+    if (matchedRecipe && matchedRecipe.requiredParts) {
+        // Tìm định nghĩa linh kiện trong Recipe
+        const partDef = matchedRecipe.requiredParts.find(rp => 
+            (rp.name || "").toLowerCase().trim() === partCategoryToReplace.toLowerCase().trim() || 
+            (rp.partCode || "").toLowerCase().trim() === partCategoryToReplace.toLowerCase().trim()
+        );
+
+        if (partDef) {
+            // NẾU CÓ ĐỊNH NGHĨA allowedItemTypes -> BẮT BUỘC PHẢI KHỚP ID
+            if (partDef.allowedItemTypes && partDef.allowedItemTypes.length > 0) {
+                const allowedItemTypeIds = partDef.allowedItemTypes.map(id => String(typeof id === 'object' ? id._id : id));
+                const itemTypeId = String(p.item_type?._id || p.item_type || "");
+                return allowedItemTypeIds.includes(itemTypeId) && isSearchMatch;
+            }
+            // TRƯỜNG HỢP CÓ LINH KIỆN TRONG RECIPE NHƯNG CHƯA TICK CHỌN LOẠI -> CHẶN HẾT
+            return false; 
+        }
+        
+        // CÓ RECIPE NHƯNG LINH KIỆN NÀY KHÔNG NẰM TRONG RECIPE -> CHẶN HẾT
+        return false;
+    }
+
+    // 2. FALLBACK (NẾU MÁY NÀY CHƯA CÓ RECIPE): Cho lọc theo tên như cũ để sếp đỡ bị "trắng" danh sách
+    const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
+                            (p.item_type?.name || "").toLowerCase().includes(partCategoryToReplace.toLowerCase());
+    return isSearchMatch && matchesCategory;
+  });
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -416,28 +454,7 @@ const WaitingDecisionTab = ({
                       </div>
                       
                       <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                          {availablePartsInStock
-                              .filter(p => {
-                                  const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
-                                  const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
-
-                                  const isCompatible = 
-                                      p.phoneModelId === currentModelId || 
-                                      p.item_type?.phoneModelId === currentModelId || 
-                                      (p.item_type?.compatibleModels && p.item_type.compatibleModels.includes(currentModelId)) ||
-                                      (p.compatibleModels && p.compatibleModels.includes(currentModelId)) ||
-                                      p.name.toLowerCase().includes(currentModelName) || 
-                                      p.item_type?.name?.toLowerCase().includes(currentModelName);
-
-                                  if (!isCompatible) return false;
-
-                                  const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
-                                                          p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
-                                  const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
-                                  
-                                  return searchPart ? matchesSearch : matchesCategory;
-                              })
-                              .map(part => (
+                          {filteredPartsList.map(part => (
                               <div key={part._id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 transition border-gray-200">
                                   <div>
                                       <p className="font-bold text-sm text-gray-800">{part.name}</p>
@@ -449,29 +466,11 @@ const WaitingDecisionTab = ({
                               </div>
                           ))}
                           
-                          {availablePartsInStock.filter(p => {
-                              const currentModelId = selectedDecisionPhone?.phoneModelId?._id;
-                              const currentModelName = selectedDecisionPhone?.phoneModelId?.name?.toLowerCase() || "";
-
-                              const isCompatible = 
-                                  p.phoneModelId === currentModelId || 
-                                  p.item_type?.phoneModelId === currentModelId || 
-                                  (p.item_type?.compatibleModels && p.item_type.compatibleModels.includes(currentModelId)) ||
-                                  (p.compatibleModels && p.compatibleModels.includes(currentModelId)) ||
-                                  p.name.toLowerCase().includes(currentModelName) || 
-                                  p.item_type?.name?.toLowerCase().includes(currentModelName);
-
-                              if (!isCompatible) return false;
-
-                              const matchesCategory = p.name.toLowerCase().includes(partCategoryToReplace.toLowerCase()) || 
-                                                      p.item_type?.name?.toLowerCase().includes(partCategoryToReplace.toLowerCase());
-                              const matchesSearch = p.name.toLowerCase().includes(searchPart.toLowerCase());
-                              
-                              return searchPart ? matchesSearch : matchesCategory;
-                          }).length === 0 && (
+                          {/* HIỂN THỊ NẾU KHÔNG TÌM THẤY */}
+                          {filteredPartsList.length === 0 && (
                               <div className="text-center py-8">
-                                  <p className="text-gray-500 text-sm font-bold">Không tìm thấy "{searchPart || partCategoryToReplace}" tương thích với máy này!</p>
-                                  <p className="text-gray-400 text-xs mt-1">Hãy nhập thêm linh kiện vào kho.</p>
+                                  <p className="text-gray-500 text-sm font-bold">Không tìm thấy linh kiện nào tương thích trong kho!</p>
+                                  <p className="text-gray-400 text-xs mt-1">Hệ thống đang chỉ cho phép các linh kiện được cấu hình trong bảng Recipe.</p>
                               </div>
                           )}
                       </div>

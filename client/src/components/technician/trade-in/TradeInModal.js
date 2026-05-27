@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { X, User, CheckCircle } from "lucide-react";
 import BasicInfoForm from "./BasicInfoForm";
 import ChecklistForm from "./ChecklistForm";
@@ -17,6 +17,24 @@ const TradeInModal = ({
   onSubmit,
   setSelectedTradeIn 
 }) => {
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+
+  useEffect(() => {
+    if (selectedTradeIn) {
+      setCustomerName(selectedTradeIn.customerName || "");
+      setCustomerPhone(selectedTradeIn.customerPhone || "");
+    }
+  }, [selectedTradeIn]);
+
+  const handleSubmit = () => {
+    onSubmit({
+      ...selectedTradeIn,
+      customerName,
+      customerPhone
+    });
+  };
+
   if (!selectedTradeIn) return null;
 
   return (
@@ -46,14 +64,14 @@ const TradeInModal = ({
                     <input 
                         className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
                         placeholder="Tên khách hàng" 
-                        value={selectedTradeIn.customerName} 
-                        onChange={e => setSelectedTradeIn({...selectedTradeIn, customerName: e.target.value})}
+                        value={customerName} 
+                        onChange={e => setCustomerName(e.target.value)}
                     />
                     <input 
                         className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
                         placeholder="Số điện thoại" 
-                        value={selectedTradeIn.customerPhone} 
-                        onChange={e => setSelectedTradeIn({...selectedTradeIn, customerPhone: e.target.value})}
+                        value={customerPhone} 
+                        onChange={e => setCustomerPhone(e.target.value)}
                     />
                 </div>
             </div>
@@ -96,8 +114,8 @@ const TradeInModal = ({
           </button>
           
           <button 
-            onClick={() => onSubmit(selectedTradeIn)} 
-            disabled={!isBasicInfoFilled || (selectedTradeIn.isNewPurchase && (!selectedTradeIn.customerName || !selectedTradeIn.customerPhone))}
+            onClick={handleSubmit} 
+            disabled={!isBasicInfoFilled || (selectedTradeIn.isNewPurchase && (!customerName || !customerPhone))}
             className={`px-8 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 transition-all ${
               isBasicInfoFilled 
                 ? "bg-blue-600 shadow-lg hover:bg-blue-700 hover:-translate-y-1 shadow-blue-200" 
