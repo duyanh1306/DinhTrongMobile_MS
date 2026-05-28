@@ -85,7 +85,9 @@ jobs:
             cd /root/DinhTrongMobile_MS
 
             git fetch origin
-            git checkout -B ${{ github.ref_name }} origin/${{ github.ref_name }}
+            git reset --hard HEAD
+            git clean -fd
+            git checkout -f -B ${{ github.ref_name }} origin/${{ github.ref_name }}
 
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
