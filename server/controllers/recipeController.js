@@ -107,6 +107,38 @@ const validateRepairItem = async (req, res) => {
     }
 };
 
+const getRecipeByPhoneModelId = async (req, res) => {
+    try {
+        const { phoneModelId } = req.params;
+        
+        if (!phoneModelId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "phoneModelId là bắt buộc" 
+            });
+        }
+
+        const recipe = await Recipe.findOne({ phoneModelId })
+            .populate('phoneModelId', 'name image brand') 
+            .populate('requiredParts.acceptedItemTypes', 'name code image');
+            
+        if (!recipe) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `Không tìm thấy Recipe cho model ID: ${phoneModelId}`,
+                data: null
+            });
+        }
+
+        res.status(200).json({ 
+            success: true, 
+            data: recipe 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getAllRecipes,
     createRecipe,
@@ -114,4 +146,5 @@ module.exports = {
     deleteRecipe,
     getPartCodes,
     validateRepairItem,
+    getRecipeByPhoneModelId,
 };
