@@ -10,8 +10,7 @@ const {
     resetPassword
 } = require("../controllers/userController");
 const passport = require("../config/passport");
-const upload = require("../middlewares/upload");
-
+const uploadCloud = require("../config/cloudinary");
 /**
  * @swagger
  * components:
@@ -469,7 +468,7 @@ router.post("/verify-otp-reset", authController.verifyOtpReset);
  *       500:
  *         description: Internal server error
  */
-router.put("/profile", upload.single("avatar"), authController.updateProfile);
+router.put("/profile", uploadCloud.single("avatar"), authController.updateProfile);
 
 /**
  * @swagger

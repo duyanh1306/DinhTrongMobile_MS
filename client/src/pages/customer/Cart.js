@@ -170,7 +170,12 @@ export default function Cart() {
 
                 {cart.items.length === 0 ? (
                     <div className="bg-white rounded-2xl p-10 text-center shadow-sm border border-gray-100 flex flex-col items-center">
-                        <img src="https://res-console.cloudinary.com/dtjfxho13/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/Y2FydC1lbXB0eV9jZ2xwNGk=/template_primary" alt="Empty Cart" className="w-48 mb-4 opacity-80" />
+                       <img 
+                            src="https://res.cloudinary.com/dtjfxho13/image/upload/v1/cart-empty_cglp4i" 
+                            alt="Empty Cart" 
+                            className="w-48 mb-4 opacity-80" 
+                            onError={(e) => { e.target.onerror = null; e.target.src = "https://cdn-icons-png.flaticon.com/512/11329/11329060.png" }} 
+                        />
                         <h2 className="text-lg font-bold text-gray-700 mb-2">Giỏ hàng tại chi nhánh này trống</h2>
                         <p className="text-sm text-gray-500 mb-4">Vui lòng chọn chi nhánh khác hoặc mua thêm sản phẩm.</p>
                         <Link to="/home" className="px-6 py-2.5 bg-[#e01a22] text-white font-bold rounded-xl hover:bg-red-700 transition">Về trang chủ mua sắm</Link>

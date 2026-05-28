@@ -66,7 +66,6 @@ app.use("/api/phone_brands", phoneBrand);
 app.use("/api/reviews", review);
 app.use('/api', paymentRoute);
 app.use("/api/locations", locationRoutes);
-
 // Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

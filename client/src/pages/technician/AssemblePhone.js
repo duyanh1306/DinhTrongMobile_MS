@@ -108,13 +108,37 @@ export default function AssemblePhone() {
         let result = recipes.filter(r => buildableIds.includes(r._id));
 
         result = result.map(recipe => {
-            let maxPossibleBuilds = Infinity;
-            recipe.requiredParts.forEach(part => {
+           
+            const slotStats = recipe.requiredParts.map(part => {
                 const acceptedIds = part.acceptedItemTypes.map(t => String(t._id || t));
-                const availableForSlot = allItems.filter(i => acceptedIds.includes(String(i.item_type?._id || i.item_type))).length;
-                if (availableForSlot < maxPossibleBuilds) maxPossibleBuilds = availableForSlot;
+                const availableItemsForSlot = allItems.filter(i => acceptedIds.includes(String(i.item_type?._id || i.item_type)));
+                
+                const usedCount = availableItemsForSlot.filter(i => i.origin === 'disassembled').length;
+                const newCount = availableItemsForSlot.filter(i => i.origin === 'new').length;
+                
+                return { used: usedCount, new: newCount, total: usedCount + newCount };
             });
-            return { ...recipe, possibleQuantity: maxPossibleBuilds === Infinity ? 0 : maxPossibleBuilds };
+
+        
+            let maxK = slotStats.length > 0 ? Math.min(...slotStats.map(s => s.total)) : 0;
+            
+           
+            let possibleQuantity = 0;
+            for (let k = maxK; k >= 1; k--) {
+                let requiredNewItems = 0;
+            
+                for (const stats of slotStats) {
+                
+                    requiredNewItems += Math.max(0, k - stats.used); 
+                }
+                
+                if (requiredNewItems <= 2 * k) {
+                    possibleQuantity = k;
+                    break; 
+                }
+            }
+
+            return { ...recipe, possibleQuantity };
         });
 
         if (listSearch) {
@@ -219,10 +243,12 @@ export default function AssemblePhone() {
         
         if (assemblyImages.length + files.length > 5) {
             toast.warning("Bạn chỉ được tải lên tối đa 5 hình ảnh!");
+            e.target.value = null; 
             return;
         }
         
         setAssemblyImages(prev => [...prev, ...files]);
+        e.target.value = null; 
     };
     
     const removeImage = (index) => {
@@ -264,14 +290,14 @@ export default function AssemblePhone() {
 
             const res = await submitAssemblePhoneApi(formData);
             if (res) {
-                // ĐÃ SỬA: Đổi chữ thành Oke và thêm tính năng reload trang
+              
                 Swal.fire({
                     title: 'Thành công!',
                     text: 'Máy đã được dựng và đưa vào kho thành công.',
                     icon: 'success',
                     confirmButtonText: 'Oke',
                     buttonsStyling: false,
-                    allowOutsideClick: false, // Bắt buộc click vào nút mới tắt popup
+                    allowOutsideClick: false, 
                     customClass: { confirmButton: 'bg-green-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-md' }
                 }).then((result) => {
                     if (result.isConfirmed) {

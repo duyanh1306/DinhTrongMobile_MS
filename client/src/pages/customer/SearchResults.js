@@ -50,9 +50,7 @@ export default function SearchResults() {
                 const keyword = query.toLowerCase();
                 
                 const filteredModels = allModels.filter(m => {
-                    const matchName = m.name?.toLowerCase().includes(keyword);
-                    const matchBrand = (m.brand?.name || m.brand || "").toString().toLowerCase().includes(keyword);
-                    return matchName || matchBrand;
+                    return m.name?.toLowerCase().includes(keyword);
                 });
 
                 const combinedData = [];

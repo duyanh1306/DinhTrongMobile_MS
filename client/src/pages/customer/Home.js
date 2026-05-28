@@ -7,9 +7,9 @@ import { fetchHomeDataApi } from "../../api/customer/home";
 
 
 const BANNER_IMAGES = [
-    "https://res.cloudinary.com/dtjfxho13/image/upload/c_fill,g_auto,w_1200,h_400/v1/Frame21472288341_dht1ib",
-    "https://res.cloudinary.com/dtjfxho13/image/upload/c_fill,g_auto,w_1200,h_400/v1/REDMI-NOTE-15-HOME-0225_ta5u4v",
-    "https://res.cloudinary.com/dtjfxho13/image/upload/c_fill,g_auto,w_1200,h_400/v1/690x300_open_iPhone_17e_g9sgh9"
+    "https://res.cloudinary.com/dtjfxho13/image/upload/v1/Frame21472288341_dht1ib",
+    "https://res.cloudinary.com/dtjfxho13/image/upload/v1/REDMI-NOTE-15-HOME-0225_ta5u4v",
+    "https://res.cloudinary.com/dtjfxho13/image/upload/v1/690x300_open_iPhone_17e_g9sgh9"
 ];
 
 export default function Home() {
@@ -110,7 +110,7 @@ export default function Home() {
                     key={idx} 
                     className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
                 >
-                    <img src={img} alt={`Banner ${idx + 1}`} className="w-full h-full object-cover object-center" />
+                   <img src={img} alt={`Banner ${idx + 1}`} className="w-full h-full object-contain object-center bg-gray-50" />
                 </div>
             ))}
             
@@ -135,21 +135,21 @@ export default function Home() {
         {newPhones.length > 0 && (
           <div className="mb-14">
             <div className="flex items-center justify-between mb-6"><h3 className="text-2xl font-bold text-gray-800 uppercase flex items-center gap-2"><span className="w-1.5 h-7 bg-blue-600 rounded-full inline-block"></span>Điện Thoại Mới Chính Hãng</h3><Link to="/category/new" className="text-blue-600 font-medium hover:underline text-sm md:text-base transition">Xem tất cả &rarr;</Link></div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{newPhones.map(product => (<ProductCard key={product._id} product={product} isUsed={false} isAssembled={false} />))}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{newPhones.slice(0, 8).map(product => (<ProductCard key={product._id} product={product} isUsed={false} isAssembled={false} />))}</div>
           </div>
         )}
 
         {usedPhones.length > 0 && (
           <div className="mb-14 p-6 bg-red-50/50 rounded-2xl border border-red-100">
             <div className="flex items-center justify-between mb-6"><h3 className="text-2xl font-bold text-red-600 uppercase flex items-center gap-2"><span className="w-1.5 h-7 bg-red-600 rounded-full inline-block"></span>Máy Cũ Giá Rẻ - Trợ Giá Thu Cũ</h3><Link to="/category/used" className="text-red-600 font-medium hover:underline text-sm md:text-base transition">Xem tất cả &rarr;</Link></div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{usedPhones.map(product => (<ProductCard key={product._id} product={product} isUsed={true} isAssembled={false} />))}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{usedPhones.slice(0, 8).map(product => (<ProductCard key={product._id} product={product} isUsed={true} isAssembled={false} />))}</div>
           </div>
         )}
 
         {assembledPhones.length > 0 && (
           <div className="mb-10 p-6 bg-purple-50/50 rounded-2xl border border-purple-100">
             <div className="flex items-center justify-between mb-6"><h3 className="text-2xl font-bold text-purple-700 uppercase flex items-center gap-2"><span className="w-1.5 h-7 bg-purple-600 rounded-full inline-block"></span>Máy Dựng (Tân Trang) Chuyên Nghiệp</h3><Link to="/category/assembled" className="text-purple-600 font-medium hover:underline text-sm md:text-base transition">Xem tất cả &rarr;</Link></div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{assembledPhones.map(product => (<ProductCard key={product._id} product={product} isUsed={false} isAssembled={true} />))}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{assembledPhones.slice(0, 8).map(product => (<ProductCard key={product._id} product={product} isUsed={false} isAssembled={true} />))}</div>
           </div>
         )}
 

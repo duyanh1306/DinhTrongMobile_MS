@@ -16,6 +16,14 @@ const getAllTransferRequests = async (req, res) => {
             .populate("requestedBy", "fullName")
             .populate("approvedBy", "fullName")
             .populate("itemType.itemTypes", "name")
+            .populate({
+                path: 'phones',
+                select: 'phoneModelId colorName capacity',
+                populate: {
+                    path: 'phoneModelId',
+                    select: 'name'
+                }
+            })
             .sort({createdAt: -1});
 
         res.status(200).json(requests);
@@ -24,7 +32,6 @@ const getAllTransferRequests = async (req, res) => {
     }
 };
 
-// Lấy chi tiết của 1 yêu cầu
 const getTransferRequestDetailsById = async (req, res) => {
     try {
         const {id} = req.params;
@@ -36,6 +43,14 @@ const getTransferRequestDetailsById = async (req, res) => {
                 populate: [
                     {path: "item_type", select: "name"},
                 ]
+            })
+            .populate({
+                path: "phoneId",
+                select: "serialCode phoneModelId colorName capacity",
+                populate: {
+                    path: "phoneModelId",
+                    select: "name"
+                }
             });
 
         res.status(200).json(details);
@@ -43,11 +58,10 @@ const getTransferRequestDetailsById = async (req, res) => {
         res.status(500).json({error: error.message});
     }
 };
-
 // Tạo yêu cầu chuyển kho mới
 const createTransferRequest = async (req, res) => {
     try {
-        const {fromStoreId, toStoreId, requestedBy, itemType, phoneModel, note} = req.body;
+        const {fromStoreId, toStoreId, requestedBy, itemType, phones, note} = req.body;
 
         if (!fromStoreId || !toStoreId || !requestedBy) {
             return res.status(400).json({ success: false, message: "Thiếu trường bắt buộc" });
@@ -64,7 +78,7 @@ const createTransferRequest = async (req, res) => {
             status: "PENDING",
             note: note || "",
             itemType: Array.isArray(itemType) ? itemType : [],
-            phoneModel: Array.isArray(phoneModel) ? phoneModel : [] 
+           phones: Array.isArray(phones) ? phones : []
         });
 
         const savedRequest = await transferRequest.save();
@@ -72,7 +86,7 @@ const createTransferRequest = async (req, res) => {
         const transferRequestDetail = new TransferRequestDetail({
             transferRequestId: savedRequest._id,
             itemId: [],
-            phoneId: [],
+            phoneId: [], 
             status: "PENDING",
             note: note || ""
         });
@@ -103,7 +117,6 @@ const createTransferRequest = async (req, res) => {
                     .map(u => u.email)
                     .filter(Boolean); 
     
-                console.log("Tìm thấy các Manager email:", managerEmails); 
     
                 if (managerEmails.length > 0) {
                     await sendTransferRequestCreatedEmail(managerEmails, savedRequest, fromStore.name, toStore.name);
@@ -153,7 +166,8 @@ const createTransferRequestForRepairOrder = async (repairOrderId, selectedItems,
 
             const details = items.map(item => ({
                 transferRequestId: savedRequest._id,
-                itemId: item._id,
+                itemId: item._id, 
+                phoneId: [],      
                 status: "PENDING",
                 note: `Linh kiện: ${item.name} (${item.serialCode})`
             }));
@@ -186,7 +200,15 @@ const getTransferRequestById = async (req, res) => {
             .populate("toStoreId", "name code")
             .populate("requestedBy", "fullName")
             .populate("approvedBy", "fullName")
-            .populate("itemType.itemTypes", "name");
+            .populate("itemType.itemTypes", "name")
+            .populate({
+                path: 'phones',
+                select: 'phoneModelId colorName capacity',
+                populate: {
+                    path: 'phoneModelId',
+                    select: 'name'
+                }
+            });
 
         if (!transferRequest) {
             return res.status(404).json({
@@ -204,7 +226,7 @@ const getTransferRequestById = async (req, res) => {
 const approveTransferRequest = async (req, res) => {
     try {
         const {id} = req.params;
-        const userId = req.user?._id || req.user?.id;
+        const userId = req.body.userId || req.user?._id || req.user?.id;
 
         const transferRequest = await TransferRequest.findById(id);
 
@@ -217,13 +239,24 @@ const approveTransferRequest = async (req, res) => {
         }
 
         transferRequest.status = "APPROVED";
-        transferRequest.approvedBy = userId;
+        transferRequest.approvedBy = userId; 
         transferRequest.approvedAt = new Date();
         await transferRequest.save();
 
-        const updatedRequest = await TransferRequest.findById(id)
+      const updatedRequest = await TransferRequest.findById(id)
             .populate("fromStoreId", "name code")
-            .populate("toStoreId", "name code");
+            .populate("toStoreId", "name code")
+            .populate("requestedBy", "fullName")
+            .populate("approvedBy", "fullName")
+            .populate("itemType.itemTypes", "name")
+            .populate({
+                path: 'phones',
+                select: 'phoneModelId colorName capacity',
+                populate: {
+                    path: 'phoneModelId',
+                    select: 'name'
+                }
+            });
 
             try {
                 const fromStore = await Store.findById(transferRequest.fromStoreId).populate({
@@ -264,32 +297,37 @@ const approveTransferRequest = async (req, res) => {
 const rejectTransferRequest = async (req, res) => {
     try {
         const {id} = req.params;
+        const userId = req.body.userId || req.user?._id || req.user?.id;
 
         const transferRequest = await TransferRequest.findById(id);
 
         if (!transferRequest) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu vận chuyển"
-            });
+            return res.status(404).json({ success: false, message: "Không tìm thấy yêu cầu vận chuyển" });
         }
 
         if (transferRequest.status?.toUpperCase() !== "PENDING") {
-            return res.status(400).json({
-                success: false,
-                message: "Yêu cầu vận chuyển phải trong trạng thái Chờ để từ chối"
-            });
+            return res.status(400).json({ success: false, message: "Yêu cầu vận chuyển phải trong trạng thái Chờ để từ chối" });
         }
 
         transferRequest.status = "REJECTED";
+        transferRequest.approvedBy = userId; 
+        transferRequest.approvedAt = new Date();
         await transferRequest.save();
 
-        const updatedRequest = await TransferRequest.findById(id)
+       const updatedRequest = await TransferRequest.findById(id)
             .populate("fromStoreId", "name code")
             .populate("toStoreId", "name code")
             .populate("requestedBy", "fullName")
             .populate("approvedBy", "fullName")
-            .populate("itemType.itemTypes", "name");
+            .populate("itemType.itemTypes", "name")
+            .populate({
+                path: 'phones',
+                select: 'phoneModelId colorName capacity',
+                populate: {
+                    path: 'phoneModelId',
+                    select: 'name'
+                }
+            });
 
         res.status(200).json({
             success: true,

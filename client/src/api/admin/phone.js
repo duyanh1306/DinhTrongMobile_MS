@@ -1,7 +1,6 @@
 import axiosClient from "../axiosClient";
 import { toast } from "react-toastify";
 
-// Hàm lấy danh sách cửa hàng và dòng máy (Dùng cho Filters và Form)
 export const fetchStoresAndModelsApi = async () => {
     try {
         const [storesRes, modelsRes] = await Promise.all([
@@ -19,11 +18,11 @@ export const fetchStoresAndModelsApi = async () => {
     }
 };
 
-// Hàm lấy danh sách điện thoại trong kho theo Cửa hàng
 export const fetchPhonesApi = async (storeId) => {
-    if (!storeId) return [];
     try {
-        const { data } = await axiosClient.get(`/phones?storeId=${storeId}`);
+        const url = storeId ? `/phones?storeId=${storeId}` : `/phones`;
+        
+        const { data } = await axiosClient.get(url);
         return data.data || [];
     } catch (error) {
         toast.error("Lỗi tải danh sách máy");
@@ -31,18 +30,18 @@ export const fetchPhonesApi = async (storeId) => {
     }
 };
 
-// Hàm xóa điện thoại
 export const deletePhoneApi = async (id) => {
     try {
-        await axiosClient.delete(`/phones/delete/${id}`);
+        await axiosClient.delete(`/phones/${id}`); 
         return true;
     } catch (error) {
-        toast.error("Lỗi khi xóa máy");
+        console.error(error);
+        toast.error(error.response?.data?.message || "Lỗi khi xóa máy");
         return false;
     }
 };
 
-// Hàm lấy QR Code trả về dạng Blob
+
 export const fetchPhoneQrCodeApi = async (phoneId) => {
     try {
         const response = await axiosClient.get(`/phones/qrcode/${phoneId}`, {
@@ -55,7 +54,7 @@ export const fetchPhoneQrCodeApi = async (phoneId) => {
     }
 };
 
-// Hàm Tạo mới Điện thoại
+
 export const createPhoneApi = async (submitData) => {
     try {
         await axiosClient.post("/phones/create", submitData, {
@@ -68,7 +67,7 @@ export const createPhoneApi = async (submitData) => {
     }
 };
 
-// Hàm Cập nhật Điện thoại
+
 export const updatePhoneApi = async (id, submitData) => {
     try {
         await axiosClient.put(`/phones/update/${id}`, submitData, {

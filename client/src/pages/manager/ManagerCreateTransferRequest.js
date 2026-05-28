@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
-import { Save, ArrowLeft, Package, Smartphone, Store, List, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Save, ArrowLeft, Package, Smartphone, Store, List, ChevronDown, ChevronUp, X, Search, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
@@ -60,6 +60,9 @@ const ManagerCreateTransferRequest = () => {
     
     const [expandedPhoneModels, setExpandedPhoneModels] = useState({}); 
 
+    const [phoneSearchQuery, setPhoneSearchQuery] = useState('');
+    const [selectedPhoneBrand, setSelectedPhoneBrand] = useState('');
+
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     useEffect(() => { fetchStoresAndUserStore(); }, []);
@@ -74,6 +77,8 @@ const ManagerCreateTransferRequest = () => {
             setSelectedPhoneQuantities({});
             setSelectedBaseCategory('');
             setExpandedPhoneModels({});
+            setPhoneSearchQuery('');
+            setSelectedPhoneBrand('');
         }
     }, [fromStoreId]);
 
@@ -115,7 +120,6 @@ const ManagerCreateTransferRequest = () => {
         }
     };
 
-  
     const groupedItems = useMemo(() => {
         const groups = {};
         availableItems.forEach(item => {
@@ -148,9 +152,40 @@ const ManagerCreateTransferRequest = () => {
         return groupedItems.filter(g => g.baseCategory === selectedBaseCategory);
     }, [groupedItems, selectedBaseCategory]);
 
+   
+    const availablePhoneBrands = useMemo(() => {
+        const brands = new Set();
+        availablePhones.forEach(phone => {
+            const brandName = phone.phoneModelId?.brand?.name || phone.phoneModelId?.brand || 'Hãng khác';
+            brands.add(brandName);
+        });
+        return Array.from(brands).sort();
+    }, [availablePhones]);
+
+
     const groupedPhones = useMemo(() => {
         const groups = {};
-        availablePhones.forEach(phone => {
+        
+      
+        let filteredPhones = availablePhones;
+
+        if (selectedPhoneBrand) {
+            filteredPhones = filteredPhones.filter(phone => {
+                const brandName = phone.phoneModelId?.brand?.name || phone.phoneModelId?.brand || 'Hãng khác';
+                return brandName === selectedPhoneBrand;
+            });
+        }
+
+        if (phoneSearchQuery) {
+            const query = phoneSearchQuery.toLowerCase();
+            filteredPhones = filteredPhones.filter(phone => {
+                const modelName = phone.phoneModelId?.name || "Máy chưa rõ tên";
+                return modelName.toLowerCase().includes(query);
+            });
+        }
+
+        
+        filteredPhones.forEach(phone => {
             const modelId = phone.phoneModelId?._id || phone.phoneModelId;
             const modelName = phone.phoneModelId?.name || "Máy chưa rõ tên";
             
@@ -175,7 +210,7 @@ const ManagerCreateTransferRequest = () => {
             groups[modelId].variations[variationKey].maxQuantity++;
         });
         return Object.values(groups).sort((a, b) => a.modelName.localeCompare(b.modelName));
-    }, [availablePhones]);
+    }, [availablePhones, selectedPhoneBrand, phoneSearchQuery]);
 
     const handleItemQuantityChange = (typeId, value, max) => {
         let val = parseInt(value, 10);
@@ -225,7 +260,6 @@ const ManagerCreateTransferRequest = () => {
         });
     };
 
-  
     const selectedItemsSummary = useMemo(() => {
         const summary = [];
         groupedItems.forEach(group => {
@@ -237,24 +271,37 @@ const ManagerCreateTransferRequest = () => {
 
     const selectedPhonesSummary = useMemo(() => {
         const summary = [];
-        groupedPhones.forEach(group => {
-            Object.values(group.variations).forEach(variation => {
-                const qty = selectedPhoneQuantities[variation.variationKey] || 0;
-                if (qty > 0) {
-                    summary.push({ 
-                        id: variation.variationKey, 
-                        name: `${group.modelName} (${variation.colorName} - ${variation.capacity})`, 
-                        qty 
-                    });
-                }
-            });
+    
+        const allGroups = {};
+        availablePhones.forEach(phone => {
+             const modelId = phone.phoneModelId?._id || phone.phoneModelId;
+             const modelName = phone.phoneModelId?.name || "Máy chưa rõ tên";
+             const variationKey = `${modelId}_${phone.colorName}_${phone.capacity}`;
+             
+             if(!allGroups[variationKey]){
+                 allGroups[variationKey] = {
+                    variationKey,
+                    modelName: `${modelName} (${phone.colorName} - ${phone.capacity})`
+                 }
+             }
         });
+
+        Object.keys(selectedPhoneQuantities).forEach(variationKey => {
+             const qty = selectedPhoneQuantities[variationKey];
+             if(qty > 0 && allGroups[variationKey]){
+                 summary.push({
+                     id: variationKey,
+                     name: allGroups[variationKey].modelName,
+                     qty: qty
+                 });
+             }
+        });
+
         return summary;
-    }, [groupedPhones, selectedPhoneQuantities]);
+    }, [availablePhones, selectedPhoneQuantities]);
 
     const totalSelectedItems = selectedItemsSummary.reduce((a, b) => a + b.qty, 0);
     const totalSelectedPhones = selectedPhonesSummary.reduce((a, b) => a + b.qty, 0);
-
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -298,35 +345,41 @@ const ManagerCreateTransferRequest = () => {
             });
 
             const finalPhoneIds = [];
-            const phoneModelsMapForApi = {};
 
-            groupedPhones.forEach(group => {
-                let modelQty = 0;
-                Object.values(group.variations).forEach(variation => {
-                    const qty = selectedPhoneQuantities[variation.variationKey] || 0;
-                    if (qty > 0) {
-                        const selectedPhones = variation.phones.slice(0, qty);
-                        finalPhoneIds.push(...selectedPhones.map(p => p._id));
-                        modelQty += qty;
-                    }
-                });
+            availablePhones.forEach(phone => {
+                const modelId = phone.phoneModelId?._id || phone.phoneModelId;
+                const variationKey = `${modelId}_${phone.colorName}_${phone.capacity}`;
                 
-                if (modelQty > 0) {
-                    phoneModelsMapForApi[group.modelId] = {
-                        phoneModels: group.modelId,
-                        quantity: modelQty
-                    };
+                const requestedQty = selectedPhoneQuantities[variationKey] || 0;
+                
+                if (requestedQty > 0) {
+                  
+                    if (!phone._isAssignedToTransfer) { 
+                  
+                        const currentCount = finalPhoneIds.filter(id => {
+                            const p = availablePhones.find(x => x._id === id);
+                            return `${p.phoneModelId?._id || p.phoneModelId}_${p.colorName}_${p.capacity}` === variationKey;
+                        }).length;
+
+                        if (currentCount < requestedQty) {
+                            finalPhoneIds.push(phone._id);
+                            phone._isAssignedToTransfer = true; 
+                        }
+                    }
                 }
             });
+            
+           
+            availablePhones.forEach(p => delete p._isAssignedToTransfer);
 
-            const transferRequestData = {
+
+           const transferRequestData = {
                 fromStoreId: fromStoreId,
                 toStoreId: userStore._id,
                 requestedBy: user._id || user.id,
-                items: finalItemIds,
-                phones: finalPhoneIds,
+                items: finalItemIds, 
+                phones: finalPhoneIds, 
                 itemType: itemTypesMapForApi,
-                phoneModel: Object.values(phoneModelsMapForApi),
                 note: note
             };
 
@@ -400,31 +453,34 @@ const ManagerCreateTransferRequest = () => {
                         <div className="flex justify-center items-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div></div>
                     ) : activeTab === 'ITEMS' ? (
                         <div className="p-4 md:p-6 space-y-5">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-3">1. Lọc theo Phân Loại Linh Kiện</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {availableBaseCategories.map(cat => (
-                                        <button
-                                            key={cat}
-                                            onClick={() => setSelectedBaseCategory(cat)}
-                                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-all border ${selectedBaseCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-                                        >
-                                            {BASE_CODES[cat] || cat}
-                                        </button>
-                                    ))}
-                                    {availableBaseCategories.length === 0 && <span className="text-gray-500 italic text-sm">Kho này không có linh kiện mới nào khả dụng.</span>}
+                          
+                            <div className="w-full md:w-1/2">
+                                <label className="block text-sm font-bold text-gray-700 mb-2">1. Chọn Phân Loại Linh Kiện</label>
+                                <div className="relative">
+                                    <select 
+                                        value={selectedBaseCategory} 
+                                        onChange={(e) => setSelectedBaseCategory(e.target.value)}
+                                        className="w-full appearance-none px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 font-medium text-gray-800 outline-none cursor-pointer"
+                                    >
+                                        <option value="">-- Tất cả các nhóm --</option>
+                                        {availableBaseCategories.map(cat => (
+                                            <option key={cat} value={cat}>{BASE_CODES[cat] || cat}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
                                 </div>
+                                {availableBaseCategories.length === 0 && <span className="text-gray-500 italic text-sm mt-1 inline-block">Kho này không có linh kiện mới nào khả dụng.</span>}
                             </div>
 
                             {selectedBaseCategory ? (
-                                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                                     <table className="w-full text-left text-sm whitespace-nowrap">
-                                        <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+                                        <thead className="bg-gray-50 text-gray-600 uppercase text-[11px] border-b border-gray-100">
                                             <tr>
-                                                <th className="px-6 py-4 font-bold w-[10%] text-center">STT</th>
-                                                <th className="px-6 py-4 font-bold w-[45%]">Chi Tiết Linh Kiện</th>
-                                                <th className="px-6 py-4 font-bold text-center w-[20%]">Tồn Kho (Mới)</th>
-                                                <th className="px-6 py-4 font-bold text-center w-[25%]">Số Lượng Yêu Cầu</th>
+                                                <th className="px-4 md:px-6 py-4 font-bold w-[10%] text-center">STT</th>
+                                                <th className="px-4 md:px-6 py-4 font-bold w-[45%]">Chi Tiết Linh Kiện</th>
+                                                <th className="px-4 md:px-6 py-4 font-bold text-center w-[20%]">Tồn Kho</th>
+                                                <th className="px-4 md:px-6 py-4 font-bold text-center w-[25%]">Số Lượng Yêu Cầu</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
@@ -433,12 +489,12 @@ const ManagerCreateTransferRequest = () => {
                                             ) : (
                                                 displayedGroupedItems.map((group, idx) => (
                                                     <tr key={group.typeId} className={`hover:bg-blue-50/30 transition ${selectedItemQuantities[group.typeId] > 0 ? 'bg-blue-50/60' : ''}`}>
-                                                        <td className="px-6 py-4 text-center font-bold text-gray-400">{idx + 1}</td>
-                                                        <td className="px-6 py-4 font-bold text-gray-800 text-base">{group.typeName}</td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg font-bold">{group.maxQuantity}</span>
+                                                        <td className="px-4 md:px-6 py-4 text-center font-bold text-gray-400">{idx + 1}</td>
+                                                        <td className="px-4 md:px-6 py-4 font-bold text-gray-800 text-sm md:text-base">{group.typeName}</td>
+                                                        <td className="px-4 md:px-6 py-4 text-center">
+                                                            <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md font-bold text-xs">{group.maxQuantity}</span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
+                                                        <td className="px-4 md:px-6 py-4 flex justify-center">
                                                             <input 
                                                                 type="number" 
                                                                 min="0" 
@@ -446,7 +502,7 @@ const ManagerCreateTransferRequest = () => {
                                                                 value={selectedItemQuantities[group.typeId] || ''}
                                                                 onChange={(e) => handleItemQuantityChange(group.typeId, e.target.value, group.maxQuantity)}
                                                                 placeholder="0"
-                                                                className={`w-28 text-center px-3 py-2 border-2 rounded-lg outline-none font-bold transition ${selectedItemQuantities[group.typeId] > 0 ? 'border-blue-500 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-50'}`}
+                                                                className={`w-20 md:w-28 text-center px-3 py-2 border rounded-md outline-none font-bold transition ${selectedItemQuantities[group.typeId] > 0 ? 'border-blue-500 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-50'}`}
                                                             />
                                                         </td>
                                                     </tr>
@@ -456,16 +512,51 @@ const ManagerCreateTransferRequest = () => {
                                     </table>
                                 </div>
                             ) : (
-                                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 bg-gray-50/50">
+                                <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 bg-gray-50/50">
                                     <Package size={48} className="mx-auto mb-3 opacity-30"/>
                                     <p className="font-medium text-gray-500">Vui lòng chọn Nhóm Linh Kiện ở trên để xem danh sách chi tiết.</p>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className="p-4 md:p-6">
+                        <div className="p-4 md:p-6 space-y-5">
+                        
+                            <div className="flex flex-col md:flex-row gap-4 mb-2">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Tìm tên dòng máy</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            placeholder="VD: iPhone 15 Pro Max..." 
+                                            value={phoneSearchQuery}
+                                            onChange={(e) => setPhoneSearchQuery(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        />
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    </div>
+                                </div>
+                                <div className="w-full md:w-1/3">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Lọc theo Hãng</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={selectedPhoneBrand} 
+                                            onChange={(e) => setSelectedPhoneBrand(e.target.value)}
+                                            className="w-full appearance-none px-10 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                                        >
+                                            <option value="">Tất cả các hãng</option>
+                                            {availablePhoneBrands.map(brand => (
+                                                <option key={brand} value={brand}>{brand}</option>
+                                            ))}
+                                        </select>
+                                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+                                    </div>
+                                </div>
+                            </div>
+
+                        
                             {groupedPhones.length === 0 ? (
-                                <p className="text-center text-gray-500 py-10 font-medium">Kho này hiện không có điện thoại Mới nào.</p>
+                                <p className="text-center text-gray-500 py-10 font-medium bg-gray-50 rounded-xl border border-dashed border-gray-200">Không tìm thấy máy nào phù hợp với bộ lọc.</p>
                             ) : (
                                 <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                                     {groupedPhones.map((group) => (
@@ -476,32 +567,32 @@ const ManagerCreateTransferRequest = () => {
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <Smartphone className="text-blue-600" size={20}/>
-                                                    <span className="font-bold text-gray-800 text-lg">{group.modelName}</span>
-                                                    <span className="bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-lg text-xs font-bold">{group.totalQty} máy sẵn sàng</span>
+                                                    <span className="font-bold text-gray-800 text-base md:text-lg">{group.modelName}</span>
+                                                    <span className="bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-md text-[11px] font-bold">{group.totalQty} máy sẵn sàng</span>
                                                 </div>
                                                 {expandedPhoneModels[group.modelId] ? <ChevronUp size={20} className="text-gray-500"/> : <ChevronDown size={20} className="text-gray-500"/>}
                                             </div>
 
                                             {expandedPhoneModels[group.modelId] && (
                                                 <table className="w-full text-left text-sm whitespace-nowrap bg-white">
-                                                    <thead className="bg-white text-gray-400 uppercase text-[11px] border-b border-gray-100">
+                                                    <thead className="bg-white text-gray-400 uppercase text-[10px] md:text-[11px] border-b border-gray-100">
                                                         <tr>
-                                                            <th className="px-6 py-3 font-bold w-[50%]">Màu sắc & Dung lượng ROM</th>
-                                                            <th className="px-6 py-3 font-bold text-center w-[25%]">Tồn Kho (Mới)</th>
-                                                            <th className="px-6 py-3 font-bold text-center w-[25%]">Số Lượng Yêu Cầu</th>
+                                                            <th className="px-4 md:px-6 py-3 font-bold w-[50%]">Màu sắc & Dung lượng ROM</th>
+                                                            <th className="px-4 md:px-6 py-3 font-bold text-center w-[25%]">Tồn Kho</th>
+                                                            <th className="px-4 md:px-6 py-3 font-bold text-center w-[25%]">Số Lượng Yêu Cầu</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50">
                                                         {Object.values(group.variations).map(variation => (
                                                             <tr key={variation.variationKey} className={`hover:bg-blue-50/20 transition ${selectedPhoneQuantities[variation.variationKey] > 0 ? 'bg-blue-50/40' : ''}`}>
-                                                                <td className="px-6 py-3 font-semibold text-gray-700 flex items-center gap-2">
-                                                                    <div className="w-2 h-2 rounded-full bg-blue-300"></div>
-                                                                    {variation.colorName} - {variation.capacity}
+                                                                <td className="px-4 md:px-6 py-3 font-semibold text-gray-700 flex items-center gap-2 text-xs md:text-sm">
+                                                                    <div className="w-2 h-2 rounded-full bg-blue-300 flex-shrink-0"></div>
+                                                                    <span className="truncate max-w-[120px] md:max-w-xs">{variation.colorName}</span> - {variation.capacity}
                                                                 </td>
-                                                                <td className="px-6 py-3 text-center font-bold text-emerald-600">
+                                                                <td className="px-4 md:px-6 py-3 text-center font-bold text-emerald-600 text-xs md:text-sm">
                                                                     {variation.maxQuantity}
                                                                 </td>
-                                                                <td className="px-6 py-3 text-center">
+                                                                <td className="px-4 md:px-6 py-3 flex justify-center">
                                                                     <input 
                                                                         type="number" 
                                                                         min="0" 
@@ -510,7 +601,7 @@ const ManagerCreateTransferRequest = () => {
                                                                         onChange={(e) => handlePhoneQuantityChange(variation.variationKey, e.target.value, variation.maxQuantity)}
                                                                         onClick={(e) => e.stopPropagation()} 
                                                                         placeholder="0"
-                                                                        className={`w-28 text-center px-3 py-2 border-2 rounded-lg outline-none font-bold transition ${selectedPhoneQuantities[variation.variationKey] > 0 ? 'border-blue-500 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-50'}`}
+                                                                        className={`w-20 md:w-28 text-center px-3 py-2 border rounded-md outline-none font-bold transition text-xs md:text-sm ${selectedPhoneQuantities[variation.variationKey] > 0 ? 'border-blue-500 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-50'}`}
                                                                     />
                                                                 </td>
                                                             </tr>
@@ -575,7 +666,7 @@ const ManagerCreateTransferRequest = () => {
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={2}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm"
                     placeholder="Ví dụ: Xin chuyển thêm hàng bán cho khách VIP..."
                 />
 
@@ -588,7 +679,7 @@ const ManagerCreateTransferRequest = () => {
                             Hủy Bỏ
                         </button>
                         <button type="button" onClick={handleSubmit} disabled={loading} className="flex-1 md:flex-none px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30">
-                            <Save size={20} /> {loading ? "Đang xử lý..." : "Gửi Yêu Cầu Luân Chuyển"}
+                            <Save size={20} /> {loading ? "Đang xử lý..." : "Gửi Yêu Cầu"}
                         </button>
                     </div>
                 </div>

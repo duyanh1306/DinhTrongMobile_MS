@@ -19,6 +19,7 @@ export default function Warranty() {
   const [stores, setStores] = useState([]);
   const [phones, setPhones] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProcessModal, setShowProcessModal] = useState(false);
@@ -123,10 +124,15 @@ export default function Warranty() {
 
   const handleCreateWarranty = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       const payload = {
         ...formData,
+        serialCode: formData.serialCode?.trim() || "Theo linh kiện",
+        phoneModel: formData.phoneModel?.trim() || "Máy tự ráp",
         createdBy: user?._id || user?.id,
       };
       await createWarrantyApi(payload);
@@ -144,13 +150,18 @@ export default function Warranty() {
       });
       fetchWarranties();
     } catch (err) {
-      toast.error("Lỗi tạo yêu cầu bảo hành");
+      toast.error("Lỗi tạo yêu cầu bảo hành. Kiểm tra lại API Backend.");
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleProcessWarranty = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     try {
       await processWarrantyApi(selectedWarranty._id, processData);
       toast.success("Đã xử lý yêu cầu bảo hành");
@@ -164,6 +175,8 @@ export default function Warranty() {
     } catch (err) {
       toast.error("Lỗi xử lý yêu cầu bảo hành");
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -192,31 +205,21 @@ export default function Warranty() {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case "Pending":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "In Progress":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "Completed":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "Rejected":
-        return "bg-red-100 text-red-700 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+      case "Pending": return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "In Progress": return "bg-blue-100 text-blue-700 border-blue-200";
+      case "Completed": return "bg-green-100 text-green-700 border-green-200";
+      case "Rejected": return "bg-red-100 text-red-700 border-red-200";
+      default: return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
-      case "Pending":
-        return "Chờ xử lý";
-      case "In Progress":
-        return "Đang xử lý";
-      case "Completed":
-        return "Đã hoàn thành";
-      case "Rejected":
-        return "Đã từ chối";
-      default:
-        return status;
+      case "Pending": return "Chờ xử lý";
+      case "In Progress": return "Đang xử lý";
+      case "Completed": return "Đã hoàn thành";
+      case "Rejected": return "Đã từ chối";
+      default: return status;
     }
   };
 
@@ -323,38 +326,18 @@ export default function Warranty() {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
-        </div>
-      )}
-
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Khách hàng
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thiết bị
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Serial Code
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ngày mua
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Loại bảo hành
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hành động
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khách hàng</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thiết bị</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serial Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày mua</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại bảo hành</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -368,50 +351,28 @@ export default function Warranty() {
                 filteredWarranties.map((warranty) => (
                   <tr key={warranty._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {warranty.customerName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {warranty.customerPhone || "N/A"}
-                      </div>
+                      <div className="text-sm font-medium text-gray-900">{warranty.customerName}</div>
+                      <div className="text-sm text-gray-500">{warranty.customerPhone || "N/A"}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {warranty.phoneModel}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {warranty.storeId?.name || "N/A"}
-                      </div>
+                      <div className="text-sm text-gray-900">{warranty.phoneModel || "Máy tự ráp"}</div>
+                      <div className="text-xs text-gray-500">{warranty.storeId?.name || "N/A"}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {warranty.serialCode}
+                      {warranty.serialCode || "Theo linh kiện"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>{formatDate(warranty.purchaseDate)}</div>
-                      <div className="text-xs text-gray-500">
-                        {getDaysSincePurchase(warranty.purchaseDate)} ngày
-                      </div>
+                      <div className="text-xs text-gray-500">{getDaysSincePurchase(warranty.purchaseDate)} ngày</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getWarrantyTypeBadge(
-                          warranty.warrantyType
-                        )}`}
-                      >
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getWarrantyTypeBadge(warranty.warrantyType)}`}>
                         {getWarrantyTypeText(warranty.warrantyType)}
                       </span>
-                      {warranty.isNewDevice && (
-                        <div className="text-xs text-green-600 mt-1">
-                          ✓ Mới mua
-                        </div>
-                      )}
+                      {warranty.isNewDevice && <div className="text-xs text-green-600 mt-1">✓ Mới mua</div>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusBadge(
-                          warranty.status
-                        )}`}
-                      >
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusBadge(warranty.status)}`}>
                         {getStatusText(warranty.status)}
                       </span>
                     </td>
@@ -421,14 +382,10 @@ export default function Warranty() {
                           <button
                             onClick={() => {
                               setSelectedWarranty(warranty);
-                              setProcessData({
-                                action: "repair",
-                                notes: "",
-                              });
+                              setProcessData({ action: "repair", notes: "" });
                               setShowProcessModal(true);
                             }}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Xử lý"
+                            className="text-blue-600 hover:text-blue-900" title="Xử lý"
                           >
                             <Wrench className="w-4 h-4" />
                           </button>
@@ -436,8 +393,7 @@ export default function Warranty() {
                         {warranty.status === "In Progress" && (
                           <button
                             onClick={() => handleCompleteWarranty(warranty._id)}
-                            className="text-green-600 hover:text-green-900"
-                            title="Hoàn thành"
+                            className="text-green-600 hover:text-green-900" title="Hoàn thành"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
@@ -445,8 +401,7 @@ export default function Warranty() {
                         {(warranty.status === "Pending" || warranty.status === "Rejected") && (
                           <button
                             onClick={() => handleDeleteWarranty(warranty._id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Xóa"
+                            className="text-red-600 hover:text-red-900" title="Xóa"
                           >
                             <XCircle className="w-4 h-4" />
                           </button>
@@ -470,9 +425,7 @@ export default function Warranty() {
             <form onSubmit={handleCreateWarranty} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cửa hàng *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cửa hàng *</label>
                   <select
                     required
                     value={formData.storeId}
@@ -481,16 +434,12 @@ export default function Warranty() {
                   >
                     <option value="">Chọn cửa hàng</option>
                     {stores.map((store) => (
-                      <option key={store._id} value={store._id}>
-                        {store.name}
-                      </option>
+                      <option key={store._id} value={store._id}>{store.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tên khách hàng *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng *</label>
                   <input
                     type="text"
                     required
@@ -500,9 +449,7 @@ export default function Warranty() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Số điện thoại
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
                   <input
                     type="text"
                     value={formData.customerPhone}
@@ -511,33 +458,27 @@ export default function Warranty() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Serial Code *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Serial Code</label>
                   <input
                     type="text"
-                    required
+                    placeholder="Nhập SN (bỏ trống nếu là máy tự ráp)"
                     value={formData.serialCode}
                     onChange={(e) => setFormData({ ...formData, serialCode: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Model điện thoại *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model điện thoại</label>
                   <input
                     type="text"
-                    required
+                    placeholder="VD: iPhone 14 Pro (bỏ trống nếu tự ráp)"
                     value={formData.phoneModel}
                     onChange={(e) => setFormData({ ...formData, phoneModel: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ngày mua *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày mua *</label>
                   <input
                     type="date"
                     required
@@ -548,9 +489,7 @@ export default function Warranty() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mô tả vấn đề *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả vấn đề *</label>
                 <textarea
                   required
                   rows="3"
@@ -563,15 +502,17 @@ export default function Warranty() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center min-w-[120px]"
                 >
-                  Tạo yêu cầu
+                  {isSubmitting ? "Đang tạo..." : "Tạo yêu cầu"}
                 </button>
               </div>
             </form>
@@ -589,24 +530,10 @@ export default function Warranty() {
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <h4 className="font-semibold text-blue-900 mb-2">Thông tin yêu cầu</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-gray-600">Khách hàng:</span>
-                    <span className="ml-2 font-medium">{selectedWarranty.customerName}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Serial Code:</span>
-                    <span className="ml-2 font-medium">{selectedWarranty.serialCode}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Model:</span>
-                    <span className="ml-2 font-medium">{selectedWarranty.phoneModel}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Loại bảo hành:</span>
-                    <span className="ml-2 font-medium">
-                      {getWarrantyTypeText(selectedWarranty.warrantyType)}
-                    </span>
-                  </div>
+                  <div><span className="text-gray-600">Khách hàng:</span><span className="ml-2 font-medium">{selectedWarranty.customerName}</span></div>
+                  <div><span className="text-gray-600">Serial Code:</span><span className="ml-2 font-medium">{selectedWarranty.serialCode || "N/A"}</span></div>
+                  <div><span className="text-gray-600">Model:</span><span className="ml-2 font-medium">{selectedWarranty.phoneModel || "Máy tự ráp"}</span></div>
+                  <div><span className="text-gray-600">Loại bảo hành:</span><span className="ml-2 font-medium">{getWarrantyTypeText(selectedWarranty.warrantyType)}</span></div>
                 </div>
                 <div className="mt-2 text-sm">
                   <span className="text-gray-600">Vấn đề:</span>
@@ -619,17 +546,13 @@ export default function Warranty() {
                   <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
                   <div>
                     <h4 className="font-semibold text-yellow-900">Bảo hành sửa chữa</h4>
-                    <p className="text-sm text-yellow-800 mt-1">
-                      Đơn sửa chữa bảo hành sẽ được tạo tự động.
-                    </p>
+                    <p className="text-sm text-yellow-800 mt-1">Đơn sửa chữa bảo hành sẽ được tạo tự động.</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ghi chú xử lý
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú xử lý</label>
                 <textarea
                   rows="3"
                   value={processData.notes}
@@ -646,15 +569,17 @@ export default function Warranty() {
                     setSelectedWarranty(null);
                     setProcessData({ action: "", notes: "" });
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center min-w-[100px]"
                 >
-                  Xử lý
+                  {isSubmitting ? "Đang xử lý..." : "Xử lý"}
                 </button>
               </div>
             </form>

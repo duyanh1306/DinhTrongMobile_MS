@@ -77,16 +77,14 @@ export const getTransferRequestDetailsApi = async (id) => {
 
 
 export const approveTransferRequestApi = async (requestId, userId) => {
-    const { data } = await axiosClient.put(`/transfer-requests/${requestId}/approve`, { approvedBy: userId });
+    const { data } = await axiosClient.put(`/transfer-requests/${requestId}/approve`, { userId: userId }); 
     return data;
 };
-
 
 export const rejectTransferRequestApi = async (requestId, userId) => {
-    const { data } = await axiosClient.put(`/transfer-requests/${requestId}/reject`, { approvedBy: userId });
+    const { data } = await axiosClient.put(`/transfer-requests/${requestId}/reject`, { userId: userId }); 
     return data;
 };
-
 
 export const confirmReceiptApi = async (requestId) => {
     const { data } = await axiosClient.put(`/transfer-requests/${requestId}/receipt`);

@@ -105,8 +105,18 @@ exports.vnpayReturn = async (req, res) => {
                 const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
                 
                 sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
+                
                 reserveInventoryForOrder(updatedOrder).catch(err => console.error(err));
             }
+        } else {
+        
+ 
+            await Order.findByIdAndUpdate(
+                orderId,
+                { paymentStatus: 'Failed', orderStatus: 'Cancelled' } 
+            );
+
+           
         }
 
 		const clientReturn = process.env.VNP_CLIENT_RETURN_URL || process.env.VNP_FRONTEND_RETURN_URL;
@@ -137,12 +147,15 @@ exports.vnpayIpn = async (req, res) => {
 };
 exports.payosReturn = async (req, res) => {
     try {
-        const { code, status, orderCode } = req.query;
+        const { code, status, cancel, orderCode } = req.query;
 
-
-        if (code === '00' || status === 'PAID') {
+        if (cancel === 'true' || status === 'CANCELLED') {
+            console.log(`[PayOS] Khách hàng đã hủy thanh toán đơn: ${orderCode}. CHỈ redirect, KHÔNG gửi mail!`);
+        }
+    
+        else if (code === '00' || status === 'PAID') {
             const updatedOrder = await Order.findOneAndUpdate(
-                { orderCode: Number(orderCode) }, 
+                { orderCode: Number(orderCode), paymentStatus: { $ne: 'Paid' } }, 
                 { paymentStatus: 'Paid', orderStatus: 'Processing' },
                 { new: true }
             );
@@ -153,7 +166,6 @@ exports.payosReturn = async (req, res) => {
                 const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
                 
                 sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
-
                 reserveInventoryForOrder(updatedOrder).catch(err => console.error('Lỗi khóa kho PayOS:', err));
             }
         }
@@ -163,7 +175,6 @@ exports.payosReturn = async (req, res) => {
         if (clientReturn) {
             const qs = querystring.stringify(req.query);
             const sep = clientReturn.includes('?') ? '&' : '?';
-
             return res.redirect(302, `${clientReturn.replace('vnpay-return', 'payos-return')}${sep}${qs}`);
         }
 
@@ -177,9 +188,11 @@ exports.payosReturn = async (req, res) => {
 
 exports.payosWebhook = async (req, res) => {
     try {
-        const { data, success } = req.body;
+   
+        const { code, data, success } = req.body;
         
-        if (success && data && data.orderCode) {
+        
+        if (success && code === '00' && data && data.orderCode) {
             const updatedOrder = await Order.findOneAndUpdate(
                 { orderCode: Number(data.orderCode), paymentStatus: { $ne: 'Paid' } }, 
                 { paymentStatus: 'Paid', orderStatus: 'Processing' },
@@ -192,10 +205,9 @@ exports.payosWebhook = async (req, res) => {
                 const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
                 
                 sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
-      
                 reserveInventoryForOrder(updatedOrder).catch(err => console.error('Lỗi khóa kho PayOS Webhook:', err));
             }
-        }
+        } 
 
         return res.json({ success: true, message: 'Webhook nhận thành công' });
     } catch (error) {

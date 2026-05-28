@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { toast } from "react-toastify";
+import { toast } from "react-toastify"; 
 import { Plus, Edit, Trash2, Package, Search, X, Settings, ChevronDown, Tag, QrCode, Smartphone, Eye, ArrowUpDown, Image as ImageIcon } from "lucide-react";
 import Swal from 'sweetalert2';
 
@@ -35,6 +35,7 @@ const initialPhoneFormState = {
     warrantyPeriod: 12, source: 'supplier', notes: '',
     imageFiles: [], previewImages: [], retainedImages: []
 };
+
 const formatPriceInput = (val) => {
     if (!val && val !== 0) return '';
     return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -183,17 +184,18 @@ const CustomPagination = ({ currentPage, totalPages, onPageChange }) => {
         </div>
     );
 };
-
 export default function ManagerInventory() {
     const [activeTab, setActiveTab] = useState('items');
     const [user, setUser] = useState({});
     const [userStore, setUserStore] = useState(null);
     const groupsPerPage = 10; 
+    
     const [items, setItems] = useState([]);
     const [itemTypes, setItemTypes] = useState([]);
     const [itemLoading, setItemLoading] = useState(true);
     const [itemFilters, setItemFilters] = useState({ search: '', status: '', item_type: '' });
     const [itemCurrentPage, setItemCurrentPage] = useState(1);
+    const [selectedBaseFilter, setSelectedBaseFilter] = useState(''); 
     
     const [showItemModal, setShowItemModal] = useState(false);
     const [isEditingItem, setIsEditingItem] = useState(false);
@@ -206,11 +208,14 @@ export default function ManagerInventory() {
     const [detailItemSearch, setDetailItemSearch] = useState('');
     const [detailItemSortPrice, setDetailItemSortPrice] = useState(''); 
     const [detailItemCurrentPage, setDetailItemCurrentPage] = useState(1);
+    
+  
     const [phones, setPhones] = useState([]);
     const [models, setModels] = useState([]);
     const [phoneLoading, setPhoneLoading] = useState(true);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [phoneCurrentPage, setPhoneCurrentPage] = useState(1);
+    const [selectedBrandFilter, setSelectedBrandFilter] = useState(''); 
 
     const [showPhoneModal, setShowPhoneModal] = useState(false);
     const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -226,12 +231,16 @@ export default function ManagerInventory() {
 
     const detailItemsPerPage = 5; 
 
+ 
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem("user") || "{}");
         setUser(userData);
         if (userData.storeId) {
             const storeIdValue = userData.storeId._id || userData.storeId;
-            setUserStore(storeIdValue);
+            setUserStore({
+                id: storeIdValue,
+                name: userData.storeName || "Cửa hàng của bạn"
+            });
             setItemFormData(prev => ({ ...prev, storeId: storeIdValue }));
             setPhoneFormData(prev => ({ ...prev, storeId: storeIdValue }));
         }
@@ -253,7 +262,8 @@ export default function ManagerInventory() {
         return () => clearTimeout(timeout);
     }, [itemFilters.search, userStore]);
 
-    useEffect(() => { setPhoneCurrentPage(1); }, [searchKeyword]);
+    useEffect(() => { setPhoneCurrentPage(1); }, [searchKeyword, selectedBrandFilter]); 
+    useEffect(() => { setItemCurrentPage(1); }, [selectedBaseFilter]); 
     useEffect(() => { setDetailItemCurrentPage(1); }, [detailItemSearch, detailItemSortPrice]);
     useEffect(() => { setDetailPhoneCurrentPage(1); }, [detailPhoneSearch, detailPhoneSortPrice]);
 
@@ -270,7 +280,8 @@ export default function ManagerInventory() {
         const data = await fetchItemsApi({
             limit: 9999,
             search: itemFilters.search, status: itemFilters.status, 
-            item_type: itemFilters.item_type, storeId: userStore 
+            item_type: itemFilters.item_type, 
+            storeId: userStore?.id 
         });
         if (data) setItems(data.data || []);
         setItemLoading(false);
@@ -278,27 +289,49 @@ export default function ManagerInventory() {
 
     const loadPhones = async () => {
         setPhoneLoading(true);
-        const data = await fetchPhonesApi(userStore);
+        const data = await fetchPhonesApi(userStore?.id); 
         setPhones(data);
         setPhoneLoading(false);
     };
 
+
     const handleDeleteItem = async (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa linh kiện này?")) {
+        const result = await Swal.fire({
+            title: 'Xác nhận xóa?', text: "Hành động này không thể hoàn tác!", icon: 'warning',
+            showCancelButton: true, confirmButtonText: 'Xóa ngay', cancelButtonText: 'Hủy', buttonsStyling: false, 
+            customClass: {
+                confirmButton: 'bg-red-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-600 transition ml-3 shadow-md',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 transition shadow-md'
+            }
+        });
+        if (result.isConfirmed) {
             const success = await deleteItemApi(id);
-            if (success) loadItems();
+            if (success) {
+                Swal.fire({ title: 'Thành công!', text: 'Linh kiện đã được xóa.', icon: 'success', timer: 1500, showConfirmButton: false });
+                loadItems();
+            }
         }
     };
 
     const handleDeletePhone = async (id) => {
-        const res = await Swal.fire({ title: 'Xóa điện thoại?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', buttonsStyling: false, customClass: { confirmButton: 'bg-red-600 text-white px-4 py-2 rounded mr-2', cancelButton: 'bg-gray-500 text-white px-4 py-2 rounded' }});
-        if (res.isConfirmed) {
+        const result = await Swal.fire({
+            title: 'Bạn có chắc chắn?', text: "Máy sẽ bị xóa khỏi kho và không thể hoàn tác!", icon: 'warning',
+            showCancelButton: true, confirmButtonText: 'Xóa ngay', cancelButtonText: 'Hủy bỏ', buttonsStyling: false,
+            customClass: {
+                confirmButton: 'bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 ml-3 shadow-sm',
+                cancelButton: 'bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-600 shadow-sm'
+            }
+        });
+        if (result.isConfirmed) {
             const success = await deletePhoneApi(id);
-            if (success) { Swal.fire({ title: 'Thành công', icon: 'success', timer: 1500, showConfirmButton: false }); loadPhones(); }
+            if (success) {
+                Swal.fire({ title: 'Đã xóa!', text: 'Máy đã được xóa khỏi hệ thống.', icon: 'success', timer: 1500, showConfirmButton: false }); 
+                loadPhones(); 
+            }
         }
     };
 
-    const handlePrintQR = async (type, id) => {
+    const handlePrintQR = async (type, id, serialCode) => {
         const blob = await getQrBlobApi(type, id);
         if (!blob) return;
 
@@ -324,11 +357,18 @@ export default function ManagerInventory() {
               <style>
                 @page { margin: 0; }
                 html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
-                body { display: flex; align-items: center; justify-content: center; }
+                body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                .qr-container { display: flex; flex-direction: column; align-items: center; gap: 10px; }
                 img { width: 180px; height: 180px; object-fit: contain; }
+                .serial-code { font-family: monospace; font-size: 14px; font-weight: bold; color: #000; }
               </style>
             </head>
-            <body><img id="qr-print-image" src="${qrUrl}" alt="QR code" /></body>
+            <body>
+              <div class="qr-container">
+                <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                <div class="serial-code">${serialCode}</div>
+              </div>
+            </body>
           </html>
         `);
         iframeDoc.close();
@@ -348,12 +388,23 @@ export default function ManagerInventory() {
 
     const handleItemSubmit = async (e) => {
         e.preventDefault();
-        const success = await submitItemApi(isEditingItem, editingItemId, itemFormData);
-        if (success) {
+      
+        const result = await submitItemApi(isEditingItem, editingItemId, itemFormData);
+        
+        if (result.success) {
             setShowItemModal(false);
             Swal.fire({ title: 'Thành công!', text: 'Lưu linh kiện thành công.', icon: 'success', timer: 1500, showConfirmButton: false });
             loadItems();
-        } else Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Có lỗi xảy ra, vui lòng kiểm tra mã Serial.'});
+        } else {
+         
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Lỗi thao tác', 
+                text: result.message, 
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
     };
 
     const handlePhoneSubmit = async (e) => {
@@ -361,21 +412,35 @@ export default function ManagerInventory() {
         const submitData = new FormData();
         submitData.append("serialCode", phoneFormData.serialCode); submitData.append("phoneModelId", phoneFormData.phoneModelId);
         submitData.append("storeId", phoneFormData.storeId); submitData.append("colorName", phoneFormData.colorName);
+        
         let finalCapacity = phoneFormData.capacity.trim().toUpperCase();
         if (finalCapacity && !finalCapacity.includes('GB') && !finalCapacity.includes('TB')) finalCapacity += 'GB';
+        
         submitData.append("capacity", finalCapacity); submitData.append("grade", phoneFormData.grade);
         submitData.append("status", phoneFormData.status); submitData.append("importPrice", phoneFormData.importPrice);
         submitData.append("sellingPrice", phoneFormData.sellingPrice); submitData.append("warrantyPeriod", phoneFormData.warrantyPeriod);
         submitData.append("source", phoneFormData.source); submitData.append("notes", phoneFormData.notes);
+        
         if (isEditingPhone && phoneFormData.retainedImages?.length > 0) submitData.append("retainedImages", JSON.stringify(phoneFormData.retainedImages));
         if (phoneFormData.imageFiles?.length > 0) phoneFormData.imageFiles.forEach(file => submitData.append("images", file));
 
-        const success = await submitPhoneApi(isEditingPhone, editingPhoneId, submitData);
-        if (success) {
+      
+        const result = await submitPhoneApi(isEditingPhone, editingPhoneId, submitData);
+        
+        if (result.success) {
             setShowPhoneModal(false);
             Swal.fire({ title: 'Thành công!', text: 'Lưu điện thoại thành công.', icon: 'success', timer: 1500, showConfirmButton: false });
             loadPhones();
-        } else Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Có lỗi xảy ra, vui lòng kiểm tra mã Serial.'});
+        } else {
+        
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Lỗi thao tác', 
+                text: result.message, 
+                buttonsStyling: false,
+                customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }
+            });
+        }
     };
 
 
@@ -388,14 +453,14 @@ export default function ManagerInventory() {
 
             setItemFormData({
                 name: item.name || '', serialCode: item.serialCode || '', item_type: item.item_type?._id || '',
-                status: item.status || 'in_stock', storeId: userStore, origin: item.origin || 'new', sourceDevice: item.sourceDevice || '', 
+                status: item.status || 'in_stock', storeId: userStore?.id, origin: item.origin || 'new', sourceDevice: item.sourceDevice || '', 
                 quality: item.quality || '', warrantyPeriod: item.warrantyPeriod || (item.origin === 'new' ? 12 : 3),
                 baseCost: item.baseCost || '', price: item.price || '', ram: item.ram || '', capacity: item.capacity || '', color: item.color || ''
             });
         } else {
             setIsEditingItem(false); setEditingItemId(null);
             setSelectedBaseCategory('');
-            setItemFormData({ ...initialItemFormState, storeId: userStore });
+            setItemFormData({ ...initialItemFormState, storeId: userStore?.id });
         }
         setShowItemModal(true);
     };
@@ -409,7 +474,7 @@ export default function ManagerInventory() {
 
             setPhoneFormData({
                 serialCode: phone.serialCode || '', phoneModelId: phone.phoneModelId?._id || phone.phoneModelId,
-                storeId: userStore, colorName: phone.colorName || '', capacity: phone.capacity || '', grade: phone.grade || 'Mới',
+                storeId: userStore?.id, colorName: phone.colorName || '', capacity: phone.capacity || '', grade: phone.grade || 'Mới',
                 status: phone.status || 'in_stock', importPrice: phone.importPrice || 0, sellingPrice: phone.sellingPrice || 0,
                 warrantyPeriod: phone.warrantyPeriod || 12, source: phone.source || 'supplier', notes: phone.notes || '',
                 imageFiles: [], previewImages: phone.specificImages || [], retainedImages: phone.specificImages || []
@@ -417,13 +482,13 @@ export default function ManagerInventory() {
         } else {
             setIsEditingPhone(false); setEditingPhoneId(null);
             setSelectedFormBrand('');
-            setPhoneFormData({ ...initialPhoneFormState, storeId: userStore });
+            setPhoneFormData({ ...initialPhoneFormState, storeId: userStore?.id });
         }
         setShowPhoneModal(true);
     };
 
     const handleGenerateItemSerial = () => {
-        if (!itemFormData.item_type) return toast.warning("Vui lòng chọn Phân loại linh kiện trước!");
+        if (!itemFormData.item_type) return Swal.fire({icon: 'warning', title: 'Thiếu thông tin!', text: 'Vui lòng chọn Phân loại linh kiện trước!'});
         const selectedType = itemTypes.find(t => t._id === itemFormData.item_type);
         if (!selectedType) return;
         const date = new Date();
@@ -433,7 +498,7 @@ export default function ManagerInventory() {
     };
 
     const handleGeneratePhoneSerial = () => {
-        if (!phoneFormData.phoneModelId) return toast.warning("Vui lòng chọn Dòng máy trước!");
+        if (!phoneFormData.phoneModelId) return Swal.fire({icon: 'warning', title: 'Thiếu thông tin!', text: 'Vui lòng chọn Dòng máy trước!'});
         const selectedModel = models.find(m => m._id === phoneFormData.phoneModelId);
         if (!selectedModel) return;
 
@@ -446,6 +511,8 @@ export default function ManagerInventory() {
         const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
         setPhoneFormData({ ...phoneFormData, serialCode: `${prefix}-${ddmmyyyy}-${randomStr}` });
     };
+
+
     const handlePhoneFileChange = (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
@@ -471,18 +538,21 @@ export default function ManagerInventory() {
     
             if (newTotalImages > 5) {
                 Swal.fire({ icon: 'warning', title: 'Vượt quá giới hạn!', text: `Tối đa 5 ảnh. Bạn đang có ${currentTotalImages} ảnh. Vui lòng chọn thêm tối đa ${5 - currentTotalImages} ảnh.`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
-                e.target.value = null; return; 
+                e.target.value = null;
+                return; 
             }
             if (hasDuplicateFile) {
                 Swal.fire({ icon: 'info', title: 'Bỏ qua ảnh trùng!', text: 'Vài ảnh bị bỏ qua do trùng lặp.', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold' }});
             } else if (hasOversizedFile) { 
                 Swal.fire({ icon: 'error', title: 'Ảnh quá lớn!', text: 'Ảnh > 10MB đã bị loại bỏ.', buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold' }});
             }
-            e.target.value = null; 
+            
             if (validFiles.length > 0) {
                 const newPreviews = validFiles.map(file => URL.createObjectURL(file));
                 setPhoneFormData(prev => ({ ...prev, imageFiles: [...prev.imageFiles, ...validFiles], previewImages: [...prev.previewImages, ...newPreviews] }));
             }
+            
+            e.target.value = null; 
         }
     };
     
@@ -501,6 +571,8 @@ export default function ManagerInventory() {
             return { ...prev, previewImages: newPreviewImages, imageFiles: newImageFiles, retainedImages: newRetainedImages };
         });
     };
+
+
     const filteredItemTypesForModal = useMemo(() => {
         if (!selectedBaseCategory) return []; 
         return itemTypes.filter(t => getBaseCodeFromItemTypeCode(t.code) === selectedBaseCategory);
@@ -510,12 +582,18 @@ export default function ManagerInventory() {
         const result = {};
         items.forEach(item => {
             if (item.status === 'sold' || item.status === 'assembled_and_sold' || item.status === 'consumed') return;
+            
+    
+            const typeCode = item.item_type?.code || 'OTH';
+            const base = getBaseCodeFromItemTypeCode(typeCode);
+            if (selectedBaseFilter && base !== selectedBaseFilter) return;
+
             const typeName = item.item_type?.name || 'Loại không xác định';
             if (!result[typeName]) result[typeName] = [];
             result[typeName].push(item);
         });
         return Object.entries(result);
-    }, [items]);
+    }, [items, selectedBaseFilter]);
 
     const paginatedItemGroups = useMemo(() => {
         const totalGroups = groupedItemData.length;
@@ -571,8 +649,13 @@ export default function ManagerInventory() {
     const groupedPhoneData = useMemo(() => {
         const result = {};
         const safeKeyword = searchKeyword.toLowerCase();
+     
         const filtered = phones.filter(p => {
             if (p.status === 'sold') return false; 
+            
+            const brandName = p.phoneModelId?.brand?.name || p.phoneModelId?.brand || 'Hãng khác';
+            if (selectedBrandFilter && brandName !== selectedBrandFilter) return false;
+
             const serialMatch = (p.serialCode || '').toLowerCase().includes(safeKeyword);
             const nameMatch = (p.phoneModelId?.name || '').toLowerCase().includes(safeKeyword);
             return serialMatch || nameMatch;
@@ -584,7 +667,7 @@ export default function ManagerInventory() {
             result[modelName].push(phone);
         });
         return Object.entries(result);
-    }, [phones, searchKeyword]);
+    }, [phones, searchKeyword, selectedBrandFilter]);
 
     const paginatedPhoneGroups = useMemo(() => {
         const totalGroups = groupedPhoneData.length;
@@ -622,10 +705,12 @@ export default function ManagerInventory() {
 
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
+
     const selectedItemTypeObj = itemTypes.find(t => t._id === itemFormData.item_type);
     const selectedItemTypeName = selectedItemTypeObj ? selectedItemTypeObj.name.toLowerCase() : '';
     const isMainboard = selectedItemTypeName.includes('main');
     const isColorPart = selectedItemTypeName.includes('vỏ') || selectedItemTypeName.includes('kính') || selectedItemTypeName.includes('màn') || selectedItemTypeName.includes('camera') || selectedItemTypeName.includes('khay sim');
+
 
     return (
         <div className="flex flex-col h-full space-y-6">
@@ -646,6 +731,7 @@ export default function ManagerInventory() {
                     </button>
                 </div>
 
+          
                 {activeTab === 'items' && (
                     <div className="p-6 flex flex-col h-[calc(100vh-200px)]">
                         <div className="flex justify-between items-center mb-6 shrink-0">
@@ -655,33 +741,44 @@ export default function ManagerInventory() {
                             </button>
                         </div>
 
-                        {/* Filters */}
-                        <div className="bg-gray-50 rounded-xl p-4 flex flex-wrap gap-4 items-center mb-6 shrink-0 border border-gray-100">
-                            <div className="relative flex-1 min-w-[250px]">
+                 
+                        <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col md:flex-row gap-4 items-center border border-gray-100 mb-6 shrink-0">
+                            <div className="relative min-w-[250px] w-full md:w-auto">
+                                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                                <select value={selectedBaseFilter} onChange={(e) => setSelectedBaseFilter(e.target.value)} className="w-full appearance-none border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer">
+                                    <option value="">Tất cả loại linh kiện</option>
+                                    {Object.entries(BASE_CODES).map(([code, label]) => (
+                                        <option key={code} value={code}>{label}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                            </div>
+                            
+                            <div className="relative flex-1 w-full min-w-[250px]">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                 <input 
-                                    type="text" placeholder="Tìm theo tên nhóm (Màn hình IP13)..." 
+                                    type="text" placeholder="Tìm theo tên nhóm (Ví dụ: Màn hình Iphone 13)..." 
                                     value={itemFilters.search} onChange={e => setItemFilters({...itemFilters, search: e.target.value})}
-                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg focus:border-blue-500 outline-none text-sm"
                                 />
                             </div>
-                            <select value={itemFilters.item_type} onChange={e => setItemFilters({...itemFilters, item_type: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                <option value="">Tất cả phân loại</option>
-                                {itemTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                            </select>
-                            <select value={itemFilters.status} onChange={e => setItemFilters({...itemFilters, status: e.target.value})} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                <option value="">Tất cả trạng thái</option>
-                                <option value="in_stock">Đang tồn kho</option>
-                                <option value="sold">Đã bán</option>
-                                <option value="repairing">Đang lắp ráp</option>
-                            </select>
-                        </div>
 
+                            <div className="relative min-w-[200px] w-full md:w-auto">
+                                <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                                <select value={itemFilters.status} onChange={e => setItemFilters({...itemFilters, status: e.target.value})} className="appearance-none border border-gray-200 rounded-lg pl-9 pr-8 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50 w-full font-semibold cursor-pointer">
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="in_stock">Đang tồn kho</option>
+                                    <option value="sold">Đã xuất (bán/ráp)</option>
+                                    <option value="defective">Hàng lỗi</option>
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                            </div>
+                        </div>
                         <div className="flex-1 overflow-y-auto pb-4">
                             {itemLoading ? (
                                 <div className="p-20 flex justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div></div>
                             ) : paginatedItemGroups.groups.length === 0 ? (
-                                <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy linh kiện nào.</div>
+                                <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">Không tìm thấy nhóm linh kiện nào.</div>
                             ) : (
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                     <table className="w-full text-left text-sm whitespace-nowrap">
@@ -727,11 +824,7 @@ export default function ManagerInventory() {
                                     <span className="text-gray-300">|</span>
                                     <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedItemGroups.totalItemsCount}</strong> linh kiện</span>
                                 </div>
-                                <CustomPagination 
-                                    currentPage={itemCurrentPage} 
-                                    totalPages={paginatedItemGroups.totalPages} 
-                                    onPageChange={setItemCurrentPage} 
-                                />
+                                <CustomPagination currentPage={itemCurrentPage} totalPages={paginatedItemGroups.totalPages} onPageChange={setItemCurrentPage} />
                             </div>
                         )}
                     </div>
@@ -741,15 +834,24 @@ export default function ManagerInventory() {
                     <div className="p-6 flex flex-col h-[calc(100vh-200px)]">
                         <div className="flex justify-between items-center mb-6 shrink-0">
                             <h2 className="text-lg font-semibold text-gray-800">Kho Điện Thoại</h2>
-                            <button onClick={() => handleOpenPhoneModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm">
+                            <button onClick={() => handleOpenPhoneModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 shadow-md transition">
                                 <Plus size={20} /><span>Nhập Máy Mới</span>
                             </button>
                         </div>
 
-                        <div className="bg-gray-50 rounded-xl p-4 mb-6 shrink-0 border border-gray-100">
-                            <div className="relative w-full md:w-1/2">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                                <input type="text" placeholder="Tìm tên dòng máy (VD: iPhone 13)..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 bg-white rounded-lg outline-none focus:border-blue-500 text-sm" />
+                   
+                        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col md:flex-row gap-4 mb-6 shrink-0">
+                            <div className="relative min-w-[200px] w-full md:w-auto">
+                                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                                <select value={selectedBrandFilter} onChange={(e) => setSelectedBrandFilter(e.target.value)} className="w-full appearance-none border border-gray-200 bg-gray-50 text-sm font-semibold py-2.5 pl-9 pr-8 rounded-lg outline-none focus:border-blue-500 cursor-pointer">
+                                    <option value="">Tất cả Hãng (Brands)</option>
+                                    {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                            </div>
+                            <div className="relative flex-1 w-full min-w-[250px]">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                <input type="text" placeholder="Tìm theo tên dòng máy (Ví dụ: Iphone 13)..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-500 text-sm" />
                             </div>
                         </div>
 
@@ -803,20 +905,17 @@ export default function ManagerInventory() {
                                     <span className="text-gray-300">|</span>
                                     <span>Tổng tìm thấy: <strong className="text-gray-800">{paginatedPhoneGroups.totalItemsCount}</strong> chiếc</span>
                                 </div>
-                                <CustomPagination 
-                                    currentPage={phoneCurrentPage} 
-                                    totalPages={paginatedPhoneGroups.totalPages} 
-                                    onPageChange={setPhoneCurrentPage} 
-                                />
+                                <CustomPagination currentPage={phoneCurrentPage} totalPages={paginatedPhoneGroups.totalPages} onPageChange={setPhoneCurrentPage} />
                             </div>
                         )}
                     </div>
                 )}
             </div>
 
+     
             {showItemDetailModal && selectedItemTypeGroup && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="flex justify-between items-center p-5 border-b bg-gray-50 shrink-0">
                             <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2"><Package className="text-blue-600" /> Chi tiết: {selectedItemTypeGroup}</h2>
                             <button onClick={() => setShowItemDetailModal(false)} className="text-gray-400 hover:text-red-500 bg-white p-1 rounded-lg border border-gray-200 transition"><X size={24}/></button>
@@ -855,7 +954,7 @@ export default function ManagerInventory() {
                                                 <div className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</div>
                                                 <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border truncate max-w-full">{item.serialCode}</div>
                                             </td>
-                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('item', item._id)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
+                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('item', item._id, item.serialCode)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
                                             <td className="px-4 py-4 text-xs text-gray-600 truncate">
                                                 <div className="mb-1.5">{item.origin === 'disassembled' ? <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Bóc máy</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Hàng mới</span>}</div>
                                                 {(item.ram || item.capacity || item.color) ? (<div className="flex gap-2 truncate">{item.ram && <span>RAM: <strong>{item.ram}</strong></span>}{item.capacity && <span>ROM: <strong>{item.capacity}</strong></span>}{item.color && <span>Màu: <strong>{item.color}</strong></span>}</div>) : <span className="text-gray-400 italic">Tiêu chuẩn</span>}
@@ -865,38 +964,34 @@ export default function ManagerInventory() {
                                                 <div className="font-bold text-red-600 truncate text-sm">{formatMoney(item.price)}</div>
                                             </td>
                                             <td className="px-4 py-4 text-center truncate">
-                                                {item.status === 'in_stock' ? <span className="text-green-600 font-bold text-xs">Sẵn sàng</span> : item.status === 'sold' ? <span className="text-gray-500 font-bold text-xs">Đã xuất</span> : <span className="text-yellow-600 font-bold text-xs">{item.status}</span>}
+                                                {item.status === 'in_stock' ? <span className="text-green-600 font-bold text-xs">Sẵn sàng</span> : 
+                                                 item.status === 'reserved' ? <span className="bg-yellow-100 text-yellow-700 border border-yellow-200 px-2 py-1 rounded text-xs font-bold inline-block">Đặt trước</span> :
+                                                 <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold inline-block">{item.status}</span>}
                                             </td>
                                             <td className="px-4 py-4 text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <button onClick={() => handleOpenItemModal(item)} className="text-blue-600 hover:bg-blue-100 p-2 rounded-lg border border-transparent hover:border-blue-200"><Edit size={16}/></button>
-                                                
+                                                    <button onClick={() => handleDeleteItem(item._id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg border border-transparent hover:border-red-200"><Trash2 size={16}/></button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {detailItemsProcessed.items.length === 0 && (<tr><td colSpan="6" className="text-center py-10 text-gray-500 italic">Không tìm thấy linh kiện khớp bộ lọc.</td></tr>)}
                                 </tbody>
                             </table>
                         </div>
-
                         {detailItemsProcessed.totalCount > 0 && (
                             <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
-                                <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailItemCurrentPage}</strong> / {detailItemsProcessed.totalPages} (Tổng: {detailItemsProcessed.totalCount})</span>
-                                <CustomPagination 
-                                    currentPage={detailItemCurrentPage} 
-                                    totalPages={detailItemsProcessed.totalPages} 
-                                    onPageChange={setDetailItemCurrentPage} 
-                                />
+                                <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailItemCurrentPage}</strong> / {detailItemsProcessed.totalPages}</span>
+                                <CustomPagination currentPage={detailItemCurrentPage} totalPages={detailItemsProcessed.totalPages} onPageChange={setDetailItemCurrentPage} />
                             </div>
                         )}
                     </div>
                 </div>
             )}
-
+          
             {showPhoneDetailModal && selectedPhoneModelGroup && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="flex justify-between items-center p-5 border-b bg-gray-50 shrink-0">
                             <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2"><Smartphone className="text-blue-600" /> Chi tiết: {selectedPhoneModelGroup}</h2>
                             <button onClick={() => setShowPhoneDetailModal(false)} className="text-gray-400 hover:text-red-500 bg-white p-1 rounded-lg border border-gray-200 transition"><X size={24}/></button>
@@ -937,12 +1032,12 @@ export default function ManagerInventory() {
                                                         {phone.specificImages?.length > 0 ? <img src={phone.specificImages[0]} alt="img" className="w-full h-full object-cover" /> : <ImageIcon size={16} className="text-gray-300"/>}
                                                     </div>
                                                     <div className="truncate">
-                                                        <div className="font-bold text-gray-800 text-sm truncate" title={phone.phoneModelId?.name}>{phone.phoneModelId?.name}</div>
+                                                        <div className="font-bold text-gray-800 text-sm truncate">{phone.phoneModelId?.name}</div>
                                                         <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-100 px-2 py-0.5 rounded inline-block border truncate max-w-full">{phone.serialCode}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('phone', phone._id)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
+                                            <td className="px-4 py-4 text-center"><button onClick={() => handlePrintQR('phone', phone._id, phone.serialCode)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded transition"><QrCode size={18} /></button></td>
                                             <td className="px-4 py-4 text-xs text-gray-600 truncate">
                                                 <div className="mb-1.5"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">{phone.grade}</span></div>
                                                 <div className="flex gap-2 truncate"><span>Màu: <strong>{phone.colorName}</strong></span><span>ROM: <strong>{phone.capacity}</strong></span></div>
@@ -952,9 +1047,11 @@ export default function ManagerInventory() {
                                                 <div className="font-bold text-red-600 truncate text-sm">{formatMoney(phone.sellingPrice)}</div>
                                             </td>
                                             <td className="px-4 py-4 text-center truncate">
-                                                {phone.status === 'in_stock' ? <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Sẵn sàng</span> : 
-                                                 phone.status === 'sold' ? <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">Đã xuất</span> : 
-                                                 <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">{phone.status}</span>}
+                                                {phone.status === 'in_stock' ? <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold inline-block">Sẵn sàng</span> : 
+                                                phone.status === 'waiting_for_tech_decision' ? <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold inline-block">Đang xử lý</span> :
+                                                phone.status === 'reserved' ? <span className="bg-yellow-100 text-yellow-700 border border-yellow-200 px-2 py-1 rounded text-xs font-bold inline-block">Đặt trước</span> :
+                                                phone.status === 'defective' ? <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold inline-block">Thiếu linh kiện</span> :
+                                                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold inline-block">{phone.status}</span>}
                                             </td>
                                             <td className="px-4 py-4 text-right">
                                                 <div className="flex justify-end gap-2">
@@ -964,315 +1061,257 @@ export default function ManagerInventory() {
                                             </td>
                                         </tr>
                                     ))}
-                                    {detailPhonesProcessed.items.length === 0 && (<tr><td colSpan="6" className="text-center py-10 text-gray-500 italic">Không tìm thấy máy khớp bộ lọc.</td></tr>)}
                                 </tbody>
                             </table>
                         </div>
-
                         {detailPhonesProcessed.totalCount > 0 && (
                             <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
-                                <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailPhoneCurrentPage}</strong> / {detailPhonesProcessed.totalPages} (Tổng: {detailPhonesProcessed.totalCount})</span>
-                                <CustomPagination 
-                                    currentPage={detailPhoneCurrentPage} 
-                                    totalPages={detailPhonesProcessed.totalPages} 
-                                    onPageChange={setDetailPhoneCurrentPage} 
-                                />
+                                <span className="text-sm text-gray-600">Trang <strong className="text-blue-600">{detailPhoneCurrentPage}</strong> / {detailPhonesProcessed.totalPages}</span>
+                                <CustomPagination currentPage={detailPhoneCurrentPage} totalPages={detailPhonesProcessed.totalPages} onPageChange={setDetailPhoneCurrentPage} />
                             </div>
                         )}
                     </div>
                 </div>
             )}
 
-            {showItemModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white z-10">
-                            <h2 className="text-xl font-bold text-gray-800">{isEditingItem ? 'Sửa thông tin linh kiện' : 'Nhập linh kiện vào kho'}</h2>
-                            <button onClick={() => setShowItemModal(false)} className="text-gray-400 hover:text-red-500"><X size={24}/></button>
+           
+{showItemModal && (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white z-10">
+                <h2 className="text-xl font-bold text-gray-800">{isEditingItem ? 'Sửa thông tin linh kiện' : 'Nhập linh kiện vào kho'}</h2>
+                <button onClick={() => setShowItemModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24}/></button>
+            </div>
+
+            <form onSubmit={handleItemSubmit} className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  
+                    <div className="space-y-5">
+                        <h3 className="font-bold text-blue-800 border-b border-blue-100 pb-2 uppercase text-sm tracking-wide">1. PHÂN LOẠI & THÔNG SỐ</h3>
+                        <div className="bg-blue-50/30 p-5 rounded-xl border border-blue-100 space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold mb-1.5 text-blue-900">Danh mục chính *</label>
+                                <select value={selectedBaseCategory} onChange={(e) => { setSelectedBaseCategory(e.target.value); setItemFormData({...itemFormData, item_type: '', name: '', serialCode: ''}); }} className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">-- Chọn Danh mục (VD: Màn hình, Pin...) --</option>
+                                    {Object.entries(BASE_CODES).map(([code, label]) => ( <option key={code} value={code}>{label}</option> ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-1.5 text-blue-900">Phân loại chi tiết *</label>
+                                <select required value={itemFormData.item_type} onChange={e => { const typeObj = itemTypes.find(t => t._id === e.target.value); setItemFormData({...itemFormData, item_type: e.target.value, name: typeObj ? `${typeObj.name} ` : itemFormData.name}); }} className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" disabled={!selectedBaseCategory}>
+                                    <option value="">-- Chọn Phân loại (VD: Màn hình IP14) --</option>
+                                    {filteredItemTypesForModal.map(t => ( <option key={t._id} value={t._id}>{t.name}</option> ))}
+                                </select>
+                            </div>
                         </div>
-
-                        <form onSubmit={handleItemSubmit} className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">1. Định danh & Phân loại</h3>
-                                    
-                                    <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 1: Chọn Danh mục chính <span className="text-red-500">*</span></label>
-                                            <select 
-                                                value={selectedBaseCategory} 
-                                                onChange={(e) => {
-                                                    setSelectedBaseCategory(e.target.value);
-                                                    setItemFormData({...itemFormData, item_type: '', name: '', serialCode: ''}); 
-                                                }} 
-                                                className="w-full border border-blue-200 bg-white p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value="">-- Chọn Danh mục (VD: Màn hình, Pin...) --</option>
-                                                {Object.entries(BASE_CODES).map(([code, label]) => (
-                                                    <option key={code} value={code}>{label}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold mb-1 text-blue-800">Bước 2: Chọn Phân loại chi tiết <span className="text-red-500">*</span></label>
-                                            <select 
-                                                required 
-                                                value={itemFormData.item_type} 
-                                                onChange={e => {
-                                                    const typeObj = itemTypes.find(t => t._id === e.target.value);
-                                                    setItemFormData({...itemFormData, item_type: e.target.value, name: typeObj?.name || ''});
-                                                }} 
-                                                className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                                disabled={!selectedBaseCategory}
-                                            >
-                                                <option value="">-- Chọn Phân loại (VD: Màn hình IP14) --</option>
-                                                {filteredItemTypesForModal.map(t => (
-                                                    <option key={t._id} value={t._id}>{t.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Tên linh kiện <span className="text-red-500">*</span></label>
-                                        <input required type="text" value={itemFormData.name} onChange={e => setItemFormData({...itemFormData, name: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Hệ thống tự điền, có thể sửa thêm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Mã Serial <span className="text-red-500">*</span></label>
-                                        <div className="flex gap-2">
-                                            <input required type="text" value={itemFormData.serialCode} onChange={e => setItemFormData({...itemFormData, serialCode: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono" placeholder="Nhập mã vạch hoặc nhấn Tạo mã" />
-                                            <button type="button" onClick={handleGenerateItemSerial} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 font-bold rounded-lg hover:bg-blue-100 transition whitespace-nowrap">Tạo mã</button>
-                                        </div>
-                                    </div>
-
-                                    {(isMainboard || isColorPart) && (
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
-                                            <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Thông số kỹ thuật (Chỉ dành cho Main / Vỏ)</h4>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {isMainboard && (
-                                                    <>
-                                                        <div>
-                                                            <label className="block text-xs font-semibold mb-1">RAM</label>
-                                                            <input type="text" value={itemFormData.ram} onChange={e => setItemFormData({...itemFormData, ram: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: 6GB" />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs font-semibold mb-1">ROM (Bộ nhớ)</label>
-                                                            <input type="text" value={itemFormData.capacity} onChange={e => setItemFormData({...itemFormData, capacity: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: 128GB" />
-                                                        </div>
-                                                    </>
-                                                )}
-                                                {isColorPart && (
-                                                    <div className="col-span-2">
-                                                        <label className="block text-xs font-semibold mb-1">Màu sắc</label>
-                                                        <input type="text" value={itemFormData.color} onChange={e => setItemFormData({...itemFormData, color: e.target.value})} className="w-full border p-2 rounded-lg outline-none focus:border-blue-500 text-sm" placeholder="VD: Đen Midnight..." />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1 text-gray-500">Cửa hàng / Kho chứa</label>
-                                        <select 
-                                            value={itemFormData.storeId} 
-                                            disabled 
-                                            className="w-full border p-2.5 rounded-lg outline-none bg-gray-100 text-gray-500 cursor-not-allowed font-semibold"
-                                        >
-                                            <option value={userStore}>Cửa hàng của bạn</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Trạng thái</label>
-                                        <select value={itemFormData.status} onChange={e => setItemFormData({...itemFormData, status: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="in_stock">Trong kho (Sẵn sàng)</option>
-                                            <option value="reserved">Đang giữ (Reserved)</option>
-                                            <option value="defective">Hàng lỗi</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h3 className="font-bold text-blue-800 border-b pb-2 uppercase text-sm">2. Nguồn gốc & Giá cả</h3>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-2">Nguồn gốc hàng</label>
-                                        <div className="flex gap-6 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                            <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="origin" value="new" checked={itemFormData.origin === 'new'} onChange={e => setItemFormData({...itemFormData, origin: e.target.value, warrantyPeriod: 12})} /> Mới (New)</label>
-                                            <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="origin" value="disassembled" checked={itemFormData.origin === 'disassembled'} onChange={e => setItemFormData({...itemFormData, origin: e.target.value, warrantyPeriod: 3})} /> Bóc Máy (Zin)</label>
-                                        </div>
-                                    </div>
-
-                                    {itemFormData.origin === 'disassembled' && (
-                                        <div className="bg-purple-50/50 p-4 rounded-xl space-y-4 border border-purple-100 shadow-inner">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-purple-900 mb-1">Bóc từ thiết bị nào?</label>
-                                                <input type="text" value={itemFormData.sourceDevice} onChange={e => setItemFormData({...itemFormData, sourceDevice: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: iPhone 14 Pro vỡ màn" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-semibold text-purple-900 mb-1">Chất lượng (Ngoại hình)</label>
-                                                <input type="text" value={itemFormData.quality} onChange={e => setItemFormData({...itemFormData, quality: e.target.value})} className="w-full border border-purple-200 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-purple-400" placeholder="VD: 98% - Zin nguyên bản" />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 gap-4 mt-2">
-                                        <div>
-                                            <label className="block text-sm font-semibold mb-1">Giá nhập (VNĐ)</label>
-                                            <input type="text" value={formatPriceInput(itemFormData.baseCost)} onChange={e => setItemFormData({...itemFormData, baseCost: parsePriceInput(e.target.value)})} className="w-full border p-2.5 rounded-lg outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold mb-1 text-red-600">Giá bán ra (VNĐ)</label>
-                                            <input type="text" value={formatPriceInput(itemFormData.price)} onChange={e => setItemFormData({...itemFormData, price: parsePriceInput(e.target.value)})} className="w-full border border-red-300 bg-red-50/30 p-2.5 rounded-lg outline-none font-bold" />
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="mt-2">
-                                        <label className="block text-sm font-semibold mb-1">Bảo hành (Tháng)</label>
-                                        <input type="number" value={itemFormData.warrantyPeriod} onChange={e => setItemFormData({...itemFormData, warrantyPeriod: e.target.value})} className="w-full border p-2.5 rounded-lg outline-none" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-8 pt-5 border-t flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowItemModal(false)} className="px-6 py-2.5 bg-gray-100 font-bold rounded-xl hover:bg-gray-200 text-gray-700 transition">Hủy</button>
-                                <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition">{isEditingItem ? 'Lưu Cập Nhật' : 'Lưu Dữ Liệu'}</button>
-                            </div>
-                        </form>
                     </div>
-                </div>
-            )}
-
-            {showPhoneModal && (
-                <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[60] p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between p-5 border-b bg-gray-50 shrink-0">
-                            <h2 className="text-xl font-bold text-gray-800">{isEditingPhone ? 'Cập nhật Thông tin Máy' : 'Nhập Máy Mới Vào Kho'}</h2>
-                            <button onClick={() => setShowPhoneModal(false)} className="text-gray-400 hover:text-red-500 transition bg-white p-1 rounded-full"><X size={24} /></button>
-                        </div>
-                        
-                        <form onSubmit={handlePhoneSubmit} className="overflow-y-auto flex-1 p-6 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        
-                                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 bg-blue-50/30 p-4 rounded-xl border border-blue-100">
-                                    <div>
-                                        <label className="block text-sm font-bold text-blue-800 mb-1.5">Bước 1: Chọn Hãng sản xuất <span className="text-red-500">*</span></label>
-                                        <select 
-                                            value={selectedFormBrand} 
-                                            onChange={(e) => {
-                                                setSelectedFormBrand(e.target.value);
-                                                setPhoneFormData({...phoneFormData, phoneModelId: ''}); 
-                                            }} 
-                                            className="w-full border border-blue-200 bg-white p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="">-- Chọn Hãng --</option>
-                                            {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-blue-800 mb-1.5">Bước 2: Chọn Dòng máy (Model) <span className="text-red-500">*</span></label>
-                                        <select 
-                                            value={phoneFormData.phoneModelId} 
-                                            onChange={e => setPhoneFormData({...phoneFormData, phoneModelId: e.target.value})} 
-                                            required 
-                                            disabled={!selectedFormBrand}
-                                            className="w-full border border-blue-200 bg-white p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                        >
-                                            <option value="">-- Chọn Model --</option>
-                                            {filteredModelsForForm.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-
-                
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Serial Code <span className="text-red-500">*</span></label>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={phoneFormData.serialCode} onChange={e => setPhoneFormData({...phoneFormData, serialCode: e.target.value.toUpperCase()})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500 font-mono" placeholder="Nhập hoặc tạo tự động"/>
-                                        <button type="button" onClick={handleGeneratePhoneSerial} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 font-bold rounded-xl hover:bg-blue-100 transition whitespace-nowrap">Tạo mã</button>
-                                    </div>
-                                </div>
 
                  
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Dung lượng (ROM) <span className="text-red-500">*</span></label>
-                                    <input type="text" value={phoneFormData.capacity} onChange={e => setPhoneFormData({...phoneFormData, capacity: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" placeholder="Chỉ cần nhập số, VD: 128 hoặc 256"/>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Màu sắc <span className="text-red-500">*</span></label>
-                                        <input type="text" value={phoneFormData.colorName} onChange={e => setPhoneFormData({...phoneFormData, colorName: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" placeholder="VD: Titan Tự Nhiên"/>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình thức <span className="text-red-500">*</span></label>
-                                        <select value={phoneFormData.grade} onChange={e => setPhoneFormData({...phoneFormData, grade: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
-                                            {['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn'].map(g => <option key={g} value={g}>{g}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình ảnh thực tế của máy (Chụp tình trạng xước xát nếu có)</label>
-                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer relative min-h-[100px]">
-                                    <input type="file" multiple accept="image/*" onChange={handlePhoneFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                        <div className="flex flex-wrap gap-3 justify-center mb-2 pointer-events-none">
-                                            {phoneFormData.previewImages?.length > 0 ? (
-                                                phoneFormData.previewImages.map((src, idx) => (
-                                                    <img key={idx} src={src} alt="preview" className="h-16 w-16 object-cover rounded-md shadow-sm border border-gray-200" />
-                                                ))
-                                            ) : (
-                                                <ImageIcon className="h-10 w-10 text-gray-300" />
-                                            )}
-                                        </div>
-                                        <span className="text-xs text-gray-500 font-medium pointer-events-none">
-                                            {phoneFormData.previewImages?.length > 0 ? 'Nhấn để chọn lại ảnh khác' : 'Nhấn vào đây để chọn ảnh (Có thể chọn nhiều ảnh)'}
-                                        </span>
-                                    </div>
-                                </div>
-                                
-                        
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Nguồn gốc</label>
-                                    <select value={phoneFormData.source} onChange={e => setPhoneFormData({...phoneFormData, source: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
-                                        <option value="supplier">Nhập từ nhà cung cấp</option>
-                                        <option value="customer_trade_in">Khách thu cũ đổi mới</option>
-                                        <option value="assembled">Máy tự ráp</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Trạng thái máy <span className="text-red-500">*</span></label>
-                                    <select value={phoneFormData.status} onChange={e => setPhoneFormData({...phoneFormData, status: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
-                                        <option value="in_stock">Sẵn sàng (Trong kho)</option>
-                                        <option value="reserved">Đang giữ (Đặt trước)</option>
-                                        <option value="waiting_for_tech_decision">Đang chờ xử lý</option>
-                                        <option value="defective">Hàng lỗi / Hỏng</option>
-                                    </select>
-                                </div>
-
-                      
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá vốn (VNĐ) <span className="text-red-500">*</span></label>
-                                    <input type="text" value={formatPriceInput(phoneFormData.importPrice)} onChange={e => setPhoneFormData({...phoneFormData, importPrice: parsePriceInput(e.target.value)})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formatPriceInput(phoneFormData.sellingPrice)} onChange={e => setPhoneFormData({...phoneFormData, sellingPrice: parsePriceInput(e.target.value)})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Bảo hành (Tháng)</label>
-                                        <input type="number" value={phoneFormData.warrantyPeriod} onChange={e => setPhoneFormData({...phoneFormData, warrantyPeriod: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" />
-                                    </div>
-                                </div>
+                    <div className="space-y-5">
+                        <h3 className="font-bold text-blue-800 border-b border-blue-100 pb-2 uppercase text-sm tracking-wide">2. NGUỒN GỐC & GIÁ BÁN</h3>
+                        <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">Tình trạng linh kiện</label>
+                            <div className="flex gap-6 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" name="origin" value="new" checked={itemFormData.origin === 'new'} onChange={e => setItemFormData({...itemFormData, origin: e.target.value, warrantyPeriod: 12})} /> Hàng Mới (New)</label>
+                                <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" name="origin" value="disassembled" checked={itemFormData.origin === 'disassembled'} onChange={e => setItemFormData({...itemFormData, origin: e.target.value, warrantyPeriod: 3})} /> Bóc Máy (Zin)</label>
                             </div>
-
-                            <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-gray-200 shrink-0">
-                                <button type="button" onClick={() => setShowPhoneModal(false)} className="px-5 py-2.5 text-gray-600 font-semibold border border-gray-300 rounded-xl hover:bg-gray-100 transition">Hủy bỏ</button>
-                                <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-500/20 transition">{isEditingPhone ? 'Lưu Cập Nhật' : 'Nhập Vào Kho'}</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold mb-1.5">Giá nhập (VNĐ)</label>
+                                <input type="text" value={formatPriceInput(itemFormData.baseCost)} onChange={e => setItemFormData({...itemFormData, baseCost: parsePriceInput(e.target.value)})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
                             </div>
-                        </form>
+                            <div>
+                                <label className="block text-sm font-bold mb-1.5 text-red-600">Giá bán ra (VNĐ) *</label>
+                                <input type="text" value={formatPriceInput(itemFormData.price)} onChange={e => setItemFormData({...itemFormData, price: parsePriceInput(e.target.value)})} className="w-full border-2 border-red-200 bg-red-50 p-2.5 rounded-lg font-bold text-red-700 outline-none focus:border-red-500" placeholder="0" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1.5">Thời gian Bảo hành (Tháng)</label>
+                            <input type="number" value={itemFormData.warrantyPeriod} onChange={e => setItemFormData({...itemFormData, warrantyPeriod: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
                     </div>
                 </div>
-            )}
+
+             
+                <div className="mt-8 pt-6 border-t border-gray-200 space-y-5">
+                    <h3 className="font-bold text-blue-800 border-b border-blue-100 pb-2 uppercase text-sm tracking-wide">3. THÔNG TIN HIỂN THỊ & QUẢN LÝ VỊ TRÍ</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-semibold mb-1.5">Tên linh kiện hiển thị *</label>
+                            <input required type="text" value={itemFormData.name} onChange={e => setItemFormData({...itemFormData, name: e.target.value})} className="w-full h-[46px] border border-gray-300 px-3 rounded-lg font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500" placeholder="VD: Mainboard iPhone 13 Zin..." />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1.5">Trạng thái tồn kho</label>
+                            <select value={itemFormData.status} onChange={e => setItemFormData({...itemFormData, status: e.target.value})} className="w-full h-[46px] border border-gray-300 px-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="in_stock">Trong kho (Sẵn sàng bán/ráp)</option>
+                                <option value="sold">Đã xuất (Đã bán/Lắp ráp xong)</option>
+                                <option value="defective">Hàng lỗi / Bảo hành</option>
+                            </select>
+                        </div>
+                        
+                     
+                        <div>
+                            <label className="block text-sm font-semibold mb-1.5">Kho nhận <span className="text-red-500">*</span></label>
+                            <input type="text" value={userStore ? userStore.name : "Đang tải..."} readOnly className="w-full h-[46px] border border-gray-300 px-3 rounded-lg bg-gray-100 text-gray-700 font-bold cursor-not-allowed outline-none shadow-inner" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1.5 text-gray-700">Mã Serial / Định danh *</label>
+                            <div className="flex gap-2 h-[46px]">
+                                <input required type="text" value={itemFormData.serialCode} onChange={e => setItemFormData({...itemFormData, serialCode: e.target.value})} className="w-full border border-gray-300 px-3 rounded-lg font-mono outline-none focus:ring-2 focus:ring-blue-500 h-full" placeholder="Nhập mã hoặc tạo tự động" />
+                                <button type="button" onClick={handleGenerateItemSerial} className="px-4 h-full bg-blue-100 text-blue-700 font-bold rounded-lg hover:bg-blue-200 transition shadow-sm whitespace-nowrap">Tạo mã</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-8 pt-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 -mx-6 -mb-6 p-5 rounded-b-2xl">
+                    <button type="button" onClick={() => setShowItemModal(false)} className="px-6 py-2.5 bg-white border border-gray-300 font-bold rounded-xl hover:bg-gray-100 text-gray-700 transition shadow-sm">Hủy bỏ</button>
+                    <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition">{isEditingItem ? 'Lưu Cập Nhật' : 'Thêm Vào Kho'}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+)}
+
+        
+{showPhoneModal && (
+    <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[60] p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[95vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between p-5 border-b bg-gray-50 shrink-0">
+                <h2 className="text-xl font-bold text-gray-800">{isEditingPhone ? 'Cập nhật Thông tin Máy' : 'Nhập Máy Mới Vào Kho'}</h2>
+                <button onClick={() => setShowPhoneModal(false)} className="text-gray-400 hover:text-red-500 transition bg-white p-1 rounded-full"><X size={24} /></button>
+            </div>
+            
+            <form onSubmit={handlePhoneSubmit} className="overflow-y-auto flex-1 p-6 space-y-6">
+  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-blue-50/30 p-5 rounded-xl border border-blue-100">
+                    <div>
+                        <label className="block text-sm font-bold text-blue-800 mb-1.5">Hãng sản xuất <span className="text-red-500">*</span></label>
+                        <select value={selectedFormBrand} onChange={(e) => { setSelectedFormBrand(e.target.value); setPhoneFormData({...phoneFormData, phoneModelId: ''}); }} className="w-full h-[46px] border border-blue-200 bg-white px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Chọn Hãng --</option>
+                            {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-blue-800 mb-1.5">Dòng máy (Model) <span className="text-red-500">*</span></label>
+                        <select required value={phoneFormData.phoneModelId} onChange={e => setPhoneFormData({...phoneFormData, phoneModelId: e.target.value})} disabled={!selectedFormBrand} className="w-full h-[46px] border border-blue-200 bg-white px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
+                            <option value="">-- Chọn Model --</option>
+                            {filteredModelsForForm.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Kho nhận <span className="text-red-500">*</span></label>
+                        <input type="text" value={userStore ? userStore.name : "Đang tải..."} readOnly className="w-full h-[46px] border border-gray-300 px-3 rounded-xl bg-gray-100 text-gray-700 font-bold cursor-not-allowed outline-none shadow-inner" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Serial Code <span className="text-red-500">*</span></label>
+                        <div className="flex gap-2 h-[46px]">
+                            <input type="text" value={phoneFormData.serialCode} onChange={e => setPhoneFormData({...phoneFormData, serialCode: e.target.value.toUpperCase()})} required className="w-full border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-mono h-full" placeholder="Nhập hoặc tạo tự động" />
+                            <button type="button" onClick={handleGeneratePhoneSerial} className="px-4 h-full bg-blue-50 text-blue-600 border border-blue-200 font-bold rounded-xl hover:bg-blue-100 transition shadow-sm whitespace-nowrap">Tạo mã</button>
+                        </div>
+                    </div>
+                </div>
+
+          
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Dung lượng (ROM) <span className="text-red-500">*</span></label>
+                        <input type="text" placeholder="Chỉ cần nhập số, VD: 128 hoặc 256" value={phoneFormData.capacity} onChange={e => setPhoneFormData({...phoneFormData, capacity: e.target.value})} required className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Màu sắc <span className="text-red-500">*</span></label>
+                        <input type="text" placeholder="VD: Titan Tự Nhiên" value={phoneFormData.colorName} onChange={e => setPhoneFormData({...phoneFormData, colorName: e.target.value})} required className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình thức <span className="text-red-500">*</span></label>
+                        <select value={phoneFormData.grade} onChange={e => setPhoneFormData({...phoneFormData, grade: e.target.value})} className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                            {['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn'].map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Hình ảnh thực tế của máy (Chụp tình trạng xước xát nếu có)</label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 min-h-[100px]">
+                        <div className="flex flex-wrap gap-3 mb-3">
+                            {phoneFormData.previewImages?.length > 0 ? phoneFormData.previewImages.map((src, idx) => (
+                                <div key={idx} className="relative group">
+                                    <img src={src} alt="preview" className="h-20 w-20 object-cover rounded-md shadow-sm border border-gray-200" />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemovePhoneImage(idx)}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-600"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            )) : null}
+                            
+                            <label className="h-20 w-20 border-2 border-dashed border-blue-300 rounded-md flex flex-col items-center justify-center text-blue-500 hover:bg-blue-50 cursor-pointer transition shadow-sm bg-white">
+                                <Plus size={24} />
+                                <span className="text-[10px] mt-1 font-semibold">Thêm ảnh</span>
+                                <input type="file" multiple accept="image/*" onChange={handlePhoneFileChange} className="hidden" />
+                            </label>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">Hỗ trợ tải lên nhiều ảnh (Dưới 10MB/ảnh)</span>
+                    </div>
+                </div>
+
+          
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-200">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Nguồn gốc</label>
+                        <select value={phoneFormData.source} onChange={e => setPhoneFormData({...phoneFormData, source: e.target.value})} className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="supplier">Nhập từ nhà cung cấp</option>
+                            <option value="customer_trade_in">Khách thu cũ đổi mới</option>
+                            <option value="assembled">Máy tự ráp</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Trạng thái máy <span className="text-red-500">*</span></label>
+                        <select value={phoneFormData.status} onChange={e => setPhoneFormData({...phoneFormData, status: e.target.value})} className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="in_stock">Sẵn sàng (Trong kho)</option>
+                            <option value="reserved">Đặt trước</option>
+                            <option value="waiting_for_tech_decision">Đang chờ xử lý</option>
+                            <option value="defective">Thiếu linh kiện</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá vốn (VNĐ) <span className="text-red-500">*</span></label>
+                        <input type="text" value={formatPriceInput(phoneFormData.importPrice)} onChange={e => setPhoneFormData({...phoneFormData, importPrice: parsePriceInput(e.target.value)})} required className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-red-600 mb-1.5">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
+                        <input type="text" value={formatPriceInput(phoneFormData.sellingPrice)} onChange={e => setPhoneFormData({...phoneFormData, sellingPrice: parsePriceInput(e.target.value)})} required className="w-full h-[46px] border-2 border-red-200 bg-red-50 px-3 rounded-xl outline-none focus:border-red-500 font-bold text-red-700" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Bảo hành (Tháng)</label>
+                        <input type="number" value={phoneFormData.warrantyPeriod} onChange={e => setPhoneFormData({...phoneFormData, warrantyPeriod: e.target.value})} className="w-full h-[46px] border border-gray-300 px-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 mt-4 bg-gray-50 -mx-6 -mb-6 p-5 rounded-b-2xl border-t border-gray-200">
+                    <button type="button" onClick={() => setShowPhoneModal(false)} className="px-6 py-2.5 text-gray-600 font-bold border border-gray-300 rounded-xl hover:bg-gray-100 transition shadow-sm">Hủy bỏ</button>
+                    <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition">{isEditingPhone ? 'Lưu Cập Nhật' : 'Nhập Vào Kho'}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+)}
+
+            <style jsx="true">{`
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+            `}</style>
         </div>
     );
 }

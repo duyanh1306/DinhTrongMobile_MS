@@ -33,16 +33,29 @@ const getItemTypeName = (itemTypeEntry) => {
 const normalizeDetailItems = (detailsData = []) =>
     detailsData.flatMap((detail) => {
         const rawItems = Array.isArray(detail?.itemId) ? detail.itemId : detail?.itemId ? [detail.itemId] : [];
+        const rawPhones = Array.isArray(detail?.phoneId) ? detail.phoneId : detail?.phoneId ? [detail.phoneId] : [];
 
-        return rawItems
-            .filter(Boolean)
-            .map((item) => ({
-                id: item._id,
-                name: item.name || item.serialCode || "Unknown item",
-                serialCode: item.serialCode || "N/A",
-                itemTypeId: getItemTypeId(item.item_type),
-                itemTypeName: getItemTypeName(item.item_type)
-            }));
+
+        const parsedItems = rawItems.filter(Boolean).map((item) => ({
+            id: item._id,
+            name: item.name || item.serialCode || "Unknown item",
+            serialCode: item.serialCode || "N/A",
+            itemTypeId: getItemTypeId(item.item_type),
+            itemTypeName: getItemTypeName(item.item_type)
+        }));
+
+        const parsedPhones = rawPhones.filter(Boolean).map((phone) => {
+            const modelName = phone.phoneModelId?.name || "Máy điện thoại";
+            return {
+                id: phone._id,
+                name: `${modelName} (${phone.colorName} - ${phone.capacity})`,
+                serialCode: phone.serialCode || "N/A",
+                itemTypeId: `${phone.phoneModelId?._id || phone.phoneModelId}_${phone.colorName}_${phone.capacity}`,
+                itemTypeName: "Điện thoại"
+            };
+        });
+
+        return [...parsedItems, ...parsedPhones];
     });
 
 const buildRequestedItems = (requestData, transferredItems = []) => {
@@ -52,7 +65,7 @@ const buildRequestedItems = (requestData, transferredItems = []) => {
         return acc;
     }, {});
 
-    return (requestData?.itemType || []).map((itemTypeEntry) => {
+    const itemRequests = (requestData?.itemType || []).map((itemTypeEntry) => {
         const itemTypeId = getItemTypeId(itemTypeEntry?.itemTypes || itemTypeEntry);
         const itemsForType = transferredItems.filter((item) => item.itemTypeId === itemTypeId);
         const requiredQuantity = itemTypeEntry?.quantity || 0;
@@ -65,9 +78,52 @@ const buildRequestedItems = (requestData, transferredItems = []) => {
             requiredQuantity,
             scannedQuantity,
             isValid: scannedQuantity === requiredQuantity,
-            transferredItems: itemsForType
+            transferredItems: itemsForType,
+            type: 'ITEM'
         };
     });
+
+    const phoneRequests = [];
+    const phonesList = requestData?.phones || [];
+    
+
+    const phoneGroups = {};
+    phonesList.forEach(phone => {
+         const modelId = phone.phoneModelId?._id || phone.phoneModelId;
+         const modelName = phone.phoneModelId?.name || "Máy chưa rõ tên";
+         const variationKey = `${modelId}_${phone.colorName}_${phone.capacity}`;
+         
+         if (!phoneGroups[variationKey]) {
+             phoneGroups[variationKey] = {
+                 id: variationKey,
+                 variationKey,
+                 name: `${modelName} (${phone.colorName} - ${phone.capacity})`,
+                 requiredQuantity: 0,
+                 type: 'PHONE',
+                 targetPhoneIds: []
+             };
+         }
+         phoneGroups[variationKey].requiredQuantity += 1;
+         phoneGroups[variationKey].targetPhoneIds.push(phone._id);
+    });
+
+   Object.values(phoneGroups).forEach(group => {
+         const scannedPhones = transferredItems.filter(item => item.itemTypeId === group.variationKey);
+         
+         phoneRequests.push({
+             id: group.id,
+             variationKey: group.variationKey,
+             name: group.name,
+             requiredQuantity: group.requiredQuantity,
+             scannedQuantity: scannedPhones.length,
+             isValid: scannedPhones.length === group.requiredQuantity,
+             transferredItems: scannedPhones,
+             type: 'PHONE',
+             targetPhoneIds: group.targetPhoneIds
+         });
+    });
+
+    return [...phoneRequests, ...itemRequests];
 };
 
 export default function ManagerTransferRequestDetail() {
@@ -511,6 +567,8 @@ export default function ManagerTransferRequestDetail() {
                 return <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full font-medium flex items-center gap-1"><Clock size={14}/> Chờ duyệt</span>;
             case "REJECTED":
                 return <span className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full font-medium flex items-center gap-1"><X size={14}/> Từ chối</span>;
+            case "DELIVERING":
+                return <span className="px-2.5 py-1 bg-purple-100 text-purple-800 text-xs rounded-md font-bold border border-purple-200 whitespace-nowrap"> Đang vận chuyển</span>;
             default:
                 return <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded-full font-medium">{status}</span>;
         }
@@ -605,7 +663,12 @@ export default function ManagerTransferRequestDetail() {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Người duyệt</label>
-                                <input type="text" value={transferRequest.approvedBy?.fullName || "Chưa có"} disabled className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" />
+                                <input 
+                                    type="text" 
+                                    value={transferRequest.approvedBy ? (transferRequest.approvedBy.fullName || transferRequest.approvedBy.name || "Đã duyệt") : "Chưa có"} 
+                                    disabled 
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold" 
+                                />
                             </div>
                         </div>
 
@@ -627,35 +690,7 @@ export default function ManagerTransferRequestDetail() {
                             <Package size={20} className="text-indigo-600"/> Kiểm tra sản phẩm
                         </h2>
 
-                        {transferRequest.status?.toUpperCase() === "APPROVED" && transferRequest.fromStoreId?._id === userStoreId && (
-                            <div className="mb-6 p-5 bg-blue-50/50 border border-blue-200 rounded-xl">
-                                <h3 className="text-md font-bold text-blue-800 mb-3 flex items-center gap-2">
-                                    <Scan size={18} className="text-blue-600"/> Thêm sản phẩm xuất kho
-                                </h3>
-                                <div className="flex flex-col sm:flex-row gap-3 items-end">
-                                    <div className="flex-1 w-full">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mã Serial Code (QR Code)</label>
-                                        <input
-                                            type="text"
-                                            value={qrCode}
-                                            onChange={(e) => setQrCode(e.target.value)}
-                                            onKeyPress={handleQRCodeKeyPress}
-                                            placeholder="Quét mã QR hoặc nhập mã sản phẩm..."
-                                            className="w-full px-4 py-2.5 border-2 border-blue-300 rounded-lg focus:border-blue-500 outline-none font-mono text-blue-900"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleAddItem}
-                                        disabled={!qrCode.trim()}
-                                        className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                    >
-                                        <Plus size={18}/> Thêm
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
+                       
                       
                         <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                             <table className="w-full text-left text-sm">

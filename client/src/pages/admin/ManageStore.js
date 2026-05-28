@@ -48,10 +48,13 @@ export default function ManageStore() {
       text: "Dữ liệu cửa hàng này sẽ không thể khôi phục sau khi xóa!",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
       confirmButtonText: "Có, xóa ngay!",
-      cancelButtonText: "Hủy"
+      cancelButtonText: "Hủy",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-red-600 text-white px-5 py-2.5 rounded-md font-bold hover:bg-red-700 mx-2 shadow-sm",
+        cancelButton: "bg-gray-500 text-white px-5 py-2.5 rounded-md font-bold hover:bg-gray-600 mx-2 shadow-sm"
+      }
     }).then(async (result) => {
       if (result.isConfirmed) {
         const isSuccess = await deleteStoreApi(id);

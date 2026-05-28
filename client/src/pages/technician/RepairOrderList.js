@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
-import { Wrench } from "lucide-react";
+import { Wrench, Plus } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import LoadingSpinner from "../../components/technician/shared/LoadingSpinner";
@@ -8,7 +8,6 @@ import TabNavigation from "../../components/technician/TabNavigation";
 import TradeInTab from "../../components/technician/trade-in/TradeInTab";
 import WaitingDecisionTab from "../../components/technician/waiting-decision/WaitingDecisionTab";
 import RepairOrdersTab from "../../components/technician/repair-orders/RepairOrdersTab";
-import { initialChecklist } from "../../constraints";
 
 const RepairOrderList = () => {
   const [activeTab, setActiveTab] = useState("TRADE_IN");
@@ -26,7 +25,7 @@ const RepairOrderList = () => {
     ram: "",
   });
 
-  const [checklist, setChecklist] = useState(initialChecklist);
+  const [checklist, setChecklist] = useState({});
   const isBasicInfoFilled =
     valuation.phoneModelId &&
     valuation.colorName &&
@@ -119,45 +118,75 @@ const RepairOrderList = () => {
     }
   };
 
-  const handleChecklistChange = (key, field, value) => {
+  const handleChecklistChange = (partCode, conditionObj) => {
     setChecklist((prev) => ({
       ...prev,
-      [key]: { ...prev[key], [field]: value },
+      [partCode]: conditionObj
     }));
   };
 
   const submitValuationDetailed = async (req) => {
     if (!valuation.phoneModelId || !valuation.colorName || !valuation.capacity || !valuation.ram)
-      return toast.error("Vui lòng điền đủ thông tin cấu hình!");
-    if (!valuation.price) return toast.error("Vui lòng chốt giá thu mua!");
+      return toast.error("Vui lòng điền đủ thông tin máy!");
+    if (!valuation.price) return toast.error("Vui lòng nhập giá thu mua dự kiến!");
 
-    const checklistStr = Object.values(checklist)
-      .map((item) => `- ${item.name}: ${item.status === "OK" ? "Hoạt động tốt" : `Kém/Hỏng (${item.detail})`}`)
-      .join("\n");
-    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: Màu ${valuation.colorName} | ${valuation.capacity} | ${valuation.ram} RAM\n${checklistStr}\n- Ghi chú thêm: ${valuation.techNote || "Không có"}`;
+    const isNew = req.isNewPurchase;
+    const userString = localStorage.getItem("user");
+    const user = userString ? JSON.parse(userString) : null;
+
+    const checklistArr = Object.entries(checklist || {}).map(([code, item]) => ({
+      code,
+      name: item.partName || code,
+      label: item.label,
+      isFaulty: item.isFaulty,
+      deductionPercent: item.deductionPercent
+    }));
+
+    const checklistStr = checklistArr.map((item) => `- ${item.name}: ${item.label}`).join("\n");
+    const reportNote = `[BÁO CÁO KỸ THUẬT]\n- Cấu hình: ${valuation.capacity} | ${valuation.ram} RAM | Màu ${valuation.colorName}\n- Tình trạng:\n${checklistStr || "Máy bình thường"}\n- Ghi chú: ${valuation.techNote || "Không có"}`;
+
+    const payload = {
+      totalPrice: Number(valuation.price),
+      status: "Pending", 
+      note: reportNote,
+      checklistData: JSON.stringify(checklistArr), 
+      tempPhoneData: {
+        phoneModelId: valuation.phoneModelId,
+        capacity: valuation.capacity,
+        colorName: valuation.colorName,
+        ram: valuation.ram,
+      },
+      orderType: "PURCHASE",
+      customerName: req.customerName,
+      customerPhone: req.customerPhone,
+      storeId: user?.storeId?._id || user?.storeId,
+      createdBy: user?._id || user?.id
+    };
 
     try {
-      const payload = {
-        totalPrice: Number(valuation.price),
-        status: "Pending",
-        note: reportNote,
-        tempPhoneData: {
-          phoneModelId: valuation.phoneModelId,
-          capacity: valuation.capacity,
-          colorName: valuation.colorName,
-          ram: valuation.ram,
-        },
-      };
-      await axiosClient.put(`/purchase-orders/${req._id}`, payload);
-      toast.success("Đã lưu báo cáo định giá!");
+      if (isNew) {
+        await axiosClient.post("/purchase-orders", payload);
+        toast.success("Đã tạo đơn và chuyển thẳng cho Sale thanh toán!");
+      } else {
+
+        const orderId = req._id || req.id;
+        if (!orderId) {
+            return toast.error("Lỗi: Không lấy được ID đơn hàng để cập nhật!");
+        }
+        await axiosClient.put(`/purchase-orders/${orderId}`, payload);
+        toast.success("Đã cập nhật báo cáo và chuyển về Sale!");
+      }
+      
       setSelectedTradeIn(null);
+      setValuation({ price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" });
+      setChecklist({});
       fetchTradeInRequests();
       fetchAllCounts();
     } catch (err) {
-      toast.error("Lỗi cập nhật");
+      toast.error("Lỗi hệ thống: " + (err.response?.data?.message || err.message));
+      console.error(err);
     }
   };
-
   const fetchWaitingPhones = async () => {
     try {
       setLoading(true);
@@ -173,7 +202,7 @@ const RepairOrderList = () => {
 
   const fetchItemTypes = async () => {
     try {
-      const res = await axiosClient.get("/item_types");
+      const res = await axiosClient.get("/item_types/all");
       setItemTypes(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {}
   };
@@ -316,17 +345,25 @@ const RepairOrderList = () => {
       setOrderDetails([]);
     }
   };
-
-  const acceptRepairOrder = async (orderId, serviceId = [], itemIds = [], totalPrice = 0) => {
+const handleOpenNewPurchase = () => {
+    setSelectedTradeIn({ isNewPurchase: true, customerName: "", customerPhone: "" });
+    setValuation({ price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" });
+    setChecklist({});
+};
+  const acceptRepairOrder = async (orderId, serviceId = [], itemIds = [], totalPrice = 0, phoneModelId = null) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/accept`, {
         serviceId,
         itemIds,
-        totalPrice
+        totalPrice,
+        phoneModelId
       });
+
+      const modelObj = phoneModels.find(m => m._id === phoneModelId);
+      
       const updateOrderStatus = (orderList) =>
         orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "In Progress", totalPrice } : order
+          order._id === orderId ? { ...order, status: "In Progress", totalPrice, phoneModelId: modelObj || phoneModelId } : order
         );
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
@@ -337,13 +374,16 @@ const RepairOrderList = () => {
     }
   };
 
-  const handleOrderUpdate = async (orderId, serviceId = [], itemIds = [], totalPrice = 0) => {
+  const handleOrderUpdate = async (orderId, serviceId = [], itemIds = [], totalPrice = 0, phoneModelId = null) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/details-transfer`, { serviceId, itemIds });
-      await axiosClient.put(`/repair-orders/${orderId}`, { totalPrice });
+      await axiosClient.put(`/repair-orders/${orderId}`, { totalPrice, phoneModelId });
+      
+      const modelObj = phoneModels.find(m => m._id === phoneModelId);
+
       const updateOrderStatus = (orderList) =>
         orderList.map((order) =>
-          order._id === orderId ? { ...order, totalPrice } : order
+          order._id === orderId ? { ...order, totalPrice, phoneModelId: modelObj || phoneModelId } : order
         );
       setOrders(updateOrderStatus(orders));
       setFilteredOrders(updateOrderStatus(filteredOrders));
@@ -399,25 +439,33 @@ const RepairOrderList = () => {
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
       </div>
 
-      {activeTab === "TRADE_IN" && (
-        <TradeInTab
-          tradeInRequests={tradeInRequests}
-          loading={loading}
-          selectedTradeIn={selectedTradeIn}
-          valuation={valuation}
-          checklist={checklist}
-          phoneModels={phoneModels}
-          isBasicInfoFilled={isBasicInfoFilled}
-          onValuate={(req) => {
-            setSelectedTradeIn(req);
-            setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
-            setChecklist(initialChecklist);
-          }}
-          onCloseModal={() => setSelectedTradeIn(null)}
-          onValuationChange={setValuation}
-          onChecklistChange={handleChecklistChange}
-          onSubmit={submitValuationDetailed}
-        />
+     {activeTab === "TRADE_IN" && (
+        <>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Danh sách thu mua</h2>
+                <button onClick={handleOpenNewPurchase} className="bg-purple-600 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-700 shadow-md">
+                    <Plus size={18} /> Thu máy cũ
+                </button>
+            </div>
+            <TradeInTab
+                tradeInRequests={tradeInRequests}
+                loading={loading}
+                selectedTradeIn={selectedTradeIn}
+                valuation={valuation}
+                checklist={checklist}
+                phoneModels={phoneModels}
+                isBasicInfoFilled={isBasicInfoFilled}
+                onValuate={(req) => {
+                    setSelectedTradeIn(req);
+                    setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
+                    setChecklist({});
+                }}
+                onCloseModal={() => setSelectedTradeIn(null)}
+                onValuationChange={setValuation}
+                onChecklistChange={handleChecklistChange}
+                onSubmit={submitValuationDetailed}
+            />
+        </>
       )}
 
       {activeTab === "WAITING_DECISION" && (

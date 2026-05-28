@@ -20,12 +20,12 @@ const purchaseOrderSchema = new mongoose.Schema(
     },
     note: { type: String },
     tempPhoneData: {
-      type: {
-        phoneModelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Phone_model' },
-        imei: { type: String }
-      },
-      default: null 
-    }
+      phoneModelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Phone_model' },
+      capacity: { type: String },
+      colorName: { type: String },
+      ram: { type: String }
+    },
+    checklistData: { type: String },
   },
   { timestamps: true }
 );
