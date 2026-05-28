@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
-import { useTechSidebarItems } from "../../constraints";
+import { useTechSidebarItems } from "../../constants";
 
 export default function TechSidebar() {
   const navigate = useNavigate();
