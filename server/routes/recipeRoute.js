@@ -5,7 +5,10 @@ const {
     getAllRecipes,
     createRecipe,
     updateRecipe,
-    deleteRecipe
+    deleteRecipe,
+    getPartCodes,
+    validateRepairItem,
+    getRecipeByPhoneModelId,
 } = require("../controllers/recipeController");
 
 /**
@@ -197,6 +200,40 @@ router.get("/all", getAllRecipes);
 
 /**
  * @swagger
+ * /api/recipes/by-model/{phoneModelId}:
+ *   get:
+ *     summary: Get recipe by phone model ID
+ *     description: Retrieve a single recipe for a specific phone model (public endpoint)
+ *     tags: [Recipes]
+ *     parameters:
+ *       - in: path
+ *         name: phoneModelId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Phone model MongoDB ID
+ *     responses:
+ *       200:
+ *         description: Recipe retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Recipe'
+ *       404:
+ *         description: Recipe not found for this phone model
+ *       500:
+ *         description: Server error
+ */
+router.get("/by-model/:phoneModelId", getRecipeByPhoneModelId);
+
+/**
+ * @swagger
  * /api/recipes/create:
  *   post:
  *     summary: Create a new recipe
@@ -357,5 +394,8 @@ router.put("/update/:id", authInternal, updateRecipe);
  *         description: Internal server error
  */
 router.delete("/delete/:id", authInternal, deleteRecipe);
+
+router.get("/part-codes", authInternal, getPartCodes);
+router.post("/validate-item", authInternal, validateRepairItem);
 
 module.exports = router;

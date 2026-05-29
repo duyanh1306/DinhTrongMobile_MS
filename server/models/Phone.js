@@ -20,7 +20,7 @@ const phoneSchema = new Schema(
             enum: ['in_stock', 'sold', 'repairing', 'defective', 'waiting_for_tech_decision'], 
             default: 'in_stock' 
         },
-        
+        checklistData: { type: String },
         importPrice: { type: Number, required: true }, 
         sellingPrice: { type: Number, required: true }, 
         warrantyPeriod: { type: Number, default: 0 }, 

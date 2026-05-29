@@ -295,8 +295,22 @@ export default function AdminPhone() {
         iframeDoc.write(`
           <!doctype html>
           <html>
-            <head><style>@page { margin: 0; } html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; display: flex; align-items: center; justify-content: center; } img { width: 180px; height: 180px; object-fit: contain; }</style></head>
-            <body><img id="qr-print-image" src="${qrUrl}" alt="QR code" /></body>
+            <head>
+              <style>
+                @page { margin: 0; }
+                html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+                body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                .qr-container { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+                img { width: 180px; height: 180px; object-fit: contain; }
+                .serial-code { font-family: monospace; font-size: 14px; font-weight: bold; color: #000; }
+              </style>
+            </head>
+            <body>
+              <div class="qr-container">
+                <img id="qr-print-image" src="${qrUrl}" alt="QR code" />
+                <div class="serial-code">${serialCode}</div>
+              </div>
+            </body>
           </html>
         `);
         iframeDoc.close();

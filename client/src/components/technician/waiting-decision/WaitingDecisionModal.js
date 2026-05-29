@@ -15,7 +15,9 @@ const WaitingDecisionModal = ({
   onAddPart, 
   onRemovePart, 
   onPartChange, 
-  onSubmit 
+  onSubmit,
+  parsedChecklist,
+  handleExtractPart
 }) => {
   if (!selectedDecisionPhone) return null;
 
@@ -67,9 +69,10 @@ const WaitingDecisionModal = ({
             <DismantleForm 
               dismantleParts={dismantleParts}
               itemTypes={itemTypes}
-              onAddPart={onAddPart}
               onRemovePart={onRemovePart}
               onPartChange={onPartChange}
+              parsedChecklist={parsedChecklist}
+              handleExtractPart={handleExtractPart}
             />
           )}
         </div>

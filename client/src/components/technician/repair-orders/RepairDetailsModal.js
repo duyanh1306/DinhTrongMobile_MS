@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { X, User, Phone, Store, Check, Wrench,CheckCircle, Package, Search, XCircle, Smartphone, Printer, Download, ScanLine } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { X, User, Phone, Store, Check, Wrench, CheckCircle, Package, Search, XCircle, Smartphone, Printer, Download, ScanLine } from "lucide-react";
 import dayjs from "dayjs";
 import { useReactToPrint } from "react-to-print";
 import html2pdf from "html2pdf.js";
@@ -7,8 +7,15 @@ import { toast } from "react-toastify";
 
 import { getAllRepairServices } from "../../../api/repairOrder";
 import { getAllItems } from "../../../api/item";
+import { validateRepairPartApi } from "../../../api/repairPartValidation";
 import axiosClient from "../../../api/axiosClient";
-import { docSoThanhChu } from "../../../utils/formatCurrency"; 
+import { docSoThanhChu } from "../../../utils/formatCurrency";
+import {
+  getPartCodesFromServices,
+  getRecipeForPhoneModel,
+  getAllowedTypeNames,
+  formatPartCodesDisplay,
+} from "../../../utils/repairPartValidation";
 
 const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
@@ -138,17 +145,57 @@ const RepairDetailsModal = ({
 
   const [phoneModels, setPhoneModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
-
+  const [recipes, setRecipes] = useState([]);
   const printRef = useRef(null);
 
   const isWarranty = selectedOrder?.repairType === "Bảo hành" || orderDetails?.some(d => d.type === "WARRANTY");
   const isReadOnly = selectedOrder?.status === "Completed" || selectedOrder?.status === "Cancelled";
 
+  const selectedPartCodes = useMemo(
+    () => getPartCodesFromServices(repairServices, selectedServices),
+    [repairServices, selectedServices]
+  );
+
+  const recipeForModel = useMemo(
+    () => getRecipeForPhoneModel(recipes, selectedModel),
+    [recipes, selectedModel]
+  );
+
+  const allowedTypeNames = useMemo(
+    () => getAllowedTypeNames(recipeForModel, selectedPartCodes),
+    [recipeForModel, selectedPartCodes]
+  );
+
+  const selectedModelLabel = useMemo(() => {
+    const m = phoneModels.find((pm) => String(pm._id) === String(selectedModel));
+    return m?.name || "";
+  }, [phoneModels, selectedModel]);
+
+  const canScanParts =
+    isWarranty ||
+    (!!selectedModel && selectedServices.length > 0 && selectedPartCodes.length > 0);
+
+  const allowedItemsInStock = useMemo(() => {
+    if (!recipeForModel || selectedPartCodes.length === 0) return [];
+    const allowedIds = new Set();
+    recipeForModel.requiredParts.forEach((part) => {
+      if (!selectedPartCodes.includes(part.partCode)) return;
+      (part.acceptedItemTypes || []).forEach((t) => {
+        allowedIds.add(String(t._id || t));
+      });
+    });
+    return items.filter((item) => {
+      const typeId = String(item.item_type?._id || item.item_type || "");
+      return typeId && allowedIds.has(typeId);
+    });
+  }, [items, recipeForModel, selectedPartCodes]);
+
   useEffect(() => {
     if (showDetailsModal) {
       fetchRepairServices();
       fetchItems();
-      fetchPhoneModels(); 
+      fetchPhoneModels();
+      fetchRecipes();
 
       if (orderDetails && orderDetails.length > 0) {
         const existingServiceIds = orderDetails.flatMap(detail => 
@@ -181,8 +228,16 @@ const RepairDetailsModal = ({
     try {
       const res = await axiosClient.get("/phone_models/all");
       setPhoneModels(Array.isArray(res.data) ? res.data : res.data.data || []);
+    } catch (error) {}
+  };
+
+  const fetchRecipes = async () => {
+    try {
+      const res = await axiosClient.get("/recipes/all");
+      const data = res.data?.data || res.data || [];
+      setRecipes(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error(error);
+      setRecipes([]);
     }
   };
 
@@ -192,7 +247,6 @@ const RepairDetailsModal = ({
       const response = await getAllRepairServices();
       setRepairServices(Array.isArray(response) ? response : response.data || []);
     } catch (error) {
-      console.error(error);
     } finally {
       setLoadingServices(false);
     }
@@ -202,9 +256,7 @@ const RepairDetailsModal = ({
     try {
       const response = await getAllItems();
       setItems(Array.isArray(response) ? response : response.data || []);
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) {}
   };
 
   const handleServiceToggle = (serviceId) => {
@@ -215,22 +267,101 @@ const RepairDetailsModal = ({
     });
   };
 
-  const handleScan = (e) => {
+  const validateBeforeSave = async () => {
+    if (isWarranty) return true;
+    if (!selectedModel) {
+      toast.error("Vui lòng chọn mẫu điện thoại");
+      return false;
+    }
+    if (selectedServices.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một dịch vụ sửa chữa");
+      return false;
+    }
+    if (selectedPartCodes.length === 0) {
+      toast.error('Dịch vụ chưa gán nhóm linh kiện. Admin cần cập nhật "Dịch vụ sửa chữa".');
+      return false;
+    }
+    for (const id of selectedItems) {
+      const item = items.find((i) => String(i._id) === String(id));
+      if (!item?.serialCode) continue;
+      const result = await validateRepairPartApi({
+        phoneModelId: selectedModel,
+        partCodes: selectedPartCodes,
+        serialCode: item.serialCode,
+      });
+      if (!result.ok) {
+        toast.error(result.message || `Linh kiện "${item.name}" không hợp lệ`);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleScan = async (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const code = scanInput.trim().toUpperCase();
+      const code = scanInput.trim();
       if (!code) return;
-      
-      const foundItem = items.find(item => item.serialCode && item.serialCode.toUpperCase() === code);
-      if (foundItem) {
-        if (selectedItems.includes(foundItem._id)) {
-            toast.warning("Linh kiện này đã được quét và thêm vào đơn!");
-        } else {
-            setSelectedItems([...selectedItems, foundItem._id]);
-            toast.success(`Đã thêm linh kiện: ${foundItem.name}`);
+
+      if (!isWarranty) {
+        if (!selectedModel) {
+          toast.error("Vui lòng chọn mẫu điện thoại trước khi quét linh kiện");
+          setScanInput("");
+          return;
         }
-      } else {
-        toast.error(`Không tìm thấy linh kiện có Serial Code: ${code} trong kho`);
+        if (selectedServices.length === 0) {
+          toast.error("Vui lòng chọn dịch vụ sửa chữa trước khi quét linh kiện");
+          setScanInput("");
+          return;
+        }
+        if (selectedPartCodes.length === 0) {
+          toast.error('Dịch vụ chưa gán nhóm linh kiện (BAT, SCR...). Liên hệ Admin.');
+          setScanInput("");
+          return;
+        }
+      }
+
+      if (isWarranty) {
+        const foundItem = items.find(
+          (item) => item.serialCode && item.serialCode.toUpperCase() === code.toUpperCase()
+        );
+        if (!foundItem) {
+          toast.error(`Không tìm thấy linh kiện: ${code}`);
+        } else if (selectedItems.some((id) => String(id) === String(foundItem._id))) {
+          toast.warning("Linh kiện này đã được quét!");
+        } else {
+          setSelectedItems((prev) => [...prev, foundItem._id]);
+          toast.success(`Đã thêm: ${foundItem.name}`);
+        }
+        setScanInput("");
+        return;
+      }
+
+      try {
+        const result = await validateRepairPartApi({
+          phoneModelId: selectedModel,
+          partCodes: selectedPartCodes,
+          serialCode: code,
+        });
+
+        if (!result.ok) {
+          toast.error(result.message || "Linh kiện không phù hợp");
+          setScanInput("");
+          return;
+        }
+
+        const itemId = result.item?._id;
+        if (itemId && selectedItems.some((id) => String(id) === String(itemId))) {
+          toast.warning("Linh kiện này đã được quét!");
+        } else if (itemId) {
+          setSelectedItems((prev) => [...prev, itemId]);
+          if (!items.some((i) => String(i._id) === String(itemId)) && result.item) {
+            setItems((prev) => [...prev, result.item]);
+          }
+          toast.success(`Đã thêm: ${result.item.name}`);
+        }
+      } catch {
+        toast.error("Lỗi kiểm tra linh kiện");
       }
       setScanInput("");
     }
@@ -285,7 +416,6 @@ const RepairDetailsModal = ({
 
   const detailWithPhone = orderDetails?.find(d => d.targetPhoneId) || null;
   const targetPhone = detailWithPhone?.targetPhoneId;
-  const deviceName = targetPhone?.phoneModelId?.name || selectedOrder?.phoneModelId?.name || selectedOrder?.phoneModel || selectedOrder?.phoneName || "Chưa xác định";
   const deviceSerial = targetPhone?.imei || targetPhone?.serialCode || selectedOrder?.serialCode || selectedOrder?.imei || "";
 
   return (
@@ -343,7 +473,10 @@ const RepairDetailsModal = ({
                   <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Mẫu điện thoại</label>
                   <select 
                     value={selectedModel} 
-                    onChange={(e) => setSelectedModel(e.target.value)} 
+                    onChange={(e) => {
+                      setSelectedModel(e.target.value);
+                      setSelectedItems([]);
+                    }} 
                     disabled={isReadOnly}
                     className={`w-full p-2 border border-gray-300 rounded-md outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 ${isReadOnly ? "bg-gray-100 cursor-not-allowed" : "bg-white"}`}
                   >
@@ -453,17 +586,67 @@ const RepairDetailsModal = ({
                   <input
                     ref={scanInputRef}
                     type="text"
-                    placeholder="Quét mã vạch (SN) linh kiện..."
+                    placeholder={
+                      !selectedModel
+                        ? "Chọn mẫu điện thoại trước..."
+                        : selectedServices.length === 0
+                          ? "Chọn dịch vụ sửa chữa trước..."
+                          : selectedPartCodes.length === 0
+                            ? "Dịch vụ chưa gán nhóm linh kiện..."
+                            : "Quét mã vạch (SN) linh kiện..."
+                    }
                     value={scanInput}
                     onChange={(e) => setScanInput(e.target.value)}
                     onKeyDown={handleScan}
-                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all uppercase tracking-widest font-mono text-lg"
+                    disabled={!canScanParts}
+                    className={`w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all uppercase tracking-widest font-mono text-lg ${
+                      !canScanParts
+                        ? "bg-gray-100 cursor-not-allowed text-gray-400"
+                        : "bg-white text-gray-800"
+                    }`}
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity">
                     <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 italic">* Sử dụng súng quét mã vạch hoặc nhập thủ công Serial Code của linh kiện.</p>
+                {!isWarranty && canScanParts && (
+                  <p className="text-xs text-blue-700 mt-2 font-medium">
+                    {selectedModelLabel} — {formatPartCodesDisplay(selectedPartCodes)}
+                    {allowedTypeNames.length > 0 && (
+                      <span className="block text-gray-600 mt-1 font-normal">
+                        Chỉ quét: {allowedTypeNames.join(", ")}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!isReadOnly && canScanParts && allowedItemsInStock.length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <h5 className="font-semibold text-blue-800 text-xs mb-2">Linh kiện trong kho (theo Recipe):</h5>
+                <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                  {allowedItemsInStock.map((item) => (
+                    <div
+                      key={item._id}
+                      onClick={() => {
+                        if (selectedItems.some((id) => String(id) === String(item._id))) {
+                          toast.warning("Đã có trong đơn!");
+                        } else {
+                          setSelectedItems((prev) => [...prev, item._id]);
+                          toast.success(`Đã thêm: ${item.name}`);
+                        }
+                      }}
+                      className="flex justify-between items-center p-2 bg-white rounded border border-gray-200 hover:border-blue-300 hover:bg-blue-100 cursor-pointer transition-colors"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-800">{item.name}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">SN: {item.serialCode}</span>
+                      </div>
+                      <span className="text-xs font-bold text-blue-600">{formatCurrency(item.price)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -472,7 +655,7 @@ const RepairDetailsModal = ({
                   <div className="text-center py-10 text-gray-400 font-medium">Chưa có linh kiện nào được quét.</div>
               ) : (
                 selectedItems.map(itemId => {
-                  const item = items.find(i => i._id === itemId);
+                  const item = items.find(i => String(i._id) === String(itemId));
                   if (!item) return null;
                   
                   return (
@@ -555,7 +738,8 @@ const RepairDetailsModal = ({
               </button>
               {selectedOrder.status === "Pending" && onAccept && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    if (!(await validateBeforeSave())) return;
                     onAccept(selectedOrder._id, selectedServices, selectedItems, getGrandTotal(), selectedModel);
                     onClose();
                   }}
@@ -566,7 +750,8 @@ const RepairDetailsModal = ({
               )}
               {selectedOrder.status === "In Progress" && onOrderUpdate && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    if (!(await validateBeforeSave())) return;
                     onOrderUpdate(selectedOrder._id, selectedServices, selectedItems, getGrandTotal(), selectedModel);
                     onClose();
                   }}
