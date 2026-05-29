@@ -342,37 +342,58 @@ export default function ManagerTransferRequestList() {
                   <tr><td colSpan="8" className="p-10 text-center text-gray-500 font-medium align-middle">Không có dữ liệu trong mục này.</td></tr>
                 ) : (
                   currentRequests.map((req, index) => {
-                   const itemTypes = req.itemType || [];
+                    const itemTypes = req.itemType || [];
                     const phonesList = req.phones || [];
+                    const specificItems = req.specificItems || []; // Lấy từ Backend gửi lên
                     
                     const totalItemQty = itemTypes.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  
                     const totalPhoneQty = phonesList.length;
                     const totalQuantity = totalItemQty + totalPhoneQty;
 
                     const isExpanded = expandedRows[req._id];
 
+                    // 1. Gom nhóm Điện thoại
                     const phoneGroupMap = {};
                     phonesList.forEach(p => {
                         const name = p.phoneModelId?.name || "Máy điện thoại";
                         const color = p.colorName || "N/A";
                         const capacity = p.capacity || "N/A";
-                        const key = `${name} (${color} - ${capacity})`;
+                        const gradeLabel = p.grade || 'Không rõ';
+                        
+                        const key = `[${gradeLabel}] ${name} (${color} - ${capacity})`;
                         phoneGroupMap[key] = (phoneGroupMap[key] || 0) + 1;
                     });
-                    
-                    const phoneDisplayNames = Object.entries(phoneGroupMap).map(
-                        ([key, count]) => `${key} x${count}`
-                    );
 
-                    const allItems = [
-                      ...phoneDisplayNames,
-                      ...itemTypes.map(it => `${it.itemTypes?.name || "Linh kiện"} x${it.quantity || 0}`)
-                    ];
+                    // 2. Gom nhóm Linh kiện
+                    const itemGroupMap = {};
+                    if (specificItems.length > 0) {
+                        specificItems.forEach(item => {
+                            const name = item.name || item.item_type?.name || "Linh kiện";
+                            const originLabel = item.origin === 'new' ? 'Mới' : 'Bóc máy';
+                            const key = `[${originLabel}] ${name}`;
+                            itemGroupMap[key] = (itemGroupMap[key] || 0) + 1;
+                        });
+                    } else {
+                        itemTypes.forEach(item => {
+                            const name = item.itemTypes?.name || item.name || "Linh kiện";
+                            const qty = item.quantity || 1;
+                            itemGroupMap[`[Mới] ${name}`] = (itemGroupMap[`[Mới] ${name}`] || 0) + qty;
+                        });
+                    }
 
-                    const displayNames = allItems.slice(0, 2).join(', ');
-                    const hasMore = allItems.length > 2;
+                    // 3. Chuẩn bị mảng để Render giao diện
+                    const allItemsNodes = [];
+                    Object.entries(phoneGroupMap).forEach(([nameKey, qty]) => {
+                        const match = nameKey.match(/^\[(.*?)\] (.*)$/);
+                        allItemsNodes.push({ name: match ? match[2] : nameKey, badge: match ? match[1] : '', qty, isPhone: true });
+                    });
+                    Object.entries(itemGroupMap).forEach(([nameKey, qty]) => {
+                        const match = nameKey.match(/^\[(.*?)\] (.*)$/);
+                        allItemsNodes.push({ name: match ? match[2] : nameKey, badge: match ? match[1] : '', qty, isPhone: false });
+                    });
 
+                    const displayedItems = isExpanded ? allItemsNodes : allItemsNodes.slice(0, 2);
+                    const hasMore = allItemsNodes.length > 2;
                     const isExport = req.fromStoreId?._id === userStoreId;
 
                     return (
@@ -387,27 +408,31 @@ export default function ManagerTransferRequestList() {
                             )}
                         </td>
 
-                        <td className="p-4 text-sm text-gray-800 align-middle max-w-[280px]">
+                        <td className="p-4 text-sm text-gray-800 align-middle max-w-[300px]">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="text-gray-700 font-medium leading-relaxed">
-                              {!isExpanded ? (
-                                <>
-                                  {displayNames}
-                                  {hasMore && <span className="text-gray-400 italic"> ... (+{allItems.length - 2})</span>}
-                                </>
-                              ) : (
-                                <div className="flex flex-col gap-1">
-                                  {allItems.map((name, idx) => (
-                                    <span key={idx}>{name}{idx < allItems.length - 1 ? ',' : ''}</span>
-                                  ))}
-                                </div>
-                              )}
+                            <div className="flex flex-col gap-2 w-full">
+                                {displayedItems.map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5 leading-tight">
+                                        <span className="truncate max-w-[180px] font-medium text-gray-700" title={item.name}>• {item.name}</span>
+                                        {item.badge && (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap font-bold ${
+                                                item.badge === 'Mới' ? (item.isPhone ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200') :
+                                                item.badge === 'Máy dựng' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                'bg-orange-50 text-orange-700 border-orange-200'
+                                            }`}>
+                                                {item.badge}
+                                            </span>
+                                        )}
+                                        <span className="font-bold text-indigo-600 text-xs shrink-0">x{item.qty}</span>
+                                    </div>
+                                ))}
+                                {!isExpanded && hasMore && <span className="text-gray-400 italic text-xs mt-1 border-t border-gray-100 pt-1 w-max"> ... (+{allItemsNodes.length - 2} sản phẩm khác)</span>}
                             </div>
                             
                             {hasMore && (
                               <button
                                 onClick={() => toggleRow(req._id)}
-                                className="mt-0.5 text-gray-500 hover:text-indigo-600 transition bg-gray-50 hover:bg-indigo-50 p-1 rounded-md flex-shrink-0"
+                                className="mt-0.5 text-gray-500 hover:text-indigo-600 transition bg-gray-50 hover:bg-indigo-50 p-1.5 rounded-md flex-shrink-0 border border-gray-200"
                               >
                                 {isExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                               </button>
