@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { X, User, Phone, Store, Check, Wrench, CheckCircle, Package, Search, XCircle, Smartphone, Printer, Download, ScanLine } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { X, User, Phone, Store, Check, Wrench, CheckCircle, Package, XCircle, Printer, Download } from "lucide-react";
 import dayjs from "dayjs";
 import { useReactToPrint } from "react-to-print";
 import html2pdf from "html2pdf.js";
@@ -139,9 +139,6 @@ const RepairDetailsModal = ({
   const [loadingServices, setLoadingServices] = useState(false);
   const [items, setItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
-  
-  const [scanInput, setScanInput] = useState("");
-  const scanInputRef = useRef(null);
 
   const [phoneModels, setPhoneModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
@@ -171,7 +168,7 @@ const RepairDetailsModal = ({
     return m?.name || "";
   }, [phoneModels, selectedModel]);
 
-  const canScanParts =
+  const canSelectParts =
     isWarranty ||
     (!!selectedModel && selectedServices.length > 0 && selectedPartCodes.length > 0);
 
@@ -217,10 +214,6 @@ const RepairDetailsModal = ({
           initialModelId = initialModelId._id || "";
       }
       setSelectedModel(initialModelId);
-
-      if (!isReadOnly && scanInputRef.current) {
-        setTimeout(() => scanInputRef.current.focus(), 100);
-      }
     }
   }, [showDetailsModal, orderDetails, selectedOrder]);
 
@@ -295,76 +288,6 @@ const RepairDetailsModal = ({
       }
     }
     return true;
-  };
-
-  const handleScan = async (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const code = scanInput.trim();
-      if (!code) return;
-
-      if (!isWarranty) {
-        if (!selectedModel) {
-          toast.error("Vui lòng chọn mẫu điện thoại trước khi quét linh kiện");
-          setScanInput("");
-          return;
-        }
-        if (selectedServices.length === 0) {
-          toast.error("Vui lòng chọn dịch vụ sửa chữa trước khi quét linh kiện");
-          setScanInput("");
-          return;
-        }
-        if (selectedPartCodes.length === 0) {
-          toast.error('Dịch vụ chưa gán nhóm linh kiện (BAT, SCR...). Liên hệ Admin.');
-          setScanInput("");
-          return;
-        }
-      }
-
-      if (isWarranty) {
-        const foundItem = items.find(
-          (item) => item.serialCode && item.serialCode.toUpperCase() === code.toUpperCase()
-        );
-        if (!foundItem) {
-          toast.error(`Không tìm thấy linh kiện: ${code}`);
-        } else if (selectedItems.some((id) => String(id) === String(foundItem._id))) {
-          toast.warning("Linh kiện này đã được quét!");
-        } else {
-          setSelectedItems((prev) => [...prev, foundItem._id]);
-          toast.success(`Đã thêm: ${foundItem.name}`);
-        }
-        setScanInput("");
-        return;
-      }
-
-      try {
-        const result = await validateRepairPartApi({
-          phoneModelId: selectedModel,
-          partCodes: selectedPartCodes,
-          serialCode: code,
-        });
-
-        if (!result.ok) {
-          toast.error(result.message || "Linh kiện không phù hợp");
-          setScanInput("");
-          return;
-        }
-
-        const itemId = result.item?._id;
-        if (itemId && selectedItems.some((id) => String(id) === String(itemId))) {
-          toast.warning("Linh kiện này đã được quét!");
-        } else if (itemId) {
-          setSelectedItems((prev) => [...prev, itemId]);
-          if (!items.some((i) => String(i._id) === String(itemId)) && result.item) {
-            setItems((prev) => [...prev, result.item]);
-          }
-          toast.success(`Đã thêm: ${result.item.name}`);
-        }
-      } catch {
-        toast.error("Lỗi kiểm tra linh kiện");
-      }
-      setScanInput("");
-    }
   };
 
   const handleRemoveItem = (itemId) => {
@@ -575,84 +498,61 @@ const RepairDetailsModal = ({
           <div className="border-t pt-6 mt-6">
             <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <Package className="w-4 h-4 text-green-600" />
-              {isReadOnly ? "Linh kiện đã xuất kho" : "Quét mã linh kiện thay thế"}
+              {isReadOnly ? "Linh kiện đã xuất kho" : "Chọn linh kiện thay thế từ kho"}
               {isWarranty && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold uppercase">Bảo hành</span>}
             </h4>
             
-            {!isReadOnly && (
-              <div className="mb-4">
-                <div className="relative group">
-                  <ScanLine className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={24} />
-                  <input
-                    ref={scanInputRef}
-                    type="text"
-                    placeholder={
-                      !selectedModel
-                        ? "Chọn mẫu điện thoại trước..."
-                        : selectedServices.length === 0
-                          ? "Chọn dịch vụ sửa chữa trước..."
-                          : selectedPartCodes.length === 0
-                            ? "Dịch vụ chưa gán nhóm linh kiện..."
-                            : "Quét mã vạch (SN) linh kiện..."
-                    }
-                    value={scanInput}
-                    onChange={(e) => setScanInput(e.target.value)}
-                    onKeyDown={handleScan}
-                    disabled={!canScanParts}
-                    className={`w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all uppercase tracking-widest font-mono text-lg ${
-                      !canScanParts
-                        ? "bg-gray-100 cursor-not-allowed text-gray-400"
-                        : "bg-white text-gray-800"
-                    }`}
-                  />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity">
-                    <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span>
-                  </div>
-                </div>
-                {!isWarranty && canScanParts && (
-                  <p className="text-xs text-blue-700 mt-2 font-medium">
-                    {selectedModelLabel} — {formatPartCodesDisplay(selectedPartCodes)}
-                    {allowedTypeNames.length > 0 && (
-                      <span className="block text-gray-600 mt-1 font-normal">
-                        Chỉ quét: {allowedTypeNames.join(", ")}
-                      </span>
+            {!isReadOnly && canSelectParts && (
+              <div className="mb-4 bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-2">
+                    <h5 className="font-bold text-blue-800">Danh sách linh kiện tương thích:</h5>
+                    {!isWarranty && (
+                        <span className="text-xs font-medium text-blue-700 bg-white px-2 py-1 rounded border border-blue-200">
+                          {selectedModelLabel} — {formatPartCodesDisplay(selectedPartCodes)}
+                        </span>
                     )}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {!isReadOnly && canScanParts && allowedItemsInStock.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <h5 className="font-semibold text-blue-800 text-xs mb-2">Linh kiện trong kho (theo Recipe):</h5>
-                <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
-                  {allowedItemsInStock.map((item) => (
-                    <div
-                      key={item._id}
-                      onClick={() => {
-                        if (selectedItems.some((id) => String(id) === String(item._id))) {
-                          toast.warning("Đã có trong đơn!");
-                        } else {
-                          setSelectedItems((prev) => [...prev, item._id]);
-                          toast.success(`Đã thêm: ${item.name}`);
-                        }
-                      }}
-                      className="flex justify-between items-center p-2 bg-white rounded border border-gray-200 hover:border-blue-300 hover:bg-blue-100 cursor-pointer transition-colors"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-800">{item.name}</span>
-                        <span className="text-[10px] text-gray-500 font-mono">SN: {item.serialCode}</span>
-                      </div>
-                      <span className="text-xs font-bold text-blue-600">{formatCurrency(item.price)}</span>
-                    </div>
-                  ))}
                 </div>
+                
+                {allowedItemsInStock.length > 0 ? (
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {allowedItemsInStock.map((item) => (
+                      <div
+                        key={item._id}
+                        onClick={() => {
+                          if (selectedItems.some((id) => String(id) === String(item._id))) {
+                            toast.warning("Đã có trong đơn!");
+                          } else {
+                            setSelectedItems((prev) => [...prev, item._id]);
+                            toast.success(`Đã thêm: ${item.name}`);
+                          }
+                        }}
+                        className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-gray-800">{item.name}</span>
+                          <span className="text-xs text-gray-500 font-mono mt-0.5">SN: {item.serialCode}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-black text-blue-600">{formatCurrency(item.price)}</span>
+                            <button className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-blue-200 transition">
+                                + Thêm
+                            </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                    <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
+                        <p className="text-gray-500 text-sm font-medium">Không có linh kiện nào tương thích trong kho.</p>
+                        <p className="text-xs text-gray-400 mt-1">Vui lòng nhập thêm kho hoặc kiểm tra lại cấu hình Recipe.</p>
+                    </div>
+                )}
               </div>
             )}
 
             <div className={`overflow-y-auto border border-gray-200 rounded-lg ${isReadOnly ? "" : "max-h-64 bg-gray-50"}`}>
               {selectedItems.length === 0 ? (
-                  <div className="text-center py-10 text-gray-400 font-medium">Chưa có linh kiện nào được quét.</div>
+                  <div className="text-center py-10 text-gray-400 font-medium">Chưa có linh kiện nào được chọn.</div>
               ) : (
                 selectedItems.map(itemId => {
                   const item = items.find(i => String(i._id) === String(itemId));
@@ -718,7 +618,7 @@ const RepairDetailsModal = ({
               {(selectedOrder.status === "Pending" || selectedOrder.status === "In Progress") && onCancel && (
                 <button
                   onClick={() => {
-                    if(window.confirm('Xác nhận hủy đơn sửa chữa này? Toàn bộ linh kiện đã quét sẽ được trả lại kho.')) {
+                    if(window.confirm('Xác nhận hủy đơn sửa chữa này? Toàn bộ linh kiện đã chọn sẽ được trả lại kho.')) {
                       onCancel(selectedOrder._id);
                       onClose();
                     }

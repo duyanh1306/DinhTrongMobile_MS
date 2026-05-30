@@ -1,7 +1,7 @@
 import React from "react";
 import { Filter } from "lucide-react";
 
-const FilterPanel = ({ filters, stores, filterLoading, onFilterChange, onApplyFilters, onResetFilters }) => {
+const FilterPanel = ({ filters, stores, filterLoading, viewMode, onFilterChange, onApplyFilters, onResetFilters }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
       <div className="flex items-center gap-3 mb-4">
@@ -13,15 +13,21 @@ const FilterPanel = ({ filters, stores, filterLoading, onFilterChange, onApplyFi
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
           <select 
-            value={filters.status} 
+            value={viewMode === "HISTORY" ? "Completed" : filters.status} 
             onChange={(e) => onFilterChange('status', e.target.value)} 
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={viewMode === "HISTORY"}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${viewMode === "HISTORY" ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
           >
-            <option value="ALL">Tất cả</option>
-            <option value="Pending">Chờ xử lý</option>
-            <option value="In Progress">Đang xử lý</option>
-            <option value="Completed">Hoàn thành</option>
-            <option value="Cancelled">Đã hủy</option>
+            {viewMode === "HISTORY" ? (
+                <option value="Completed">Hoàn thành (Lịch sử)</option>
+            ) : (
+                <>
+                    <option value="ALL">Tất cả</option>
+                    <option value="Pending">Chờ xử lý</option>
+                    <option value="In Progress">Đang xử lý</option>
+                    <option value="Cancelled">Đã hủy</option>
+                </>
+            )}
           </select>
         </div>
         

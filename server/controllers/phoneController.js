@@ -56,6 +56,11 @@ const handleTechDecision = async (req, res) => {
     
     if (decision === "DIRECT_IMPORT") {
       phone.status = "in_stock";
+      
+      phone.sellingPrice = Number(sellingPrice) || 0;
+      if (capacity) phone.capacity = capacity;
+      if (colorName) phone.colorName = colorName;
+      
       await phone.save();
 
       const header = await InventoryTransaction.create({
@@ -76,7 +81,6 @@ const handleTechDecision = async (req, res) => {
 
       return res.status(200).json({ message: "Đã nhập kho nguyên bản" });
     }
-
 
     if (decision === "SELL") {
       phone.status = "in_stock";

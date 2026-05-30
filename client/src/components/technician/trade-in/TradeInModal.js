@@ -9,13 +9,12 @@ const TradeInModal = ({
   valuation, 
   checklist, 
   phoneModels,
-  criteriaList,
+  globalConditions,
   isBasicInfoFilled,
   onClose, 
   onValuationChange, 
   onChecklistChange, 
-  onSubmit,
-  setSelectedTradeIn 
+  onSubmit
 }) => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -93,8 +92,8 @@ const TradeInModal = ({
 
             {isBasicInfoFilled && (
               <ChecklistForm 
-                criteriaList={criteriaList}
                 checklist={checklist} 
+                globalConditions={globalConditions}
                 onChange={onChecklistChange} 
               />
             )}

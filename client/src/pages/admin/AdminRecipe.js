@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
-import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter, Search, ListChecks } from "lucide-react";
+import { Plus, Edit, Trash2, Settings, X, Save, Layers, Filter, Search } from "lucide-react";
 
 import { 
     fetchInitialDataApi, 
@@ -185,10 +185,7 @@ export default function AdminRecipe() {
                     return {
                         ...part,
                         filterCode: guessedCode,
-                        acceptedItemTypes: part.acceptedItemTypes.map(type => type._id || type),
-                        conditions: part.conditions && part.conditions.length > 0 ? part.conditions : [
-                            { label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }
-                        ]
+                        acceptedItemTypes: part.acceptedItemTypes.map(type => type._id || type)
                     };
                 })
             });
@@ -196,14 +193,20 @@ export default function AdminRecipe() {
             setIsEditing(false);
             setEditingId(null);
             setSelectedBrand('');
+            
+            const autoFillSlots = [
+                { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'MB' },
+                { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'SCR' },
+                { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'BAT' },
+                { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'HSG' },
+                { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'CAM-R' },
+                { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'CAM-F' }
+            ];
+
             setFormData({ 
                 phoneModelId: '', 
                 description: '', 
-                requiredParts: [
-                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'MB', conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }] },
-                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'SCR', conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }] },
-                    { isRequired: true, acceptedItemTypes: [], quantity: 1, filterCode: 'BAT', conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }] }
-                ] 
+                requiredParts: autoFillSlots 
             });
         }
         setShowModal(true);
@@ -221,8 +224,7 @@ export default function AdminRecipe() {
                 isRequired: true, 
                 acceptedItemTypes: [], 
                 quantity: 1, 
-                filterCode: '',
-                conditions: [{ label: "Hoạt động bình thường", value: "OK", deductionPercent: 0, isFaulty: false }]
+                filterCode: ''
             }]
         }));
 
@@ -256,27 +258,6 @@ export default function AdminRecipe() {
         }
         setFormData(prev => ({ ...prev, requiredParts: newParts }));
     };
-
-
-    const handleAddCondition = (partIndex) => {
-        const newParts = [...formData.requiredParts];
-        if (!newParts[partIndex].conditions) newParts[partIndex].conditions = [];
-        newParts[partIndex].conditions.push({ label: "", value: "", deductionPercent: 0, isFaulty: false });
-        setFormData(prev => ({ ...prev, requiredParts: newParts }));
-    };
-
-    const handleRemoveCondition = (partIndex, condIndex) => {
-        const newParts = [...formData.requiredParts];
-        newParts[partIndex].conditions.splice(condIndex, 1);
-        setFormData(prev => ({ ...prev, requiredParts: newParts }));
-    };
-
-    const handleConditionChange = (partIndex, condIndex, field, value) => {
-        const newParts = [...formData.requiredParts];
-        newParts[partIndex].conditions[condIndex][field] = value;
-        setFormData(prev => ({ ...prev, requiredParts: newParts }));
-    };
-
 
     const handleDelete = async (id) => {
         const result = await Swal.fire({
@@ -325,16 +306,6 @@ export default function AdminRecipe() {
                 return Swal.fire({ icon: 'error', title: 'Lỗi cấu hình!', text: `Nhóm "${baseLabel}" bị trùng lặp. Mỗi nhóm chỉ được xuất hiện 1 lần trong cấu hình!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
             }
             usedCodes.add(part.filterCode);
-
-
-            if (part.conditions) {
-                for (let j = 0; j < part.conditions.length; j++) {
-                    const c = part.conditions[j];
-                    if (!c.label || !c.value) {
-                        return Swal.fire({ icon: 'error', title: 'Thiếu thông tin!', text: `Tình trạng đánh giá ở Slot ${i + 1} không được để trống Tên Lỗi hoặc Mã Lỗi!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
-                    }
-                }
-            }
         }
 
         const payload = {
@@ -346,8 +317,7 @@ export default function AdminRecipe() {
                     name: baseLabel,
                     acceptedItemTypes: part.acceptedItemTypes,
                     quantity: part.quantity,
-                    isRequired: part.isRequired,
-                    conditions: part.conditions || []
+                    isRequired: part.isRequired
                 };
             })
         };
@@ -592,50 +562,6 @@ export default function AdminRecipe() {
                                                                 {filteredItemTypes.length === 0 && <span className="text-sm text-gray-500 col-span-full p-2 text-center italic">Không tìm thấy danh mục nào thuộc nhóm này.</span>}
                                                             </div>
                                                         )}
-                                                    </div>
-
-                                                    {/* --- MỤC MỚI: QUẢN LÝ TIÊU CHÍ (CONDITIONS) TRỰC TIẾP TRONG NÀY --- */}
-                                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                                        <div className="flex justify-between items-center mb-3">
-                                                            <label className="block text-sm font-semibold text-purple-800 flex items-center gap-2">
-                                                                <ListChecks size={16}/> 3. Tiêu chí đánh giá Tình trạng:
-                                                            </label>
-                                                            <button type="button" onClick={() => handleAddCondition(index)} className="text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 px-2 py-1.5 rounded-md font-bold flex items-center gap-1 transition">
-                                                                <Plus size={14}/> Thêm tình trạng
-                                                            </button>
-                                                        </div>
-                                                        <div className="space-y-3">
-                                                            {(part.conditions || []).map((cond, cIndex) => (
-                                                                <div key={cIndex} className={`p-3 rounded-lg border text-sm flex flex-wrap md:flex-nowrap gap-3 items-center relative ${cond.isFaulty ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                                                    <button type="button" onClick={() => handleRemoveCondition(index, cIndex)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"><Trash2 size={16}/></button>
-                                                                    
-                                                                    <div className="w-full md:w-1/3">
-                                                                        <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Tên hiển thị lỗi</label>
-                                                                        <input type="text" placeholder="VD: Kính xước nhẹ" value={cond.label} onChange={(e) => handleConditionChange(index, cIndex, 'label', e.target.value)} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-purple-500 text-sm" required />
-                                                                    </div>
-                                                                    <div className="w-full md:w-1/4">
-                                                                        <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Mã code</label>
-                                                                        <input type="text" placeholder="VD: SCR_XR" value={cond.value} onChange={(e) => handleConditionChange(index, cIndex, 'value', e.target.value)} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-purple-500 text-sm font-mono" required />
-                                                                    </div>
-                                                                    <div className="w-full md:w-1/4">
-                                                                        <label className="text-[10px] uppercase font-bold text-red-500 mb-1 block">Khấu hao (%)</label>
-                                                                        <div className="relative">
-                                                                            <input type="number" min="0" max="100" placeholder="0" value={cond.deductionPercent} onChange={(e) => handleConditionChange(index, cIndex, 'deductionPercent', Number(e.target.value))} className="w-full p-2 border border-red-200 rounded outline-none focus:ring-1 focus:ring-red-500 text-sm text-red-600 font-bold" />
-                                                                            <span className="absolute right-3 top-2 text-gray-400 text-sm">%</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="w-full md:w-auto flex items-center pr-6 pt-5">
-                                                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                                                            <input type="checkbox" checked={cond.isFaulty} onChange={(e) => handleConditionChange(index, cIndex, 'isFaulty', e.target.checked)} className="w-4 h-4 accent-red-600" />
-                                                                            <span className={`text-xs font-bold ${cond.isFaulty ? 'text-red-600' : 'text-gray-500'}`}>Hỏng/Nặng</span>
-                                                                        </label>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                            {(!part.conditions || part.conditions.length === 0) && (
-                                                                <div className="text-xs text-center p-4 border border-dashed border-gray-300 rounded-lg text-gray-400 bg-gray-50">Chưa có tiêu chí nào. Mặc định máy thu vào tình trạng linh kiện là 100% (Hoạt động tốt).</div>
-                                                            )}
-                                                        </div>
                                                     </div>
 
                                                 </div>

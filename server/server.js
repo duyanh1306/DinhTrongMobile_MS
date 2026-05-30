@@ -35,6 +35,7 @@ const review = require("./routes/reviewRoute");
 const paymentRoute = require('./routes/paymentRoute');
 const warrantyRoutes = require("./routes/warrantyRoutes");
 const locationRoutes = require("./routes/locationRoutes");
+const evaluationConditionRoute = require("./routes/evaluationConditionRoute");
 connectDB();
 
 app.use(
@@ -66,6 +67,7 @@ app.use("/api/phone_brands", phoneBrand);
 app.use("/api/reviews", review);
 app.use('/api', paymentRoute);
 app.use("/api/locations", locationRoutes);
+app.use("/api/evaluation-conditions", evaluationConditionRoute);
 // Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

@@ -6,7 +6,6 @@ import {
   Hammer,
   Scissors,
   Save,
-  Plus,
   Trash2,
   Package,
   Search,
@@ -40,36 +39,24 @@ const WaitingDecisionTab = ({
   const [showPartSelector, setShowPartSelector] = useState(false);
   const [partCategoryToReplace, setPartCategoryToReplace] = useState(null);
   const [searchPart, setSearchPart] = useState("");
-  const [criteriaList, setCriteriaList] = useState([]);
   const [recipes, setRecipes] = useState([]);
 
   useEffect(() => {
-    const fetchCriteriaAndRecipes = async () => {
+    const fetchRecipes = async () => {
       try {
-        const resRecipes = await axiosClient.get("/recipes/all");
-
-        setCriteriaList(resRecipes.data.data || []);
-        setRecipes(resRecipes.data.data || resRecipes.data || []);
+        const res = await axiosClient.get("/recipes/all");
+        setRecipes(res.data.data || res.data || []);
       } catch (err) {
         console.error(err);
       }
     };
-    fetchCriteriaAndRecipes();
+    fetchRecipes();
   }, []);
 
   let parsedChecklist = [];
   if (selectedDecisionPhone && selectedDecisionPhone.checklistData) {
     try {
-      const rawList = JSON.parse(selectedDecisionPhone.checklistData);
-      parsedChecklist = rawList.map((item) => {
-        const matchedCriteria = criteriaList.find(
-          (c) => c.partCode === item.code,
-        );
-        return {
-          ...item,
-          name: item.name || matchedCriteria?.partName || item.code,
-        };
-      });
+      parsedChecklist = JSON.parse(selectedDecisionPhone.checklistData);
     } catch (e) {
       console.log(e);
     }
@@ -98,45 +85,9 @@ const WaitingDecisionTab = ({
 
   const handleExtractPart = (parsedItem) => {
     const currentModelName = selectedDecisionPhone?.phoneModelId?.name || "";
-    const currentModelId = String(
-      selectedDecisionPhone?.phoneModelId?._id ||
-        selectedDecisionPhone?.phoneModelId ||
-        "",
+    const matchedType = itemTypes.find((it) =>
+      it.name.toLowerCase().includes(parsedItem.name.toLowerCase()),
     );
-
-    const matchedType = itemTypes.find((it) => {
-      const isNameMatch =
-        it.name.toLowerCase().includes(parsedItem.name.toLowerCase()) ||
-        parsedItem.name.toLowerCase().includes(it.name.toLowerCase());
-      const isModelMatch =
-        String(it.phoneModelId) === currentModelId ||
-        (it.compatibleModels &&
-          it.compatibleModels
-            .map((id) => String(id))
-            .includes(currentModelId)) ||
-        it.name.toLowerCase().includes(currentModelName.toLowerCase());
-      return isNameMatch && isModelMatch;
-    });
-
-    const defaultRetailPrice = matchedType?.price || 0;
-
-    const lowerName = parsedItem.name.toLowerCase();
-    let partRam = "";
-    let partCapacity = "";
-    let partColor = "";
-
-    if (lowerName.includes("main") || lowerName.includes("board")) {
-      partRam = selectedDecisionPhone?.ram || "";
-      partCapacity = selectedDecisionPhone?.capacity || "";
-    }
-    if (
-      lowerName.includes("vỏ") ||
-      lowerName.includes("lưng") ||
-      lowerName.includes("casing") ||
-      lowerName.includes("housing")
-    ) {
-      partColor = selectedDecisionPhone?.colorName || "";
-    }
 
     onAddPart({
       originalCode: parsedItem.code,
@@ -146,11 +97,11 @@ const WaitingDecisionTab = ({
         : `${parsedItem.name} ${currentModelName} (Zin bóc máy)`,
       serialCode: "",
       quality: "Bóc máy",
-      ram: partRam,
-      capacity: partCapacity,
-      color: partColor,
+      ram: selectedDecisionPhone?.ram || "",
+      capacity: selectedDecisionPhone?.capacity || "",
+      color: selectedDecisionPhone?.colorName || "",
       baseCost: "",
-      price: Math.floor(defaultRetailPrice),
+      price: Math.floor(matchedType?.price || 0),
     });
   };
 
@@ -172,12 +123,17 @@ const WaitingDecisionTab = ({
       canSubmit = false;
       submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
     }
+  } else if (decision === "DIRECT_IMPORT") {
+    const hasSellPrice =
+      sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
+    if (!hasSellPrice) {
+      canSubmit = false;
+      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
+    }
   } else if (decision === "DISMANTLE") {
     if (
       dismantleParts.length === 0 ||
-      dismantleParts.some(
-        (p) => !p.itemTypeId || !p.name || !p.price || Number(p.price) <= 0,
-      )
+      dismantleParts.some((p) => !p.itemTypeId || !p.name || !p.price)
     ) {
       canSubmit = false;
       submitButtonText = "ĐIỀN ĐỦ THÔNG TIN RÃ XÁC";
@@ -205,7 +161,8 @@ const WaitingDecisionTab = ({
       const partDef = matchedRecipe.requiredParts.find(
         (rp) =>
           rp.partCode === partCategoryToReplace.code ||
-          rp.name === partCategoryToReplace.name,
+          (rp.name || "").toLowerCase().trim() ===
+            (partCategoryToReplace.name || "").toLowerCase().trim(),
       );
 
       if (
@@ -220,8 +177,8 @@ const WaitingDecisionTab = ({
 
         return allowedItemTypeIds.includes(itemTypeId) && isSearchMatch;
       }
-      return false;
     }
+
     return false;
   });
 
@@ -306,10 +263,7 @@ const WaitingDecisionTab = ({
                         <span
                           className={`text-xs font-bold px-2 py-1 rounded ${item.isFaulty ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}
                         >
-                          {item.label}{" "}
-                          {item.deductionPercent > 0
-                            ? `(-${item.deductionPercent}%)`
-                            : ""}
+                          {item.label}
                         </span>
                       </div>
                     ))}
@@ -318,15 +272,81 @@ const WaitingDecisionTab = ({
               )}
 
               {decision === "DIRECT_IMPORT" && (
-                <div className="text-center bg-blue-50 border border-blue-200 p-8 rounded-xl shadow-inner">
-                  <CheckCircle className="mx-auto w-16 h-16 text-blue-500 mb-4" />
-                  <h3 className="text-xl font-bold text-blue-900 mb-2">
-                    Nhập nguyên bản vào kho
-                  </h3>
-                  <p className="text-sm text-blue-700 max-w-md mx-auto">
-                    Máy có tình trạng hoàn hảo. Nhấn Xác nhận để chuyển thẳng
-                    máy vào trạng thái <strong>Sẵn sàng bán (In Stock)</strong>.
-                  </p>
+                <div className="space-y-6">
+                  <div className="text-center bg-blue-50 border border-blue-200 p-8 rounded-xl shadow-inner">
+                    <CheckCircle className="mx-auto w-16 h-16 text-blue-500 mb-4" />
+                    <h3 className="text-xl font-bold text-blue-900 mb-2">
+                      Nhập nguyên bản vào kho
+                    </h3>
+                    <p className="text-sm text-blue-700 max-w-md mx-auto">
+                      Máy có tình trạng hoàn hảo. Nhấn Xác nhận để thiết lập giá
+                      và chuyển thẳng máy vào trạng thái{" "}
+                      <strong>Sẵn sàng bán</strong>.
+                    </p>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-xl border shadow-sm">
+                    <h4 className="font-bold text-gray-700 mb-4 uppercase text-sm border-b pb-2">
+                      Thông tin Niêm yết Bán
+                    </h4>
+                    <div className="grid grid-cols-2 gap-6 mb-4">
+                      <div>
+                        <label className="block font-bold text-gray-700 mb-2">
+                          Dung lượng
+                        </label>
+                        <input
+                          type="text"
+                          value={sellForm.capacity || ""}
+                          onChange={(e) =>
+                            onSellFormChange({
+                              ...sellForm,
+                              capacity: e.target.value,
+                            })
+                          }
+                          className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-gray-700 mb-2">
+                          Màu sắc
+                        </label>
+                        <input
+                          type="text"
+                          value={sellForm.colorName || ""}
+                          onChange={(e) =>
+                            onSellFormChange({
+                              ...sellForm,
+                              colorName: e.target.value,
+                            })
+                          }
+                          className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block font-black text-gray-800 mb-2">
+                        GIÁ BÁN NIÊM YẾT (VNĐ){" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={
+                          sellForm.sellingPrice
+                            ? new Intl.NumberFormat("vi-VN").format(
+                                sellForm.sellingPrice,
+                              )
+                            : ""
+                        }
+                        onChange={(e) =>
+                          onSellFormChange({
+                            ...sellForm,
+                            sellingPrice: e.target.value.replace(/\D/g, ""),
+                          })
+                        }
+                        className="w-full p-4 border-2 border-blue-300 rounded-lg outline-none focus:border-blue-600 text-2xl font-black text-blue-700"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -734,7 +754,6 @@ const WaitingDecisionTab = ({
                   </div>
                 ))}
 
-                {/* HIỂN THỊ NẾU KHÔNG TÌM THẤY HOẶC MÁY CHƯA CÓ TRONG RECIPE */}
                 {filteredPartsList.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-gray-500 text-sm font-bold">

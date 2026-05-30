@@ -44,6 +44,7 @@ export default function AdminSidebar() {
         { text: "Kho linh kiện", link: "/admin/items", icon: <Package size={18} /> },
         { text: "Cấu hình máy dựng", link: "/admin/recipes", icon: <Layers size={18} /> },
         { text: "Dịch vụ sửa chữa", link: "/admin/repair_service", icon: <Hammer size={18} /> },
+        { text: "Điều kiện đánh giá", link: "/admin/evaluation_conditions", icon: <FileText size={18} /> },
       ],
     },
     {
