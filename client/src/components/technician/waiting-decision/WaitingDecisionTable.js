@@ -12,7 +12,7 @@ const WaitingDecisionTable = ({ waitingPhones, loading, onProcess }) => {
               <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Mã máy</th>
               <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Thời gian nhập</th>
               <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tên dòng máy</th>
-              <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Linh kiện lỗi nặng</th>
+              <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Linh kiện lỗi</th>
               <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Giá vốn thu mua</th>
               <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
               <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Thao tác</th>

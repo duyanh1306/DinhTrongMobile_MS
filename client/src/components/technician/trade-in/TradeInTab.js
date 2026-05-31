@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Calculator } from "lucide-react";
 import TradeInTable from "./TradeInTable";
 import TradeInModal from "./TradeInModal";
@@ -18,36 +18,19 @@ const TradeInTab = ({
   onChecklistChange, 
   onSubmit 
 }) => {
-  const [recipes, setRecipes] = useState([]);
+  const [globalConditions, setGlobalConditions] = useState([]);
 
   useEffect(() => {
-    const fetchRecipes = async () => {
+    const fetchData = async () => {
       try {
-        const res = await axiosClient.get("/recipes/all");
-        setRecipes(res.data.data || res.data || []);
+        const resConditions = await axiosClient.get("/evaluation-conditions");
+        setGlobalConditions(resConditions.data?.data || resConditions.data || []);
       } catch (err) {
         console.error(err);
       }
     };
-    fetchRecipes();
+    fetchData();
   }, []);
-
-  const criteriaList = useMemo(() => {
-    if (!valuation.phoneModelId) return [];
-
-    const matchedRecipe = recipes.find(r => 
-        r.phoneModelId === valuation.phoneModelId || 
-        r.phoneModelId?._id === valuation.phoneModelId
-    );
-
-    if (!matchedRecipe || !matchedRecipe.requiredParts) return [];
-
-    return matchedRecipe.requiredParts.map(part => ({
-        partCode: part.partCode || part.name, 
-        partName: part.name,
-        conditions: part.conditions || []
-    }));
-  }, [valuation.phoneModelId, recipes]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -76,7 +59,7 @@ const TradeInTab = ({
         valuation={valuation}
         checklist={checklist}
         phoneModels={phoneModels}
-        criteriaList={criteriaList}
+        globalConditions={globalConditions}
         isBasicInfoFilled={isBasicInfoFilled}
         onClose={onCloseModal}
         onValuationChange={onValuationChange}

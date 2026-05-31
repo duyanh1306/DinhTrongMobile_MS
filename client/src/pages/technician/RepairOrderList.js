@@ -56,6 +56,7 @@ const RepairOrderList = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewMode, setViewMode] = useState("PENDING");
   const [showMyOrdersOnly, setShowMyOrdersOnly] = useState(false);
+  
   const [filters, setFilters] = useState({
     status: ["Pending", "In Progress"],
     type: "ALL",
@@ -96,7 +97,7 @@ const RepairOrderList = () => {
       }
       fetchStores();
     }
-  }, [activeTab, viewMode, showMyOrdersOnly]);
+  }, [activeTab, viewMode, showMyOrdersOnly, filters]);
 
   const fetchPhoneModels = async () => {
     try {
@@ -138,8 +139,7 @@ const RepairOrderList = () => {
       code,
       name: item.partName || code,
       label: item.label,
-      isFaulty: item.isFaulty,
-      deductionPercent: item.deductionPercent
+      isFaulty: item.isFaulty
     }));
 
     const checklistStr = checklistArr.map((item) => `- ${item.name}: ${item.label}`).join("\n");
@@ -168,7 +168,6 @@ const RepairOrderList = () => {
         await axiosClient.post("/purchase-orders", payload);
         toast.success("Đã tạo đơn và chuyển thẳng cho Sale thanh toán!");
       } else {
-
         const orderId = req._id || req.id;
         if (!orderId) {
             return toast.error("Lỗi: Không lấy được ID đơn hàng để cập nhật!");
@@ -184,9 +183,9 @@ const RepairOrderList = () => {
       fetchAllCounts();
     } catch (err) {
       toast.error("Lỗi hệ thống: " + (err.response?.data?.message || err.message));
-      console.error(err);
     }
   };
+
   const fetchWaitingPhones = async () => {
     try {
       setLoading(true);
@@ -267,6 +266,7 @@ const RepairOrderList = () => {
   };
 
   const fetchFilteredOrders = async () => {
+    if (viewMode !== "PENDING") return;
     try {
       setFilterLoading(true);
       const queryParams = new URLSearchParams();
@@ -294,6 +294,7 @@ const RepairOrderList = () => {
   };
 
   const fetchHistoryOrders = async () => {
+    if (viewMode !== "HISTORY") return;
     try {
       setFilterLoading(true);
       const user = JSON.parse(localStorage.getItem('user')) || {};
@@ -304,7 +305,12 @@ const RepairOrderList = () => {
         queryParams.append("technicianId", currentUserId);
       }
       
-      const url = queryParams.toString() ? `/repair-orders?${queryParams.toString()}` : "/repair-orders";
+      if (filters.type !== "ALL") queryParams.append("type", filters.type);
+      if (filters.storeId !== "ALL") queryParams.append("storeId", filters.storeId);
+      
+      queryParams.append("status", "Completed");
+      
+      const url = queryParams.toString() ? `/repair-orders/filter?${queryParams.toString()}` : "/repair-orders";
       const response = await axiosClient.get(url);
       setFilteredOrders(response.data);
       setError(null);
@@ -315,19 +321,29 @@ const RepairOrderList = () => {
     }
   };
 
-  const handleFilterChange = (filterType, value) => setFilters((prev) => ({ ...prev, [filterType]: value }));
+  const handleFilterChange = (filterType, value) => {
+    setFilters((prev) => ({ ...prev, [filterType]: value }));
+  };
   
-  const applyFilters = () => fetchFilteredOrders();
+  const applyFilters = () => {
+      if (viewMode === "PENDING") fetchFilteredOrders();
+      else fetchHistoryOrders();
+  };
   
   const resetFilters = () => {
-    setFilters({ status: "ALL", type: "ALL", storeId: "ALL" });
-    setFilteredOrders(orders);
+    if (viewMode === "PENDING") {
+        setFilters({ status: ["Pending", "In Progress"], type: "ALL", storeId: "ALL", customerName: "" });
+    } else {
+        setFilters({ status: "Completed", type: "ALL", storeId: "ALL", customerName: "" });
+    }
   };
   
   const toggleViewMode = (mode) => {
     setViewMode(mode);
     if (mode === "PENDING") {
       setFilters({ status: ["Pending", "In Progress"], type: "ALL", storeId: "ALL", customerName: "" });
+    } else {
+      setFilters({ status: "Completed", type: "ALL", storeId: "ALL", customerName: "" });
     }
   };
   
@@ -345,29 +361,21 @@ const RepairOrderList = () => {
       setOrderDetails([]);
     }
   };
-const handleOpenNewPurchase = () => {
+
+  const handleOpenNewPurchase = () => {
     setSelectedTradeIn({ isNewPurchase: true, customerName: "", customerPhone: "" });
     setValuation({ price: "", techNote: "", phoneModelId: "", colorName: "", capacity: "", ram: "" });
     setChecklist({});
-};
+  };
+
   const acceptRepairOrder = async (orderId, serviceId = [], itemIds = [], totalPrice = 0, phoneModelId = null) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/accept`, {
-        serviceId,
-        itemIds,
-        totalPrice,
-        phoneModelId
+        serviceId, itemIds, totalPrice, phoneModelId
       });
 
-      const modelObj = phoneModels.find(m => m._id === phoneModelId);
-      
-      const updateOrderStatus = (orderList) =>
-        orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "In Progress", totalPrice, phoneModelId: modelObj || phoneModelId } : order
-        );
-      setOrders(updateOrderStatus(orders));
-      setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã nhận đơn và cập nhật chi tiết!");
+      fetchFilteredOrders();
       fetchAllCounts();
     } catch (error) {
       toast.error("Lỗi nhận đơn: " + (error.response?.data?.message || error.message));
@@ -378,16 +386,8 @@ const handleOpenNewPurchase = () => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/details-transfer`, { serviceId, itemIds });
       await axiosClient.put(`/repair-orders/${orderId}`, { totalPrice, phoneModelId });
-      
-      const modelObj = phoneModels.find(m => m._id === phoneModelId);
-
-      const updateOrderStatus = (orderList) =>
-        orderList.map((order) =>
-          order._id === orderId ? { ...order, totalPrice, phoneModelId: modelObj || phoneModelId } : order
-        );
-      setOrders(updateOrderStatus(orders));
-      setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã lưu cập nhật chi tiết và tổng tiền!");
+      fetchFilteredOrders();
     } catch (error) {
       toast.error("Lỗi cập nhật: " + (error.response?.data?.message || error.message));
     }
@@ -396,13 +396,8 @@ const handleOpenNewPurchase = () => {
   const completeRepairOrder = async (orderId) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/complete`, {});
-      const updateOrderStatus = (orderList) =>
-        orderList.map((order) =>
-          order._id === orderId ? { ...order, status: "Completed" } : order
-        );
-      setOrders(updateOrderStatus(orders));
-      setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã hoàn thành đơn sửa chữa!");
+      fetchFilteredOrders();
       fetchAllCounts();
     } catch (error) {
       toast.error("Lỗi hoàn thành đơn: " + (error.response?.data?.message || error.message));
@@ -412,10 +407,8 @@ const handleOpenNewPurchase = () => {
   const cancelRepairOrder = async (orderId) => {
     try {
       await axiosClient.put(`/repair-orders/${orderId}/cancel`);
-      const updateOrderStatus = (orderList) => orderList.map((order) => order._id === orderId ? { ...order, status: "Cancelled" } : order);
-      setOrders(updateOrderStatus(orders));
-      setFilteredOrders(updateOrderStatus(filteredOrders));
       toast.success("Đã hủy đơn");
+      fetchFilteredOrders();
       fetchAllCounts();
     } catch (error) {
       toast.error("Lỗi hủy đơn");
@@ -440,33 +433,33 @@ const handleOpenNewPurchase = () => {
       </div>
 
      {activeTab === "TRADE_IN" && (
-        <>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Danh sách thu mua</h2>
-                <button onClick={handleOpenNewPurchase} className="bg-purple-600 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-700 shadow-md">
-                    <Plus size={18} /> Thu máy cũ
-                </button>
-            </div>
-            <TradeInTab
-                tradeInRequests={tradeInRequests}
-                loading={loading}
-                selectedTradeIn={selectedTradeIn}
-                valuation={valuation}
-                checklist={checklist}
-                phoneModels={phoneModels}
-                isBasicInfoFilled={isBasicInfoFilled}
-                onValuate={(req) => {
-                    setSelectedTradeIn(req);
-                    setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
-                    setChecklist({});
-                }}
-                onCloseModal={() => setSelectedTradeIn(null)}
-                onValuationChange={setValuation}
-                onChecklistChange={handleChecklistChange}
-                onSubmit={submitValuationDetailed}
-            />
-        </>
-      )}
+       <>
+           <div className="flex justify-between items-center mb-6 mt-4">
+               <h2 className="text-xl font-bold">Danh sách thu mua</h2>
+               <button onClick={handleOpenNewPurchase} className="bg-purple-600 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-700 shadow-md">
+                   <Plus size={18} /> Thu máy cũ
+               </button>
+           </div>
+           <TradeInTab
+               tradeInRequests={tradeInRequests}
+               loading={loading}
+               selectedTradeIn={selectedTradeIn}
+               valuation={valuation}
+               checklist={checklist}
+               phoneModels={phoneModels}
+               isBasicInfoFilled={isBasicInfoFilled}
+               onValuate={(req) => {
+                   setSelectedTradeIn(req);
+                   setValuation({ price: "", techNote: "", phoneModelId: "", capacity: "", colorName: "", ram: "" });
+                   setChecklist({});
+               }}
+               onCloseModal={() => setSelectedTradeIn(null)}
+               onValuationChange={setValuation}
+               onChecklistChange={handleChecklistChange}
+               onSubmit={submitValuationDetailed}
+           />
+       </>
+     )}
 
       {activeTab === "WAITING_DECISION" && (
         <WaitingDecisionTab

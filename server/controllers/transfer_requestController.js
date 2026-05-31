@@ -18,40 +18,53 @@ const getAllTransferRequests = async (req, res) => {
             .populate("itemType.itemTypes", "name")
             .populate({
                 path: 'phones',
-                select: 'phoneModelId colorName capacity',
+                select: 'phoneModelId colorName capacity grade',
                 populate: {
                     path: 'phoneModelId',
                     select: 'name'
                 }
             })
-            .sort({createdAt: -1});
+            .sort({createdAt: -1})
+            .lean(); 
 
-        res.status(200).json(requests);
+        const requestIds = requests.map(r => r._id);
+        const details = await TransferRequestDetail.find({ transferRequestId: { $in: requestIds } })
+            .populate({
+                path: 'itemId',
+                select: 'name origin item_type',
+                populate: { path: 'item_type', select: 'name' }
+            });
+
+        const detailMap = {};
+        details.forEach(d => {
+            detailMap[d.transferRequestId.toString()] = d;
+        });
+
+        const finalRequests = requests.map(req => {
+            req.specificItems = detailMap[req._id.toString()]?.itemId || [];
+            return req;
+        });
+
+        res.status(200).json(finalRequests);
     } catch (error) {
         res.status(500).json({error: error.message});
     }
 };
-
 const getTransferRequestDetailsById = async (req, res) => {
     try {
         const {id} = req.params;
 
         const details = await TransferRequestDetail.find({transferRequestId: id})
-            .populate({
-                path: "itemId",
-                select: "serialCode item_type itemTypeId",
-                populate: [
-                    {path: "item_type", select: "name"},
-                ]
-            })
-            .populate({
-                path: "phoneId",
-                select: "serialCode phoneModelId colorName capacity",
-                populate: {
-                    path: "phoneModelId",
-                    select: "name"
-                }
-            });
+        .populate({
+            path: "itemId",
+            select: "serialCode item_type itemTypeId origin", 
+            populate: [ {path: "item_type", select: "name"} ]
+        })
+        .populate({
+            path: "phoneId",
+            select: "serialCode phoneModelId colorName capacity grade",
+            populate: { path: "phoneModelId", select: "name" }
+        });
 
         res.status(200).json(details);
     } catch (error) {
@@ -61,7 +74,7 @@ const getTransferRequestDetailsById = async (req, res) => {
 // Tạo yêu cầu chuyển kho mới
 const createTransferRequest = async (req, res) => {
     try {
-        const {fromStoreId, toStoreId, requestedBy, itemType, phones, note} = req.body;
+        const {fromStoreId, toStoreId, requestedBy, itemType, phones, items, note} = req.body;
 
         if (!fromStoreId || !toStoreId || !requestedBy) {
             return res.status(400).json({ success: false, message: "Thiếu trường bắt buộc" });
@@ -78,15 +91,16 @@ const createTransferRequest = async (req, res) => {
             status: "PENDING",
             note: note || "",
             itemType: Array.isArray(itemType) ? itemType : [],
-           phones: Array.isArray(phones) ? phones : []
+            phones: Array.isArray(phones) ? phones : []
         });
 
         const savedRequest = await transferRequest.save();
 
+        
         const transferRequestDetail = new TransferRequestDetail({
             transferRequestId: savedRequest._id,
-            itemId: [],
-            phoneId: [], 
+            itemId: Array.isArray(items) ? items : [],     
+            phoneId: Array.isArray(phones) ? phones : [],  
             status: "PENDING",
             note: note || ""
         });
@@ -99,31 +113,28 @@ const createTransferRequest = async (req, res) => {
             .populate("requestedBy", "fullName");
 
        
-            try {
-                const fromStore = await Store.findById(fromStoreId).populate({
-                    path: 'staff',
-                    populate: { path: 'roleId' } 
-                });
-                const toStore = await Store.findById(toStoreId);
-                
-                const managerEmails = fromStore.staff
-                    .filter(u => {
-                        if (!u || !u.roleId) return false;
-                     
-                        const roleIdStr = u.roleId._id ? u.roleId._id.toString() : u.roleId.toString();
-                    
-                        return roleIdStr === '65b900000000000000000005' || roleIdStr === '65b900000000000000000001';
-                    })
-                    .map(u => u.email)
-                    .filter(Boolean); 
-    
-    
-                if (managerEmails.length > 0) {
-                    await sendTransferRequestCreatedEmail(managerEmails, savedRequest, fromStore.name, toStore.name);
-                }
-            } catch (mailError) {
-                console.error("Lỗi khi gửi mail thông báo Request:", mailError);
+        try {
+            const fromStore = await Store.findById(fromStoreId).populate({
+                path: 'staff',
+                populate: { path: 'roleId' } 
+            });
+            const toStore = await Store.findById(toStoreId);
+            
+            const managerEmails = fromStore.staff
+                .filter(u => {
+                    if (!u || !u.roleId) return false;
+                    const roleIdStr = u.roleId._id ? u.roleId._id.toString() : u.roleId.toString();
+                    return roleIdStr === '65b900000000000000000005' || roleIdStr === '65b900000000000000000001';
+                })
+                .map(u => u.email)
+                .filter(Boolean); 
+
+            if (managerEmails.length > 0) {
+                await sendTransferRequestCreatedEmail(managerEmails, savedRequest, fromStore.name, toStore.name);
             }
+        } catch (mailError) {
+            console.error("Lỗi khi gửi mail thông báo Request:", mailError);
+        }
 
         res.status(201).json({
             success: true,
@@ -360,7 +371,6 @@ const confirmShipment = async (req, res) => {
         }
 
         transferRequest.status = "DELIVERING";
-        transferRequest.approvedBy = userId;
         await transferRequest.save();
 
 
