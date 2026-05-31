@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight, AlertCircle, QrCode, Camera, Scan } from "lucide-react";
+import { ScanLine, CheckCircle, Clock, Truck, Search, X, Globe, CornerDownRight, AlertCircle } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { formatCurrency } from "../../utils/formatCurrency";
-import { fetchWebOrdersApi, fulfillOrderApi } from "../../api/saleStaff/webOrder";
-import { Html5Qrcode } from "html5-qrcode"; 
+import { fetchWebOrdersApi, fulfillOrderApi } from "../../api/saleStaff/webOrder"
 
 export default function SaleWebOrders() {
     const [orders, setOrders] = useState([]);
@@ -13,11 +12,6 @@ export default function SaleWebOrders() {
     const [scanInput, setScanInput] = useState("");
     const [scannedSerials, setScannedSerials] = useState([]);
     const scanInputRef = useRef(null);
-
-    const [showScanner, setShowScanner] = useState(false);
-    const [cameras, setCameras] = useState([]);
-    const [selectedCamera, setSelectedCamera] = useState(null);
-    const scannerRef = useRef(null);
 
     useEffect(() => {
         loadWebOrders();
@@ -28,16 +22,6 @@ export default function SaleWebOrders() {
             scanInputRef.current.focus();
         }
     }, [selectedOrder]);
-
-    useEffect(() => {
-        return () => {
-            if (scannerRef.current) {
-                try {
-                    scannerRef.current.stop().catch(() => {});
-                } catch (error) {}
-            }
-        };
-    }, []);
 
     const loadWebOrders = async () => {
         setLoading(true);
@@ -51,6 +35,7 @@ export default function SaleWebOrders() {
         const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
         const existingScansForThisOrder = savedDrafts[order._id] || [];
         setScannedSerials(existingScansForThisOrder);
+        
         setScanInput("");
     };
 
@@ -71,92 +56,32 @@ export default function SaleWebOrders() {
         return reqItems;
     };
 
-
-    const processSerialNumber = (codeInput) => {
-        const code = codeInput.trim().toUpperCase();
-        if (!code) return;
-
-        const requiredItems = getRequiredItems(selectedOrder);
-        const matchedItem = requiredItems.find(item => item.serial === code);
-
-        if (!matchedItem) {
-            toast.error(` MÃ SAI: ${code} không thuộc đơn hàng này!`);
-        } else if (scannedSerials.includes(code)) {
-            toast.warning(` Mã ${code} đã được quét rồi!`);
-        } else {
-            const newScannedSerials = [...scannedSerials, code];
-            setScannedSerials(newScannedSerials);
-            
-            const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
-            savedDrafts[selectedOrder._id] = newScannedSerials;
-            localStorage.setItem('scannedOrdersDraft', JSON.stringify(savedDrafts));
-
-            toast.success(` Đã nhận: ${matchedItem.name}`);
-        }
-    };
-
     const handleScan = (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
-            processSerialNumber(scanInput);
+
+            const code = scanInput.trim().toUpperCase();
+            if (!code) return;
+
+            const requiredItems = getRequiredItems(selectedOrder);
+            const matchedItem = requiredItems.find(item => item.serial === code);
+
+            if (!matchedItem) {
+                toast.error(` MÃ SAI: ${code} không thuộc đơn hàng này!`);
+            } else if (scannedSerials.includes(code)) {
+                toast.warning(` Mã ${code} đã được quét rồi!`);
+            } else {
+                const newScannedSerials = [...scannedSerials, code];
+                setScannedSerials(newScannedSerials);
+                
+                const savedDrafts = JSON.parse(localStorage.getItem('scannedOrdersDraft') || '{}');
+                savedDrafts[selectedOrder._id] = newScannedSerials;
+                localStorage.setItem('scannedOrdersDraft', JSON.stringify(savedDrafts));
+
+                toast.success(` Đã nhận: ${matchedItem.name}`);
+            }
             setScanInput("");
         }
-    };
-
-    const startScanner = async () => {
-        setShowScanner(true);
-        try {
-            const devices = await Html5Qrcode.getCameras();
-            setCameras(devices);
-            if (devices && devices.length) {
-                const rearCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('sau'));
-                const cameraId = rearCamera ? rearCamera.id : devices[devices.length - 1].id;
-                setSelectedCamera(cameraId);
-                initializeScanner(cameraId);
-            } else {
-                toast.error("Không tìm thấy camera trên thiết bị này!");
-            }
-        } catch (err) {
-            toast.error("Lỗi truy cập camera: " + err.message);
-        }
-    };
-
-    const stopScanner = () => {
-        setShowScanner(false);
-        if (scannerRef.current) {
-            try {
-                scannerRef.current.stop().catch(() => {});
-            } catch (error) {}
-            scannerRef.current = null;
-        }
-    };
-
-    const initializeScanner = (cameraId) => {
-        if (scannerRef.current) {
-            try {
-                scannerRef.current.stop().catch(() => {});
-            } catch (error) {}
-        }
-        
-
-        const html5QrCode = new Html5Qrcode("web-order-qr-reader");
-        scannerRef.current = html5QrCode;
-        html5QrCode.start(
-            cameraId,
-            { 
-                fps: 10, 
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.333334, 
-                videoConstraints: { width: { ideal: 640 }, height: { ideal: 480 } }
-            },
-            (decodedText) => {
-                processSerialNumber(decodedText);
-                html5QrCode.pause();
-                setTimeout(() => html5QrCode.resume(), 2000);
-            },
-        ).catch(err => {
-            toast.error("Không thể khởi động luồng Camera.");
-        });
     };
 
     const handleFulfillOrder = async () => {
@@ -180,7 +105,6 @@ export default function SaleWebOrders() {
         <div className="flex h-full gap-6 p-2">
             <ToastContainer autoClose={2000} />
        
-  
             <div className="w-1/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                     <h2 className="font-bold text-gray-800 flex items-center gap-2">
@@ -250,8 +174,8 @@ export default function SaleWebOrders() {
                 </div>
             </div>
 
-
-            <div className="w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden relative">
+   
+            <div className="w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 {!selectedOrder ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
                         <Globe size={64} className="mb-4 opacity-20" />
@@ -269,18 +193,10 @@ export default function SaleWebOrders() {
                         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
                             
                             <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 shadow-sm">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-sm font-bold text-gray-800 uppercase flex items-center gap-2">
-                                        <QrCode size={16} className="text-blue-600"/> Quét mã QR Sản phẩm
-                                    </h3>
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-sm font-bold bg-white px-3 py-1 rounded-lg shadow-sm border border-blue-100">
-                                            Tiến độ: <span className="text-green-600">{scannedSerials.length} / {requiredList.length}</span>
-                                        </div>
-                                        
-                                        <button onClick={startScanner} className="px-3 py-1.5 bg-indigo-600 text-white font-bold text-sm rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md">
-                                            <Camera size={16}/> Mở Camera
-                                        </button>
+                                <div className="flex justify-between items-end mb-4">
+                                    <h3 className="text-sm font-bold text-gray-800 uppercase flex items-center gap-2"><ScanLine size={16} className="text-blue-600"/> Quét Serial đóng gói</h3>
+                                    <div className="text-sm font-bold">
+                                        Tiến độ: <span className="text-green-600">{scannedSerials.length} / {requiredList.length}</span>
                                     </div>
                                 </div>
                                 
@@ -288,7 +204,7 @@ export default function SaleWebOrders() {
                                     <input 
                                         ref={scanInputRef}
                                         type="text" 
-                                        placeholder="Hoặc nhập Serial Code vào đây " 
+                                        placeholder="Tít mã vạch / Nhập Serial Code vào đây..." 
                                         value={scanInput}
                                         onChange={(e) => setScanInput(e.target.value)}
                                         onKeyDown={handleScan}
@@ -367,6 +283,7 @@ export default function SaleWebOrders() {
                             </div>
                         </div>
                         
+            
                         <div className="p-4 border-t bg-white">
                             <button 
                                 onClick={handleFulfillOrder}
@@ -383,31 +300,6 @@ export default function SaleWebOrders() {
                     </>
                 )}
             </div>
-
-       
-            {showScanner && (
-                <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
-                        <div className="p-4 bg-gray-900 text-white flex justify-between items-center">
-                            <h3 className="font-bold flex items-center gap-2"><Scan size={18}/> Quét mã QR Đóng Gói</h3>
-                            <button onClick={stopScanner} className="p-1 hover:bg-white/20 rounded-full transition"><X size={20}/></button>
-                        </div>
-                        <div className="p-4 bg-gray-100 flex flex-col items-center">
-                            {cameras.length > 1 && (
-                                <select 
-                                    value={selectedCamera} 
-                                    onChange={(e) => { setSelectedCamera(e.target.value); initializeScanner(e.target.value); }}
-                                    className="mb-4 w-full p-2 rounded border outline-none text-sm font-medium"
-                                >
-                                    {cameras.map((c, i) => <option key={c.id} value={c.id}>{c.label || `Camera ${i + 1}`}</option>)}
-                                </select>
-                            )}
-                            <div id="web-order-qr-reader" className="w-full max-w-[300px] border-4 border-dashed border-indigo-300 rounded-xl overflow-hidden bg-black min-h-[225px]"></div>
-                            <p className="mt-4 text-sm text-gray-500 text-center font-medium">Đưa mã QR/Barcode vào khung hình. Trình duyệt sẽ tự nhận diện.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
