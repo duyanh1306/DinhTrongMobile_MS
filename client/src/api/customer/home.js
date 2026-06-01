@@ -24,12 +24,11 @@ export const fetchHomeDataApi = async (selectedStore) => {
         const assembledList = [];
 
         phoneModels.forEach(model => {
-            
             const allModelPhones = phones.filter(p => {
                 const pStoreId = p.storeId?._id || p.storeId;
                 const pModelId = p.phoneModelId?._id || p.phoneModelId;
                 return (
-                    (p.status === 'in_stock' || p.status === 'sold') && 
+                    p.status === 'in_stock' && 
                     String(pModelId) === String(model._id) && 
                     String(pStoreId) === String(activeStore)
                 );
@@ -37,13 +36,12 @@ export const fetchHomeDataApi = async (selectedStore) => {
 
             if (allModelPhones.length === 0) return;
 
-           
             const newPhonesPhysical = allModelPhones.filter(p => !p.grade || p.grade === 'Mới');
             const assembledPhonesPhysical = allModelPhones.filter(p => p.grade === 'Máy dựng' || p.grade === 'Máy ráp');
             const usedPhonesPhysical = allModelPhones.filter(p => p.grade && p.grade !== 'Mới' && p.grade !== 'Máy dựng' && p.grade !== 'Máy ráp');
 
             const getStartingPrice = (physicalList) => {
-                const validPrices = physicalList.map(p => p.sellingPrice || (p.importPrice * 1.15)).filter(price => !isNaN(price) && price > 0);
+                const validPrices = physicalList.map(p => p.sellingPrice).filter(price => !isNaN(price) && price > 0);
                 return validPrices.length > 0 ? Math.min(...validPrices) : (model.price || 0);
             };
 
@@ -57,33 +55,54 @@ export const fetchHomeDataApi = async (selectedStore) => {
                     ...model,
                     image: getDisplayImage(newPhonesPhysical),
                     price: getStartingPrice(newPhonesPhysical),
-                    stockCount: newPhonesPhysical.filter(p => p.status === 'in_stock').length, 
+                    stockCount: newPhonesPhysical.length, 
                     isUsedCard: false,
                     isAssembledCard: false
                 });
             }
 
-            if (usedPhonesPhysical.length > 0) {
-                usedList.push({
-                    ...model,
-                    image: getDisplayImage(usedPhonesPhysical),
-                    price: getStartingPrice(usedPhonesPhysical),
-                    stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                    isUsedCard: true,
-                    isAssembledCard: false
-                });
-            }
+            usedPhonesPhysical.forEach(phone => {
+                if (phone.sellingPrice > 0) {
+                    usedList.push({
+                        ...model,
+                        _id: model._id,
+                        uniqueKey: phone._id, 
+                        name: `${model.name} (${phone.capacity})`,
+                        image: (phone.specificImages && phone.specificImages.length > 0) ? phone.specificImages[0] : model.image,
+                        price: phone.sellingPrice, 
+                        stockCount: 1, 
+                        isUsedCard: true,
+                        isAssembledCard: false,
+                        
+                      
+                        customBadge: phone.colorName,
+                        capacity: phone.capacity,
+                        grade: phone.grade,
+                        colorName: phone.colorName
+                    });
+                }
+            });
 
-            if (assembledPhonesPhysical.length > 0) {
-                assembledList.push({
-                    ...model,
-                    image: getDisplayImage(assembledPhonesPhysical),
-                    price: getStartingPrice(assembledPhonesPhysical),
-                    stockCount: assembledPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                    isUsedCard: false,
-                    isAssembledCard: true
-                });
-            }
+            assembledPhonesPhysical.forEach(phone => {
+                if (phone.sellingPrice > 0) {
+                    assembledList.push({
+                        ...model,
+                        _id: model._id,
+                        uniqueKey: phone._id,
+                        name: `${model.name} (${phone.capacity})`,
+                        image: (phone.specificImages && phone.specificImages.length > 0) ? phone.specificImages[0] : model.image,
+                        price: phone.sellingPrice,
+                        stockCount: 1,
+                        isUsedCard: false,
+                        isAssembledCard: true,
+                        
+                        customBadge: phone.colorName,
+                        capacity: phone.capacity,
+                        grade: phone.grade,
+                        colorName: phone.colorName
+                    });
+                }
+            });
         });
 
         return {

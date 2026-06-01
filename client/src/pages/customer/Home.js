@@ -68,15 +68,19 @@ export default function Home() {
 
     return (
       <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-        {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
-        {isAssembled && <span className="absolute top-3 left-3 bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Dựng</span>}
+        
+      
+        {isUsed && <span className="absolute top-3 left-3 bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">{product.customBadge || 'Máy Cũ'}</span>}
+        {isAssembled && <span className="absolute top-3 left-3 bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">{product.customBadge || 'Máy Dựng'}</span>}
         {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
         
-        <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, defaultPrice: product.price, isAssembled: isAssembled }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
+     
+        <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, defaultPrice: product.price, isAssembled: isAssembled, specificPhoneId: product.uniqueKey }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
           <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
         </Link>
         <div className="flex-1 flex flex-col">
-          <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, defaultPrice: product.price, isAssembled: isAssembled }}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4></Link>
+
+          <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, defaultPrice: product.price, isAssembled: isAssembled, specificPhoneId: product.uniqueKey }}><h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4></Link>
           <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
           <div className="flex flex-wrap gap-2 mt-auto mb-4">
             <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] px-2 py-1 rounded-md"><Smartphone size={12} className="text-gray-400" /> {specs.screenSize || "N/A"}</div>
@@ -139,17 +143,21 @@ export default function Home() {
           </div>
         )}
 
-        {usedPhones.length > 0 && (
+{usedPhones.length > 0 && (
           <div className="mb-14 p-6 bg-red-50/50 rounded-2xl border border-red-100">
             <div className="flex items-center justify-between mb-6"><h3 className="text-2xl font-bold text-red-600 uppercase flex items-center gap-2"><span className="w-1.5 h-7 bg-red-600 rounded-full inline-block"></span>Máy Cũ Giá Rẻ - Trợ Giá Thu Cũ</h3><Link to="/category/used" className="text-red-600 font-medium hover:underline text-sm md:text-base transition">Xem tất cả &rarr;</Link></div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{usedPhones.slice(0, 8).map(product => (<ProductCard key={product._id} product={product} isUsed={true} isAssembled={false} />))}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {usedPhones.slice(0, 8).map(product => (<ProductCard key={product.uniqueKey || product._id} product={product} isUsed={true} isAssembled={false} />))}
+            </div>
           </div>
         )}
 
         {assembledPhones.length > 0 && (
           <div className="mb-10 p-6 bg-purple-50/50 rounded-2xl border border-purple-100">
             <div className="flex items-center justify-between mb-6"><h3 className="text-2xl font-bold text-purple-700 uppercase flex items-center gap-2"><span className="w-1.5 h-7 bg-purple-600 rounded-full inline-block"></span>Máy Dựng (Tân Trang) Chuyên Nghiệp</h3><Link to="/category/assembled" className="text-purple-600 font-medium hover:underline text-sm md:text-base transition">Xem tất cả &rarr;</Link></div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">{assembledPhones.slice(0, 8).map(product => (<ProductCard key={product._id} product={product} isUsed={false} isAssembled={true} />))}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {assembledPhones.slice(0, 8).map(product => (<ProductCard key={product.uniqueKey || product._id} product={product} isUsed={false} isAssembled={true} />))}
+            </div>
           </div>
         )}
 

@@ -147,44 +147,29 @@ exports.vnpayIpn = async (req, res) => {
 };
 exports.payosReturn = async (req, res) => {
     try {
-        const { code, status, cancel, orderCode } = req.query;
+        const { code, cancel, status, orderCode } = req.query;
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000'; 
 
-        if (cancel === 'true' || status === 'CANCELLED') {
-            console.log(`[PayOS] Khách hàng đã hủy thanh toán đơn: ${orderCode}. CHỈ redirect, KHÔNG gửi mail!`);
-        }
-    
-        else if (code === '00' || status === 'PAID') {
-            const updatedOrder = await Order.findOneAndUpdate(
-                { orderCode: Number(orderCode), paymentStatus: { $ne: 'Paid' } }, 
-                { paymentStatus: 'Paid', orderStatus: 'Processing' },
-                { new: true }
-            );
-
-            if (updatedOrder) {
-                const user = await User.findById(updatedOrder.userId);
-                const userEmail = user?.email || "email_du_phong@gmail.com";
-                const userName = updatedOrder.shippingInfo?.fullName || user?.name || "Quý khách";
-                
-                sendInvoiceEmail(userEmail, updatedOrder, userName).catch(err => console.error(err));
-                reserveInventoryForOrder(updatedOrder).catch(err => console.error('Lỗi khóa kho PayOS:', err));
+        if (cancel === 'true' || status === 'CANCELLED' || code !== '00') {
+            
+            if (orderCode) {
+                await Order.findOneAndDelete({ orderCode: Number(orderCode), paymentStatus: { $ne: 'Paid' } });
             }
+            
+            return res.redirect(`${clientUrl}/payos-return?code=${code}&cancel=true&status=CANCELLED`);
         }
 
-
-        const clientReturn = process.env.VNP_CLIENT_RETURN_URL || process.env.VNP_FRONTEND_RETURN_URL;
-        if (clientReturn) {
-            const qs = querystring.stringify(req.query);
-            const sep = clientReturn.includes('?') ? '&' : '?';
-            return res.redirect(302, `${clientReturn.replace('vnpay-return', 'payos-return')}${sep}${qs}`);
+        if (code === '00' || status === 'PAID') {
+            return res.redirect(`${clientUrl}/payos-return?code=00&status=PAID`);
         }
 
-        return res.status(200).json({ success: code === '00' || status === 'PAID', data: req.query });
+        return res.redirect(`${clientUrl}/payos-return`);
+        
     } catch (error) {
         console.error('Lỗi PayOS return:', error);
         return res.status(500).json({ success: false, message: 'Lỗi xử lý PayOS Return' });
     }
 };
-
 
 exports.payosWebhook = async (req, res) => {
     try {
