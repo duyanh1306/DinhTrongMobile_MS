@@ -106,7 +106,7 @@ export default function Cart() {
         if (item.productType === 'CUSTOM_BUILD') return toast.warning("Máy tự ráp chỉ được mua số lượng 1 cho mỗi cấu hình!");
         
         if (item.grade && item.grade !== 'Mới' && newQuantity > 1) {
-            return toast.warning("Mỗi chiếc Máy Cũ / Máy Dựng là duy nhất, chỉ được mua tối đa 1 chiếc!");
+            return toast.warning("Chỉ được mua tối đa 1 chiếc!");
         }
 
         const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
