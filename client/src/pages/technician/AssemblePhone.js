@@ -342,9 +342,9 @@ export default function AssemblePhone() {
                                 <thead className="bg-gray-100 text-gray-600 border-b border-gray-200 uppercase text-xs">
                                     <tr>
                                         <th className="px-6 py-4 font-bold text-center w-[10%]">STT</th>
-                                        <th className="px-6 py-4 font-bold w-[50%]">Dòng máy (Phone model)</th>
-                                        <th className="px-6 py-4 font-bold text-center w-[25%]">Khả năng ráp (Available Parts)</th>
-                                        <th className="px-6 py-4 font-bold text-center w-[15%]">Action</th>
+                                        <th className="px-6 py-4 font-bold w-[50%]">Dòng máy </th>
+                                        <th className="px-6 py-4 font-bold text-center w-[25%]">Số lượng máy có thể ráp</th>
+                                        <th className="px-6 py-4 font-bold text-center w-[15%]">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -394,10 +394,10 @@ export default function AssemblePhone() {
                                 <thead className="bg-gray-100 text-gray-600 border-b border-gray-200 uppercase text-xs">
                                     <tr>
                                         <th className="px-4 py-4 font-bold text-center w-[8%]">STT</th>
-                                        <th className="px-4 py-4 font-bold w-[25%]">Vị trí (Item type name)</th>
-                                        <th className="px-4 py-4 font-bold w-[35%]">Linh kiện đang chọn (Item type)</th>
-                                        <th className="px-4 py-4 font-bold text-center w-[17%]">Khả dụng (Quantity)</th>
-                                        <th className="px-4 py-4 font-bold text-center w-[15%]">Action</th>
+                                        <th className="px-4 py-4 font-bold w-[25%]">Vị trí </th>
+                                        <th className="px-4 py-4 font-bold w-[35%]">Linh kiện đang chọn </th>
+                                        <th className="px-4 py-4 font-bold text-center w-[17%]">Khả dụng </th>
+                                        <th className="px-4 py-4 font-bold text-center w-[15%]">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">

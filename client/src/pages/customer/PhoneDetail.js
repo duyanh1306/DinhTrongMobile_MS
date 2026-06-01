@@ -17,7 +17,7 @@ export default function PhoneDetail() {
     const defaultIsUsed = location.state?.defaultIsUsed;
     const isAssembled = location.state?.isAssembled; 
     const defaultPrice = location.state?.defaultPrice; 
-
+    const specificPhoneId = location.state?.specificPhoneId;
     const [model, setModel] = useState(null);
     const [availablePhones, setAvailablePhones] = useState([]);
     
@@ -50,6 +50,10 @@ export default function PhoneDetail() {
                     strictlyFilteredPhones = storePhones.filter(p => p.grade && p.grade !== 'Mới' && p.grade !== 'Máy dựng' && p.grade !== 'Máy ráp');
                 } else if (defaultIsUsed === false) {
                     strictlyFilteredPhones = storePhones.filter(p => !p.grade || p.grade === 'Mới');
+                }
+
+                if ((defaultIsUsed || isAssembled) && specificPhoneId) {
+                    strictlyFilteredPhones = strictlyFilteredPhones.filter(p => p._id === specificPhoneId);
                 }
 
                 setAvailablePhones(strictlyFilteredPhones);
@@ -207,7 +211,16 @@ export default function PhoneDetail() {
             <div className="max-w-6xl mx-auto py-8 px-4">
                 <div className="text-sm text-gray-500 mb-6">
                     <span className="hover:text-blue-600 cursor-pointer transition" onClick={() => navigate('/home')}>Trang chủ</span> <span className="mx-2">/</span> 
-                    <span className="hover:text-blue-600 cursor-pointer transition">{model.brand?.name || model.brand}</span> <span className="mx-2">/</span> 
+                    <span 
+                        className="hover:text-blue-600 cursor-pointer transition font-bold" 
+                        onClick={() => {
+                            const brandId = model.brand?._id || model.brand;
+                            navigate('/search', { state: { selectedBrandFilter: brandId } });
+                        }}
+                    >
+                        {model.brand?.name || model.brand}
+                    </span>
+                     <span className="mx-2">/</span>
                     <span className="text-gray-800 font-semibold">{model.name}</span>
                 </div>
 
@@ -230,7 +243,17 @@ export default function PhoneDetail() {
                     <div className="md:w-7/12 flex flex-col">
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">{model.name}</h1>
                         <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
-                            <span className="text-sm text-gray-500">Hãng: <span className="font-semibold text-blue-600">{model.brand?.name || model.brand}</span></span>
+                        <span className="text-sm text-gray-500 flex items-center gap-1">Hãng: 
+                        <span 
+                                    className="font-semibold text-blue-600 cursor-pointer hover:underline"
+                                    onClick={() => {
+                                        const brandId = model.brand?._id || model.brand;
+                                        navigate('/search', { state: { selectedBrandFilter: brandId } });
+                                    }}
+                                >
+                                    {model.brand?.name || model.brand}
+                                </span>
+                            </span>
                         </div>
 
                         <div className="mb-6">

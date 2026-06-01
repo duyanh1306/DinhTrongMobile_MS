@@ -104,6 +104,10 @@ export default function Cart() {
     const updateQuantity = async (item, newQuantity) => {
         if (newQuantity < 1) return;
         if (item.productType === 'CUSTOM_BUILD') return toast.warning("Máy tự ráp chỉ được mua số lượng 1 cho mỗi cấu hình!");
+        
+        if (item.grade && item.grade !== 'Mới' && newQuantity > 1) {
+            return toast.warning("Mỗi chiếc Máy Cũ / Máy Dựng là duy nhất, chỉ được mua tối đa 1 chiếc!");
+        }
 
         const modelId = typeof item.phoneModelId === 'object' ? item.phoneModelId._id : item.phoneModelId;
         const grade = item.grade || 'Mới';
@@ -253,13 +257,20 @@ export default function Cart() {
 
                                                 {item.productType === 'PHONE' ? (
                                                     <div className="flex flex-col items-end gap-1">
-                                                        <div className={`flex items-center border rounded-lg overflow-hidden bg-white shadow-sm ${isOutOfStock ? 'border-gray-200 opacity-50' : 'border-gray-300'}`}>
-                                                            <button onClick={() => updateQuantity(item, item.quantity - 1)} disabled={isOutOfStock} className="px-3 py-1 hover:bg-gray-100 font-bold text-gray-600 transition disabled:cursor-not-allowed">-</button>
-                                                            <div className="w-10 text-center text-sm font-semibold text-gray-800 border-x border-gray-200 py-1.5">{item.quantity}</div>
-                                                            <button onClick={() => updateQuantity(item, item.quantity + 1)} disabled={isAtMaxStock || isOutOfStock} className={`px-3 py-1 font-bold transition ${(isAtMaxStock || isOutOfStock) ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}>+</button>
-                                                        </div>
-                                                        {isAtMaxStock && !isOutOfStock && <span className="text-[10px] text-red-500 font-semibold">Đã đạt tối đa kho</span>}
+                                                    <div className={`flex items-center border rounded-lg overflow-hidden bg-white shadow-sm ${isOutOfStock ? 'border-gray-200 opacity-50' : 'border-gray-300'}`}>
+                                                        <button onClick={() => updateQuantity(item, item.quantity - 1)} disabled={isOutOfStock} className="px-3 py-1 hover:bg-gray-100 font-bold text-gray-600 transition disabled:cursor-not-allowed">-</button>
+                                                        <div className="w-10 text-center text-sm font-semibold text-gray-800 border-x border-gray-200 py-1.5">{item.quantity}</div>
+                                                        <button 
+                                                            onClick={() => updateQuantity(item, item.quantity + 1)} 
+                                                            disabled={isAtMaxStock || isOutOfStock || (item.grade && item.grade !== 'Mới')} 
+                                                            className={`px-3 py-1 font-bold transition ${(isAtMaxStock || isOutOfStock || (item.grade && item.grade !== 'Mới')) ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}
+                                                        >
+                                                            +
+                                                        </button>
                                                     </div>
+                                                    {isAtMaxStock && !isOutOfStock && !(item.grade && item.grade !== 'Mới') && <span className="text-[10px] text-red-500 font-semibold">Đã đạt tối đa kho</span>}
+                                                    {(item.grade && item.grade !== 'Mới') && !isOutOfStock && <span className="text-[10px] text-orange-500 font-semibold">Sản phẩm độc nhất</span>}
+                                                </div>
                                                 ) : (
                                                     <div className="px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600">Số lượng: 1</div>
                                                 )}

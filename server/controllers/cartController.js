@@ -75,7 +75,8 @@ const addToCart = async (req, res) => {
                 return i.phoneModelId?.toString() === item.phoneModelId?.toString() && 
                        i.colorName === item.colorName && 
                        i.capacity === item.capacity &&
-                       i.grade === item.grade;
+                       i.grade === item.grade &&
+                       i.price === item.price; 
             }
         });
 
