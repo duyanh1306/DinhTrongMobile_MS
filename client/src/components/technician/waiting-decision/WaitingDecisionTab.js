@@ -108,32 +108,30 @@ const WaitingDecisionTab = ({
   let canSubmit = true;
   let submitButtonText = "XÁC NHẬN LƯU KHO";
 
+  const sellPriceNum = Number(sellForm.sellingPrice || 0);
+
   if (decision === "SELL") {
     const brokenParts = parsedChecklist.filter((i) => i.isFaulty);
     const hasFullReplacements = brokenParts.every((bp) =>
       replacementParts.some((rp) => rp.category === bp.name),
     );
-    const hasSellPrice =
-      sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
 
     if (!hasFullReplacements) {
       canSubmit = false;
       submitButtonText = "CHƯA ĐỦ LINH KIỆN THAY THẾ";
-    } else if (!hasSellPrice) {
+    } else if (sellPriceNum <= 0) {
       canSubmit = false;
-      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
+      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN > 0";
     }
   } else if (decision === "DIRECT_IMPORT") {
-    const hasSellPrice =
-      sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
-    if (!hasSellPrice) {
+    if (sellPriceNum <= 0) {
       canSubmit = false;
-      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
+      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN > 0";
     }
   } else if (decision === "DISMANTLE") {
     if (
       dismantleParts.length === 0 ||
-      dismantleParts.some((p) => !p.itemTypeId || !p.name || !p.price)
+      dismantleParts.some((p) => !p.itemTypeId || !p.name || Number(p.price) <= 0)
     ) {
       canSubmit = false;
       submitButtonText = "ĐIỀN ĐỦ THÔNG TIN RÃ XÁC";
@@ -637,10 +635,46 @@ const WaitingDecisionTab = ({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-1 gap-5 bg-red-50 p-4 rounded-lg border border-red-100">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-red-50/50 p-3 rounded-lg border border-red-100">
                           <div>
-                            <label className="block text-xs font-black text-red-600 uppercase mb-1.5">
-                              Giá bán lẻ (VNĐ) *
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                              Màu sắc
+                            </label>
+                            <input
+                              type="text"
+                              value={part.color}
+                              onChange={(e) =>
+                                onPartChange(idx, "color", e.target.value)
+                              }
+                              className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                              Giá vốn nhập
+                            </label>
+                            <input
+                              type="text"
+                              value={
+                                part.baseCost
+                                  ? new Intl.NumberFormat("vi-VN").format(
+                                      part.baseCost,
+                                    )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                onPartChange(
+                                  idx,
+                                  "baseCost",
+                                  e.target.value.replace(/\D/g, ""),
+                                )
+                              }
+                              className="w-full p-2.5 border rounded-lg outline-none text-sm font-bold text-gray-700 bg-white focus:ring-2 focus:ring-red-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-red-600 uppercase mb-1">
+                              Giá bán lẻ (VND) *
                             </label>
                             <input
                               type="text"
@@ -651,14 +685,14 @@ const WaitingDecisionTab = ({
                                     )
                                   : ""
                               }
-                              onChange={(e) => {
-                                let value = e.target.value.replace(/\D/g, "");
-
-                                if (value === "0") value = "";
-
-                                onPartChange(idx, "price", value);
-                              }}
-                              className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none focus:border-red-500 font-black text-red-600 bg-white"
+                              onChange={(e) =>
+                                onPartChange(
+                                  idx,
+                                  "price",
+                                  e.target.value.replace(/\D/g, ""),
+                                )
+                              }
+                              className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none text-sm font-black text-red-600 bg-white focus:border-red-500"
                             />
                           </div>
                         </div>
