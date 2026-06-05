@@ -16,7 +16,6 @@ const itemSchema = new Schema(
         storeId: { type: Schema.Types.ObjectId, ref: "Store" },
         warrantyPeriod: { type: Number },
 
-        // THÊM 3 TRƯỜNG THUỘC TÍNH NÀY VÀO
         ram: { type: String },
         capacity: { type: String },
         color: { type: String }

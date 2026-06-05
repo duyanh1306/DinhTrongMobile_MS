@@ -181,11 +181,15 @@ export default function AdminRecipe() {
                             if (matchedBase) guessedCode = matchedBase.code;
                         }
                     }
+                    if (!guessedCode && part.name && part.acceptedItemTypes.length === 0) {
+                        guessedCode = 'OTH';
+                    }
 
                     return {
                         ...part,
                         filterCode: guessedCode,
-                        acceptedItemTypes: part.acceptedItemTypes.map(type => type._id || type)
+                        acceptedItemTypes: part.acceptedItemTypes.map(type => type._id || type),
+                        customName: guessedCode === 'OTH' ? part.name : '' 
                     };
                 })
             });
@@ -224,10 +228,10 @@ export default function AdminRecipe() {
                 isRequired: true, 
                 acceptedItemTypes: [], 
                 quantity: 1, 
-                filterCode: ''
+                filterCode: '',
+                customName: '' 
             }]
         }));
-
         setTimeout(() => {
             if (endOfListRef.current) {
                 endOfListRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -297,11 +301,17 @@ export default function AdminRecipe() {
             if (!part.filterCode) {
                 return Swal.fire({ icon: 'warning', title: 'Thiếu thông tin!', text: `Slot thứ ${i + 1} chưa chọn Nhóm linh kiện!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
             }
-            if (part.acceptedItemTypes.length === 0) {
+            
+            if (part.filterCode === 'OTH') {
+                if (!part.customName || !part.customName.trim()) {
+                    return Swal.fire({ icon: 'warning', title: 'Thiếu thông tin!', text: `Vui lòng nhập tên cho linh kiện Khác ở Slot thứ ${i + 1}!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
+                }
+            } 
+            else if (part.acceptedItemTypes.length === 0) {
                 return Swal.fire({ icon: 'warning', title: 'Thiếu thông tin!', text: `Vui lòng tick chọn ít nhất 1 danh mục cho Slot thứ ${i + 1}!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
             }
 
-            if (usedCodes.has(part.filterCode)) {
+            if (usedCodes.has(part.filterCode) && part.filterCode !== 'OTH') { 
                 const baseLabel = BASE_CODES.find(b => b.code === part.filterCode)?.label;
                 return Swal.fire({ icon: 'error', title: 'Lỗi cấu hình!', text: `Nhóm "${baseLabel}" bị trùng lặp. Mỗi nhóm chỉ được xuất hiện 1 lần trong cấu hình!`, buttonsStyling: false, customClass: { confirmButton: 'bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-sm' }});
             }
@@ -314,7 +324,7 @@ export default function AdminRecipe() {
                 const baseLabel = BASE_CODES.find(b => b.code === part.filterCode)?.label || "Linh kiện";
                 return {
                     partCode: part.filterCode, 
-                    name: baseLabel,
+                    name: part.filterCode === 'OTH' ? part.customName : baseLabel,
                     acceptedItemTypes: part.acceptedItemTypes,
                     quantity: part.quantity,
                     isRequired: part.isRequired
@@ -475,13 +485,24 @@ export default function AdminRecipe() {
                                                 .filter((p, pIndex) => pIndex !== index && p.filterCode !== '')
                                                 .map(p => p.filterCode);
 
-                                            const filteredItemTypes = itemTypes.filter(type => {
-                                                if (!part.filterCode) return false;
-                                                const matchGroup = type.code.toUpperCase().includes(part.filterCode.toUpperCase());
-                                                const keyword = (part.searchKeyword || '').toLowerCase();
-                                                const matchSearch = (type.name || '').toLowerCase().includes(keyword) || (type.code || '').toLowerCase().includes(keyword);
-                                                return matchGroup && matchSearch;
-                                            });
+                                                const filteredItemTypes = itemTypes.filter(type => {
+                                                    if (!part.filterCode) return false;
+                                                
+                                                    const getBaseCode = (code) => {
+                                                        if (!code) return 'OTH';
+                                                        const parts = code.split('-');
+                                                        if (parts[0] === 'CAM') return `CAM-${parts[1]}`;
+                                                        if (BASE_CODES.some(b => b.code === parts[0])) return parts[0];
+                                                        if (BASE_CODES.some(b => b.code === code)) return code;
+                                                        return 'OTH'; 
+                                                    };
+    
+                                                    const matchGroup = getBaseCode(type.code) === part.filterCode;
+    
+                                                    const keyword = (part.searchKeyword || '').toLowerCase();
+                                                    const matchSearch = (type.name || '').toLowerCase().includes(keyword) || (type.code || '').toLowerCase().includes(keyword);
+                                                    return matchGroup && matchSearch;
+                                                });
 
                                             return (
                                                 <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white relative shadow-sm">
@@ -493,43 +514,51 @@ export default function AdminRecipe() {
                                                         Slot {index + 1}: <span className="text-gray-800">{displayName}</span>
                                                     </div>
 
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pr-10">
-                                                        <div>
-                                                            <label className="flex text-xs font-semibold text-gray-500 mb-1 items-center gap-1">
-                                                                <Filter size={14}/> 1. Chọn Nhóm Linh Kiện
-                                                            </label>
-                                                            <select 
-                                                                value={part.filterCode || ''} 
-                                                                onChange={e => handlePartChange(index, 'filterCode', e.target.value)} 
-                                                                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30 font-medium text-gray-700 cursor-pointer"
-                                                            >
-                                                                <option value="">-- Vui lòng chọn --</option>
-                                                                {BASE_CODES.map(b => {
-                                                                    const isDisabled = otherSelectedCodes.includes(b.code);
-                                                                    return (
-                                                                        <option 
-                                                                            key={b.code} 
-                                                                            value={b.code} 
-                                                                            disabled={isDisabled}
-                                                                        >
-                                                                            {b.label} ({b.code}) {isDisabled ? ' - Đã thêm' : ''}
-                                                                        </option>
-                                                                    );
-                                                                })}
-                                                            </select>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 pt-5">
-                                                            <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
-                                                                <input type="checkbox" checked={part.isRequired} onChange={e => handlePartChange(index, 'isRequired', e.target.checked)} className="w-4 h-4 accent-blue-600"/> Bắt buộc phải có
-                                                            </label>
+                                                    <div className="mb-4 pr-10">
+                                                        <div className="flex flex-col gap-2">
+                                                            <div>
+                                                                <label className="flex text-xs font-semibold text-gray-500 mb-1 items-center gap-1">
+                                                                    <Filter size={14}/> 1. Chọn Nhóm Linh Kiện
+                                                                </label>
+                                                                <select 
+                                                                    value={part.filterCode || ''} 
+                                                                    onChange={e => handlePartChange(index, 'filterCode', e.target.value)} 
+                                                                    className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30 font-medium text-gray-700 cursor-pointer"
+                                                                >
+                                                                    <option value="">-- Vui lòng chọn --</option>
+                                                                    {BASE_CODES.map(b => {
+                                                                     
+                                                                        const isDisabled = otherSelectedCodes.includes(b.code) && b.code !== 'OTH';
+                                                                        return (
+                                                                            <option key={b.code} value={b.code} disabled={isDisabled}>
+                                                                                {b.label} ({b.code}) {isDisabled ? ' - Đã thêm' : ''}
+                                                                            </option>
+                                                                        );
+                                                                    })}
+                                                                </select>
+                                                            </div>
+                                                            
+                                                        
+                                                            {part.filterCode === 'OTH' && (
+                                                                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        placeholder="Nhập tên linh kiện (VD: Cáp sạc, Ốc vít, Keo dán...)" 
+                                                                        value={part.customName || ''} 
+                                                                        onChange={e => handlePartChange(index, 'customName', e.target.value)}
+                                                                        className="w-full border border-orange-300 bg-orange-50 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 font-medium"
+                                                                    />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
-
                                                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4">
                                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
                                                             <label className="block text-sm font-semibold text-blue-800">2. Tick chọn các danh mục cho phép:</label>
+                                                            
                                                             {part.filterCode && (
-                                                                <div className="relative w-full md:w-64">
+                                                                <div className="relative w-full md:w-64"> 
+                                                                    
                                                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                                                                     <input
                                                                         type="text"
