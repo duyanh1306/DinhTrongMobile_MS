@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Hammer, Scissors, Save } from "lucide-react";
+import { X, Hammer, Scissors, Save, Download, AlertCircle } from "lucide-react";
 import SellForm from "./SellForm";
 import DismantleForm from "./DismantleForm";
 
@@ -20,6 +20,29 @@ const WaitingDecisionModal = ({
   handleExtractPart
 }) => {
   if (!selectedDecisionPhone) return null;
+
+  let canSubmit = true;
+  let submitErrorMsg = "";
+
+  const sellPriceNum = Number(sellForm.sellingPrice || 0);
+
+  if (decision === "SELL") {
+    const brokenParts = parsedChecklist.filter(i => i.isFaulty);
+    // Lưu ý: replacementParts không được pass xuống trong component cũ của sếp, nên tao chỉ check giá bán
+    // (Bảo đảm là nhập giá bán > 0)
+    if (sellPriceNum <= 0) { 
+        canSubmit = false; 
+        submitErrorMsg = "Vui lòng nhập giá bán niêm yết lớn hơn 0."; 
+    }
+  } else if (decision === "DISMANTLE") {
+    if (dismantleParts.length === 0) {
+        canSubmit = false; 
+        submitErrorMsg = "Vui lòng bóc ít nhất 1 linh kiện để rã xác.";
+    } else if (dismantleParts.some(p => !p.name || Number(p.price) <= 0)) {
+        canSubmit = false;
+        submitErrorMsg = "Vui lòng điền đủ Tên hiển thị và Giá bán (>0) cho linh kiện.";
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -77,23 +100,34 @@ const WaitingDecisionModal = ({
           )}
         </div>
 
-        <div className="p-5 border-t flex justify-end gap-4 bg-white rounded-b-2xl">
-          <button 
-            onClick={onClose} 
-            className="px-8 py-3 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition"
-          >
-            Hủy
-          </button>
-          <button 
-            onClick={onSubmit} 
-            className={`px-8 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 shadow-lg transition-transform hover:-translate-y-1 ${
-              decision === "SELL" 
-                ? "bg-green-600 hover:bg-green-700 shadow-green-200" 
-                : "bg-red-600 hover:bg-red-700 shadow-red-200"
-            }`}
-          >
-            <Save size={20}/> XÁC NHẬN LƯU KHO
-          </button>
+        <div className="p-5 border-t flex flex-col sm:flex-row justify-between items-center gap-4 bg-white rounded-b-2xl">
+          <div className="text-red-500 text-sm font-bold flex items-center gap-1 w-full sm:w-auto">
+             {!canSubmit && (
+               <><AlertCircle size={16}/> {submitErrorMsg}</>
+             )}
+          </div>
+          
+          <div className="flex gap-3 w-full sm:w-auto justify-end">
+            <button 
+              onClick={onClose} 
+              className="px-6 py-3 bg-white border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition shadow-sm"
+            >
+              Hủy bỏ
+            </button>
+            <button 
+              onClick={onSubmit} 
+              disabled={!canSubmit}
+              className={`px-6 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 transition-all ${
+                !canSubmit 
+                  ? "bg-gray-300 cursor-not-allowed" 
+                  : decision === "SELL" 
+                      ? "bg-green-600 shadow-lg hover:bg-green-700 hover:-translate-y-1 shadow-green-200" 
+                      : "bg-red-600 shadow-lg hover:bg-red-700 hover:-translate-y-1 shadow-red-200"
+              }`}
+            >
+              <Save size={20}/> XÁC NHẬN LƯU KHO
+            </button>
+          </div>
         </div>
       </div>
     </div>
