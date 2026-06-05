@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Shield, RefreshCw, Plus, Search, Filter, CheckCircle, XCircle, Clock, Wrench } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Shield, Search, CheckCircle, XCircle, Clock, Wrench } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import LoadingSpinner from "../../components/technician/shared/LoadingSpinner";
@@ -14,6 +15,7 @@ import {
 } from "../../api/technician/warranty";
 
 export default function Warranty() {
+  const navigate = useNavigate();
   const [warranties, setWarranties] = useState([]);
   const [filteredWarranties, setFilteredWarranties] = useState([]);
   const [stores, setStores] = useState([]);
@@ -163,7 +165,7 @@ export default function Warranty() {
     setIsSubmitting(true);
 
     try {
-      await processWarrantyApi(selectedWarranty._id, processData);
+      const res = await processWarrantyApi(selectedWarranty._id, processData);
       toast.success("Đã xử lý yêu cầu bảo hành");
       setShowProcessModal(false);
       setProcessData({
@@ -171,7 +173,16 @@ export default function Warranty() {
         notes: "",
       });
       setSelectedWarranty(null);
-      fetchWarranties();
+
+      let newOrderId = res?.data?._id || res?.data?.data?._id || res?.data?.repairOrderId || res?._id || res?.repairOrderId;
+      
+      navigate("/tech/repair-orders", { 
+          state: { 
+              openRepairOrderId: newOrderId, 
+              triggerRepairTab: true 
+          } 
+      });
+
     } catch (err) {
       toast.error("Lỗi xử lý yêu cầu bảo hành");
       console.error(err);
@@ -261,21 +272,6 @@ export default function Warranty() {
           <Shield className="text-blue-600" /> Quản lý Bảo hành
         </h2>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            <Plus className="w-4 h-4" />
-            Tạo yêu cầu bảo hành
-          </button>
-          <button
-            onClick={fetchWarranties}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
-          </button>
         </div>
       </div>
 
@@ -546,7 +542,7 @@ export default function Warranty() {
                   <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
                   <div>
                     <h4 className="font-semibold text-yellow-900">Bảo hành sửa chữa</h4>
-                    <p className="text-sm text-yellow-800 mt-1">Đơn sửa chữa bảo hành sẽ được tạo tự động.</p>
+                    <p className="text-sm text-yellow-800 mt-1">Đơn sửa chữa bảo hành sẽ được tạo tự động và chuyển sang màn Sửa Chữa.</p>
                   </div>
                 </div>
               </div>
@@ -579,7 +575,7 @@ export default function Warranty() {
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center min-w-[100px]"
                 >
-                  {isSubmitting ? "Đang xử lý..." : "Xử lý"}
+                  {isSubmitting ? "Đang xử lý..." : "Xử lý & Chuyển qua Sửa chữa"}
                 </button>
               </div>
             </form>
