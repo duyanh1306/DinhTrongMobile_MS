@@ -342,9 +342,9 @@ export default function AssemblePhone() {
                                 <thead className="bg-gray-100 text-gray-600 border-b border-gray-200 uppercase text-xs">
                                     <tr>
                                         <th className="px-6 py-4 font-bold text-center w-[10%]">STT</th>
-                                        <th className="px-6 py-4 font-bold w-[50%]">Dòng máy (Phone model)</th>
-                                        <th className="px-6 py-4 font-bold text-center w-[25%]">Khả năng ráp (Available Parts)</th>
-                                        <th className="px-6 py-4 font-bold text-center w-[15%]">Action</th>
+                                        <th className="px-6 py-4 font-bold w-[50%]">Dòng máy </th>
+                                        <th className="px-6 py-4 font-bold text-center w-[25%]">Số lượng máy có thể ráp</th>
+                                        <th className="px-6 py-4 font-bold text-center w-[15%]">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -394,10 +394,10 @@ export default function AssemblePhone() {
                                 <thead className="bg-gray-100 text-gray-600 border-b border-gray-200 uppercase text-xs">
                                     <tr>
                                         <th className="px-4 py-4 font-bold text-center w-[8%]">STT</th>
-                                        <th className="px-4 py-4 font-bold w-[25%]">Vị trí (Item type name)</th>
-                                        <th className="px-4 py-4 font-bold w-[35%]">Linh kiện đang chọn (Item type)</th>
-                                        <th className="px-4 py-4 font-bold text-center w-[17%]">Khả dụng (Quantity)</th>
-                                        <th className="px-4 py-4 font-bold text-center w-[15%]">Action</th>
+                                        <th className="px-4 py-4 font-bold w-[25%]">Vị trí </th>
+                                        <th className="px-4 py-4 font-bold w-[35%]">Linh kiện đang chọn </th>
+                                        <th className="px-4 py-4 font-bold text-center w-[17%]">Khả dụng </th>
+                                        <th className="px-4 py-4 font-bold text-center w-[15%]">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -533,7 +533,7 @@ export default function AssemblePhone() {
                                 <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 flex-shrink-0">
                                     <div className="relative w-full sm:w-1/2">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <input type="text" placeholder={`Tìm theo tên, mã Serial...`} value={modalSearch} onChange={e => {setModalSearch(e.target.value); setModalPage(1);}} className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-lg outline-none text-sm focus:border-blue-400 border border-transparent" />
+                                        <input type="text" placeholder={`Tìm theo tên`} value={modalSearch} onChange={e => {setModalSearch(e.target.value); setModalPage(1);}} className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-lg outline-none text-sm focus:border-blue-400 border border-transparent" />
                                     </div>
                                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between sm:justify-end">
                                         <span className="text-gray-500">Kho có sẵn <strong>{groupedItems.length}</strong> loại</span>

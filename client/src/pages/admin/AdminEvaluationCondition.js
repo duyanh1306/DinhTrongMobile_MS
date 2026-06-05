@@ -236,7 +236,7 @@ export default function AdminEvaluationCondition() {
                                             <tr key={item._id} className="hover:bg-blue-50/50 transition bg-white">
                                                 <td className="px-6 py-3 border-r border-gray-50">
                                                     <div className="w-full flex justify-end pr-4">
-                                                        <div className="w-3 h-3 border-l-2 border-b-2 border-gray-300 rounded-bl"></div>
+                                                        
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-3 text-gray-700 font-semibold">{item.label}</td>

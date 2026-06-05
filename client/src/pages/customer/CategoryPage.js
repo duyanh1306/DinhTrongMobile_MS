@@ -119,23 +119,24 @@ export default function CategoryPage() {
             : "Đang cập nhật";
         const specs = product.specifications || {};
 
-
         const isAssembled = type === 'assembled' || product.isAssembledCard;
         const isUsed = type === 'used' || (product.isUsedCard && !isAssembled);
 
         return (
             <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-                {isUsed && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
-                {isAssembled && <span className="absolute top-3 left-3 bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Dựng</span>}
+          
+                {isUsed && <span className="absolute top-3 left-3 bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">{product.customBadge || 'Máy Cũ'}</span>}
+                {isAssembled && <span className="absolute top-3 left-3 bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">{product.customBadge || 'Máy Dựng'}</span>}
                 
                 {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
                 
-                <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, isAssembled: isAssembled }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
+            
+                <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, isAssembled: isAssembled, specificPhoneId: product.uniqueKey }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
                     <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
                 </Link>
                 
                 <div className="flex-1 flex flex-col">
-                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, isAssembled: isAssembled }}>
+                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: isUsed, isAssembled: isAssembled, specificPhoneId: product.uniqueKey }}>
                         <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4>
                     </Link>
                     <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
@@ -243,7 +244,7 @@ export default function CategoryPage() {
 
                     {processedProducts.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                            {processedProducts.map((product) => (<ProductCard key={product._id} product={product} />))}
+                            {processedProducts.map((product) => (<ProductCard key={product.uniqueKey || product._id} product={product} />))}
                         </div>
                     ) : (
                         <div className="text-center bg-white rounded-2xl py-20 border border-dashed border-gray-300">

@@ -8,10 +8,9 @@ const phoneSchema = new Schema(
         phoneModelId: { type: Schema.Types.ObjectId, ref: 'Phone_model', required: true }, 
         colorName: { type: String, required: true }, 
         capacity: { type: String, required: true },  
-        grade: { 
-            type: String, 
-            enum: ['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn', 'Máy dựng'], 
-            default: 'Mới' 
+        grade: {
+            type: String,
+            default: 'Mới'
         },
         storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true }, 
         
@@ -25,11 +24,10 @@ const phoneSchema = new Schema(
         sellingPrice: { type: Number, required: true }, 
         warrantyPeriod: { type: Number, default: 0 }, 
         
-        source: { 
-            type: String, 
-            enum: ['supplier', 'customer_trade_in', 'assembled'], 
-            default: 'supplier' 
-        }, 
+        source: {
+            type: String,
+            default: 'supplier'
+        },
         notes: { type: String },
         specificImages: [{ type: String }],
         

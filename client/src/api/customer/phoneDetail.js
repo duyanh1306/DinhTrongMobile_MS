@@ -16,7 +16,8 @@ export const fetchPhoneDetailApi = async (modelId) => {
 
         const validPhones = allPhones.filter(p => 
             (p.phoneModelId?._id === modelId || p.phoneModelId === modelId) && 
-            (p.status === 'in_stock' || p.status === 'sold')
+            p.status === 'in_stock' && 
+            p.sellingPrice > 0         
         );
 
         return { model: currentModel, availablePhones: validPhones };
@@ -32,7 +33,7 @@ export const calculateVersions = (availablePhones) => {
     availablePhones.forEach(p => {
         const grade = p.grade || "Mới";
         const key = `${p.capacity}|${grade}`;
-        const price = p.sellingPrice || (p.importPrice * 1.15);
+        const price = p.sellingPrice; 
         
         if (!vMap[key]) {
             vMap[key] = {
@@ -53,7 +54,7 @@ export const calculateColorsForVersion = (availablePhones, selectedVersionKey) =
     const cMap = {};
     
     availablePhones.filter(p => p.capacity === selCap && (p.grade || "Mới") === selGrade).forEach(p => {
-        const price = p.sellingPrice || (p.importPrice * 1.15);
+        const price = p.sellingPrice; 
         if (!cMap[p.colorName] || price < cMap[p.colorName].price) {
             cMap[p.colorName] = { name: p.colorName, price: price, image: p.specificImages?.[0] || null };
         }

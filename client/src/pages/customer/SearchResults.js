@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useLocation } from "react-router-dom";
 import { MapPin, ChevronDown, Filter, CheckCircle2, ArrowUpDown, Smartphone, HardDrive } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import CustomerLayout from "../../layouts/CustomerLayout";
@@ -12,8 +12,9 @@ export default function SearchResults() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const location = useLocation();
     const [inStockOnly, setInStockOnly] = useState(false);
-    const [filterBrand, setFilterBrand] = useState("");
+    const [filterBrand, setFilterBrand] = useState(location.state?.selectedBrandFilter || "");
     const [sortBy, setSortBy] = useState("default");
 
     const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
@@ -25,6 +26,13 @@ export default function SearchResults() {
     const [stores, setStores] = useState([]);
     const [selectedStore, setSelectedStore] = useState(localStorage.getItem('selectedStoreId') || "");
 
+    useEffect(() => {
+        if (location.state?.selectedBrandFilter) {
+            setFilterBrand(location.state.selectedBrandFilter);
+        } else {
+            setFilterBrand(""); 
+        }
+    }, [location.state?.selectedBrandFilter]);
     useEffect(() => {
         const fetchResults = async () => {
             setLoading(true);
@@ -90,27 +98,47 @@ export default function SearchResults() {
                         });
                     }
           
-                    if (usedPhonesPhysical.length > 0) {
-                        combinedData.push({
-                            ...model,
-                            image: getDisplayImage(usedPhonesPhysical),
-                            price: getStartingPrice(usedPhonesPhysical),
-                            stockCount: usedPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                            isUsedCard: true,
-                            isAssembledCard: false
-                        });
-                    }
+                    
+                    usedPhonesPhysical.forEach(phone => {
+                        if (phone.sellingPrice > 0) {
+                            combinedData.push({
+                                ...model,
+                                _id: model._id,
+                                uniqueKey: phone._id,
+                                name: `${model.name} (${phone.capacity})`,
+                                image: (phone.specificImages && phone.specificImages.length > 0) ? phone.specificImages[0] : model.image,
+                                price: phone.sellingPrice,
+                                stockCount: 1,
+                                isUsedCard: true,
+                                isAssembledCard: false,
+                                customBadge: phone.colorName, 
+                                capacity: phone.capacity,
+                                grade: phone.grade,
+                                colorName: phone.colorName
+                            });
+                        }
+                    });
 
-                    if (assembledPhonesPhysical.length > 0) {
-                        combinedData.push({
-                            ...model,
-                            image: getDisplayImage(assembledPhonesPhysical),
-                            price: getStartingPrice(assembledPhonesPhysical),
-                            stockCount: assembledPhonesPhysical.filter(p => p.status === 'in_stock').length,
-                            isUsedCard: false,
-                            isAssembledCard: true
-                        });
-                    }
+                   
+                    assembledPhonesPhysical.forEach(phone => {
+                        if (phone.sellingPrice > 0) {
+                            combinedData.push({
+                                ...model,
+                                _id: model._id,
+                                uniqueKey: phone._id,
+                                name: `${model.name} (${phone.capacity})`,
+                                image: (phone.specificImages && phone.specificImages.length > 0) ? phone.specificImages[0] : model.image,
+                                price: phone.sellingPrice,
+                                stockCount: 1,
+                                isUsedCard: false,
+                                isAssembledCard: true,
+                                customBadge: phone.colorName, 
+                                capacity: phone.capacity,
+                                grade: phone.grade,
+                                colorName: phone.colorName
+                            });
+                        }
+                    });
                 });
 
                 setProducts(combinedData);
@@ -118,7 +146,7 @@ export default function SearchResults() {
             finally { setLoading(false); }
         };
 
-        if (query) fetchResults();
+        fetchResults();
     }, [query, selectedStore]);
 
     const handleStoreChange = (e) => {
@@ -197,17 +225,17 @@ export default function SearchResults() {
 
         return (
             <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 group border border-gray-100 relative flex flex-col h-full">
-                {product.isUsedCard && !product.isAssembledCard && <span className="absolute top-3 left-3 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Cũ</span>}
-                {product.isAssembledCard && <span className="absolute top-3 left-3 bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">Máy Dựng</span>}
+                {product.isUsedCard && !product.isAssembledCard && <span className="absolute top-3 left-3 bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">{product.customBadge || 'Máy Cũ'}</span>}
+                {product.isAssembledCard && <span className="absolute top-3 left-3 bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md z-10">{product.customBadge || 'Máy Dựng'}</span>}
                 
                 {product.stockCount === 0 && <span className="absolute top-3 right-3 bg-gray-500/90 text-white text-[11px] font-bold px-2 py-1 rounded-md z-10">Tạm hết hàng</span>}
                 
-                <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard, isAssembled: product.isAssembledCard }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
+                <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard, isAssembled: product.isAssembledCard, specificPhoneId: product.uniqueKey }} className="overflow-hidden rounded-lg mb-4 flex justify-center items-center h-48 p-2">
                     <img src={product.image || defaultImage} alt={product.name} className="max-h-full max-w-full object-contain group-hover:-translate-y-2 transition-transform duration-300" />
                 </Link>
                 
                 <div className="flex-1 flex flex-col">
-                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard, isAssembled: product.isAssembledCard }}>
+                    <Link to={`/product/${product._id}`} state={{ defaultIsUsed: product.isUsedCard, isAssembled: product.isAssembledCard, specificPhoneId: product.uniqueKey }}>
                         <h4 className="font-bold text-gray-800 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{product.name}</h4>
                     </Link>
                     <p className="text-red-600 font-bold text-lg mb-3">{displayPrice}</p>
@@ -308,7 +336,7 @@ export default function SearchResults() {
                                     </h3>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                                    {newProducts.map((product) => <ProductCard key={product._id} product={product} />)}
+                                    {newProducts.map((product) => <ProductCard key={product.uniqueKey || product._id} product={product} />)}
                                 </div>
                             </div>
                         )}
@@ -322,7 +350,7 @@ export default function SearchResults() {
                                     </h3>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                                    {usedProducts.map((product) => <ProductCard key={product._id} product={product} />)}
+                                    {usedProducts.map((product) => <ProductCard key={product.uniqueKey || product._id} product={product} />)}
                                 </div>
                             </div>
                         )}
@@ -335,7 +363,7 @@ export default function SearchResults() {
                                     </h3>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                                    {assembledProducts.map((product) => <ProductCard key={product._id} product={product} />)}
+                                    {assembledProducts.map((product) => <ProductCard key={product.uniqueKey || product._id} product={product} />)}
                                 </div>
                             </div>
                         )}

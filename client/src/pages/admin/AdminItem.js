@@ -299,6 +299,15 @@ export default function AdminItem() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const baseCostNum = Number(formData.baseCost);
+        const priceNum = Number(formData.price);
+
+        if (!baseCostNum || baseCostNum <= 0) {
+            return toast.warning("Giá nhập (VNĐ) phải lớn hơn 0!");
+        }
+        if (!priceNum || priceNum <= 0) {
+            return toast.warning("Giá bán ra (VNĐ) phải lớn hơn 0!");
+        }
         if (!formData.item_type) {
             return Swal.fire({
                 icon: 'warning',
@@ -738,8 +747,8 @@ export default function AdminItem() {
                                     <div>
                                         <label className="block text-sm font-semibold mb-2 text-gray-700">Tình trạng linh kiện</label>
                                         <div className="flex gap-6 bg-gray-50 p-3.5 rounded-xl border border-gray-200">
-                                            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="radio" name="origin" value="new" checked={formData.origin === 'new'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 12})} className="w-4 h-4 text-blue-600" /> Hàng Mới (New)</label>
-                                            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="radio" name="origin" value="disassembled" checked={formData.origin === 'disassembled'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 3})} className="w-4 h-4 text-blue-600" /> Bóc Máy (Zin)</label>
+                                            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="radio" name="origin" value="new" checked={formData.origin === 'new'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 12})} className="w-4 h-4 text-blue-600" /> Hàng Mới </label> 
+                                            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="radio" name="origin" value="disassembled" checked={formData.origin === 'disassembled'} onChange={e => setFormData({...formData, origin: e.target.value, warrantyPeriod: 3})} className="w-4 h-4 text-blue-600" /> Hàng Cũ</label>
                                         </div>
                                     </div>
 
@@ -803,12 +812,19 @@ export default function AdminItem() {
                                     </select>
                                 </div>
 
-                                    <div>
+                                <div>
                                         <label className="block text-sm font-semibold mb-1.5 text-gray-800">Trạng thái tồn kho</label>
-                                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white font-medium">
+                                        <select 
+                                            value={formData.status} 
+                                            disabled 
+                                            className="w-full border border-gray-300 p-2.5 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed font-semibold outline-none"
+                                        >
                                             <option value="in_stock">Trong kho (Sẵn sàng bán/ráp)</option>
-                                            <option value="sold">Đã xuất (Đã bán/Lắp rắp xong)</option>
+                                            <option value="reserved">Đặt trước (Đang giữ hàng)</option>
+                                            <option value="sold">Đã xuất (Đã bán/Lắp ráp xong)</option>
+                                            <option value="consumed">Đã sử dụng (Đem đi ráp máy)</option>
                                             <option value="defective">Hàng lỗi / Đang chờ bảo hành</option>
+                                            <option value="waiting_for_tech_decision">Đang chờ xử lý</option>
                                         </select>
                                     </div>
                                 </div>

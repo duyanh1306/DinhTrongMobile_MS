@@ -7,12 +7,12 @@ import { fetchStoresAndModelsApi, fetchPhonesApi, deletePhoneApi, fetchPhoneQrCo
 
 const initialFormState = {
     serialCode: '', phoneModelId: '', storeId: '', colorName: '', capacity: '',
-    grade: 'Mới', status: 'in_stock', importPrice: 0, sellingPrice: 0,
-    warrantyPeriod: 12, source: 'supplier', notes: '',
+    grade: 'Mới', customGrade: '', status: 'in_stock', importPrice: '', sellingPrice: '',
+    warrantyPeriod: 12, source: 'supplier', customSource: '', notes: '',
     imageFiles: [], previewImages: [], retainedImages: []
 };
 const formatPriceInput = (val) => {
-    if (!val && val !== 0) return '';
+    if (val === '' || val === null || val === undefined) return '';
     return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
@@ -229,17 +229,29 @@ export default function AdminPhone() {
                 setSelectedFormBrand('');
             }
 
+            const PREDEFINED_GRADES = ['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn'];
+            const PREDEFINED_SOURCES = ['supplier', 'customer_trade_in', 'assembled'];
+            
+            const initialGrade = phone.grade || 'Mới';
+            const isCustomGrade = !PREDEFINED_GRADES.includes(initialGrade);
+            
+            const initialSource = phone.source || 'supplier';
+            const isCustomSource = !PREDEFINED_SOURCES.includes(initialSource);
+
             setFormData({
                 serialCode: phone.serialCode || '', phoneModelId: phone.phoneModelId?._id || phone.phoneModelId,
                 storeId: phone.storeId?._id || phone.storeId, colorName: phone.colorName || '', capacity: phone.capacity || '',
-                grade: phone.grade || 'Mới', status: phone.status || 'in_stock', importPrice: phone.importPrice || 0,
-                sellingPrice: phone.sellingPrice || 0, warrantyPeriod: phone.warrantyPeriod || 12, source: phone.source || 'supplier',
+                grade: isCustomGrade ? 'Khác' : initialGrade, customGrade: isCustomGrade ? initialGrade : '', 
+                status: 'in_stock', 
+                importPrice: phone.importPrice || 0, sellingPrice: phone.sellingPrice || 0, 
+                warrantyPeriod: phone.warrantyPeriod || 12, 
+                source: isCustomSource ? 'Khác' : initialSource, customSource: isCustomSource ? initialSource : '', 
                 notes: phone.notes || '', imageFiles: [], previewImages: phone.specificImages || [], retainedImages: phone.specificImages || []
             });
         } else {
             setIsEditing(false); setEditingId(null);
             setSelectedFormBrand(''); 
-            setFormData({ ...initialFormState, storeId: selectedStoreFilter });
+            setFormData({ ...initialFormState, storeId: selectedStoreFilter, status: 'in_stock' });
         }
         setShowModal(true);
     };
@@ -435,6 +447,17 @@ export default function AdminPhone() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const importPriceNum = Number(formData.importPrice);
+        const sellingPriceNum = Number(formData.sellingPrice);
+
+        if (!importPriceNum || importPriceNum <= 0) {
+            return toast.warning("Giá vốn (Giá nhập) phải lớn hơn 0!");
+        }
+        if (!sellingPriceNum || sellingPriceNum <= 0) {
+            return toast.warning("Giá bán phải lớn hơn 0!");
+        }
+
         const submitData = new FormData();
         submitData.append("serialCode", formData.serialCode); submitData.append("phoneModelId", formData.phoneModelId);
         submitData.append("storeId", formData.storeId); submitData.append("colorName", formData.colorName);
@@ -442,10 +465,14 @@ export default function AdminPhone() {
         let finalCapacity = formData.capacity.trim().toUpperCase();
         if (finalCapacity && !finalCapacity.includes('GB') && !finalCapacity.includes('TB')) finalCapacity += 'GB';
         
-        submitData.append("capacity", finalCapacity); submitData.append("grade", formData.grade);
-        submitData.append("status", formData.status); submitData.append("importPrice", formData.importPrice);
-        submitData.append("sellingPrice", formData.sellingPrice); submitData.append("warrantyPeriod", formData.warrantyPeriod);
-        submitData.append("source", formData.source); submitData.append("notes", formData.notes);
+        submitData.append("capacity", finalCapacity); 
+        submitData.append("grade", formData.grade === 'Khác' ? formData.customGrade : formData.grade);
+        submitData.append("status", 'in_stock'); 
+        submitData.append("importPrice", formData.importPrice);
+        submitData.append("sellingPrice", formData.sellingPrice); 
+        submitData.append("warrantyPeriod", formData.warrantyPeriod);
+        submitData.append("source", formData.source === 'Khác' ? formData.customSource : formData.source); 
+        submitData.append("notes", formData.notes);
 
         if (isEditing && formData.retainedImages?.length > 0) submitData.append("retainedImages", JSON.stringify(formData.retainedImages));
         if (formData.imageFiles?.length > 0) formData.imageFiles.forEach(file => submitData.append("images", file));
@@ -858,11 +885,18 @@ export default function AdminPhone() {
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5">Màu sắc <span className="text-red-500">*</span></label>
                                         <input type="text" value={formData.colorName} onChange={e => setFormData({...formData, colorName: e.target.value})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500" placeholder="VD: Titan Tự Nhiên"/>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình thức <span className="text-red-500">*</span></label>
-                                        <select value={formData.grade} onChange={e => setFormData({...formData, grade: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
-                                            {['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn'].map(g => <option key={g} value={g}>{g}</option>)}
-                                        </select>
+                                    <div className="flex flex-col gap-2">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1.5">Hình thức <span className="text-red-500">*</span></label>
+                                            <select value={formData.grade} onChange={e => setFormData({...formData, grade: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
+                                                {['Mới', 'Đã kích hoạt', 'Cũ Đẹp', 'Trầy Xước', 'Xước Cấn', 'Khác'].map(g => <option key={g} value={g}>{g}</option>)}
+                                            </select>
+                                        </div>
+                                        {formData.grade === 'Khác' && (
+                                            <div>
+                                                <input type="text" value={formData.customGrade} onChange={e => setFormData({...formData, customGrade: e.target.value})} required placeholder="Nhập hình thức máy..." className="w-full border border-blue-300 p-2.5 rounded-xl outline-none focus:border-blue-500 bg-blue-50" />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="md:col-span-2">
@@ -892,24 +926,26 @@ export default function AdminPhone() {
                                     </div>
                                 </div>
                                 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Nguồn gốc</label>
-                                    <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
-                                        <option value="supplier">Nhập từ nhà cung cấp</option>
-                                        <option value="customer_trade_in">Khách thu cũ đổi mới</option>
-                                        <option value="assembled">Máy tự ráp</option>
-                                    </select>
+                                <div className="flex flex-col gap-2">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Nguồn gốc</label>
+                                        <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
+                                            <option value="supplier">Nhập từ nhà cung cấp</option>
+                                            <option value="customer_trade_in">Khách thu cũ đổi mới</option>
+                                            <option value="assembled">Máy tự ráp</option>
+                                            <option value="Khác">Khác</option>
+                                        </select>
+                                    </div>
+                                    {formData.source === 'Khác' && (
+                                        <div>
+                                            <input type="text" value={formData.customSource} onChange={e => setFormData({...formData, customSource: e.target.value})} required placeholder="Nhập nguồn gốc..." className="w-full border border-blue-300 p-2.5 rounded-xl outline-none focus:border-blue-500 bg-blue-50" />
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Trạng thái máy <span className="text-red-500">*</span></label>
-                                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500">
-                                        <option value="in_stock">Sẵn sàng (Trong kho)</option>
-                                        <option value="reserved">Đang giữ (Đặt trước)</option>
-                                        <option value="waiting_for_tech_decision">Đang chờ xử lý</option>
-                                        <option value="defective">Hàng lỗi / Hỏng</option>
-                                    </select>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Trạng thái máy</label>
+                                    <input type="text" value="Sẵn sàng (Trong kho)" disabled className="w-full border border-gray-300 p-2.5 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed font-semibold" />
                                 </div>
-
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Giá vốn (VNĐ) <span className="text-red-500">*</span></label>
                                     <input type="text" value={formatPriceInput(formData.importPrice)} onChange={e => setFormData({...formData, importPrice: parsePriceInput(e.target.value)})} required className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:border-blue-500 font-medium" />

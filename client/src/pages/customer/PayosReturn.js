@@ -74,7 +74,7 @@ export default function PayosReturn() {
                                 <XCircle size={56} strokeWidth={2.5} />
                             </div>
                             <h2 className="text-3xl font-extrabold text-gray-800 mb-2">Thanh toán thất bại!</h2>
-                            <p className="text-gray-500 mb-8 text-sm">Giao dịch đã bị hủy. Đơn hàng của bạn đã được lưu nháp, vui lòng thử lại.</p>
+                            <p className="text-gray-500 mb-8 text-sm">Giao dịch đã bị hủy. Đơn hàng của bạn chưa được lưu, vui lòng đặt hàng lại.</p>
                             
                             <div className="flex flex-col sm:flex-row gap-3 w-full">
                                 <button onClick={() => navigate('/cart')} className="flex-1 py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-md shadow-red-500/20 transition">
