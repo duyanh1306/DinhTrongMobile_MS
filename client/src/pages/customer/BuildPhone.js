@@ -5,7 +5,7 @@ import CustomerLayout from "../../layouts/CustomerLayout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
-
+import axiosClient from "../../api/axiosClient";
 import { fetchBuildPhoneDataApi, addToCartApi } from "../../api/customer/buildPhone";
 
 export default function BuildPhone() {
@@ -16,8 +16,9 @@ export default function BuildPhone() {
     const [loading, setLoading] = useState(true);
 
     const [selectedRecipe, setSelectedRecipe] = useState("");
+    const [selectedBrandFilter, setSelectedBrandFilter] = useState("");
     const [selectedParts, setSelectedParts] = useState({}); 
-
+    const [phoneModelsList, setPhoneModelsList] = useState([]);
     const [stores, setStores] = useState([]);
     const [selectedStore, setSelectedStore] = useState(localStorage.getItem('selectedStoreId') || "");
 
@@ -41,6 +42,14 @@ export default function BuildPhone() {
         setLoading(true);
         const data = await fetchBuildPhoneDataApi();
         
+        try {
+            const modelsRes = await axiosClient.get('/phone_models/all');
+            if (modelsRes.data?.data) {
+                setPhoneModelsList(modelsRes.data.data);
+            }
+        } catch (error) {
+            console.error("Lỗi lấy danh sách Models:", error);
+        }
         const storeData = data.stores;
         setStores(storeData);
 
@@ -84,6 +93,35 @@ export default function BuildPhone() {
         setSelectedRecipe(e.target.value);
         setSelectedParts({}); 
     };
+
+    const uniqueBrands = useMemo(() => {
+        const brandsMap = new Map();
+        
+        recipes.forEach(r => {
+            const modelId = r.phoneModelId?._id || r.phoneModelId;
+            
+       
+            const fullModel = phoneModelsList.find(m => String(m._id) === String(modelId));
+            const brand = fullModel?.brand || r.phoneModelId?.brand;
+
+            if (brand) {
+                const brandId = brand._id || brand;
+                const brandName = brand.name || "Hãng khác";
+                
+                brandsMap.set(String(brandId), brandName);
+            }
+        });
+        
+        return Array.from(brandsMap, ([id, name]) => ({ id, name }));
+    }, [recipes, phoneModelsList]);
+
+    const filteredRecipes = useMemo(() => {
+        if (!selectedBrandFilter) return [];
+        return recipes.filter(r => {
+            const brandId = r.phoneModelId?.brand?._id || r.phoneModelId?.brand;
+            return brandId === selectedBrandFilter;
+        });
+    }, [recipes, selectedBrandFilter]);
 
     const activeRecipe = recipes.find(r => r._id === selectedRecipe);
 
@@ -300,15 +338,37 @@ export default function BuildPhone() {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 max-w-xl">
-                    <label className="block font-bold text-gray-800 mb-3">1. Vui lòng chọn dòng máy muốn dựng</label>
-                    <select 
-                        value={selectedRecipe} onChange={handleRecipeChange}
-                        className="w-full border-2 border-blue-200 focus:border-blue-600 rounded-xl p-3 outline-none font-medium bg-blue-50/50 transition"
-                    >
-                        <option value="">-- Chọn Dòng Máy --</option>
-                        {recipes.map(r => <option key={r._id} value={r._id}>{r.phoneModelId?.name || "Máy tự dựng"} - {r.description}</option>)}
-                    </select>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 max-w-2xl">
+                    <h2 className="font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100">1. Vui lòng chọn Hãng và Dòng máy muốn dựng</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Chọn Hãng</label>
+                            <select
+                                value={selectedBrandFilter}
+                                onChange={(e) => {
+                                    setSelectedBrandFilter(e.target.value);
+                                    setSelectedRecipe(""); 
+                                    setSelectedParts({});  
+                                }}
+                                className="w-full border-2 border-blue-200 focus:border-blue-600 rounded-xl p-3 outline-none font-medium bg-blue-50/50 transition cursor-pointer"
+                            >
+                                <option value="">-- Chọn Hãng --</option>
+                                {uniqueBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Chọn Dòng Máy</label>
+                            <select
+                                value={selectedRecipe} 
+                                onChange={handleRecipeChange}
+                                disabled={!selectedBrandFilter}
+                                className="w-full border-2 border-blue-200 focus:border-blue-600 rounded-xl p-3 outline-none font-medium bg-blue-50/50 transition cursor-pointer disabled:bg-gray-100 disabled:border-gray-200 disabled:cursor-not-allowed"
+                            >
+                                <option value="">-- Chọn Dòng Máy --</option>
+                                {filteredRecipes.map(r => <option key={r._id} value={r._id}>{r.phoneModelId?.name || "Máy tự dựng"} - {r.description}</option>)}
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 {activeRecipe && (
