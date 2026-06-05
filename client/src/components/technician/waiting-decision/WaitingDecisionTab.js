@@ -85,9 +85,26 @@ const WaitingDecisionTab = ({
 
   const handleExtractPart = (parsedItem) => {
     const currentModelName = selectedDecisionPhone?.phoneModelId?.name || "";
-    const matchedType = itemTypes.find((it) =>
-      it.name.toLowerCase().includes(parsedItem.name.toLowerCase()),
+    const currentModelId = String(
+      selectedDecisionPhone?.phoneModelId?._id ||
+        selectedDecisionPhone?.phoneModelId ||
+        "",
     );
+
+    const matchedType = itemTypes.find((it) => {
+      const isPartMatch = it.name.toLowerCase().includes(parsedItem.name.toLowerCase());
+      
+      const isModelIdMatch =
+        String(it.phoneModelId) === currentModelId ||
+        (it.compatibleModels &&
+          it.compatibleModels.some((id) => String(id) === currentModelId));
+
+      const isModelNameMatch =
+        currentModelName &&
+        it.name.toLowerCase().includes(currentModelName.toLowerCase());
+
+      return isPartMatch && (isModelIdMatch || isModelNameMatch);
+    });
 
     onAddPart({
       originalCode: parsedItem.code,
@@ -108,32 +125,30 @@ const WaitingDecisionTab = ({
   let canSubmit = true;
   let submitButtonText = "XÁC NHẬN LƯU KHO";
 
+  const sellPriceNum = Number(sellForm.sellingPrice || 0);
+
   if (decision === "SELL") {
     const brokenParts = parsedChecklist.filter((i) => i.isFaulty);
     const hasFullReplacements = brokenParts.every((bp) =>
       replacementParts.some((rp) => rp.category === bp.name),
     );
-    const hasSellPrice =
-      sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
 
     if (!hasFullReplacements) {
       canSubmit = false;
       submitButtonText = "CHƯA ĐỦ LINH KIỆN THAY THẾ";
-    } else if (!hasSellPrice) {
+    } else if (sellPriceNum <= 0) {
       canSubmit = false;
-      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
+      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN > 0";
     }
   } else if (decision === "DIRECT_IMPORT") {
-    const hasSellPrice =
-      sellForm.sellingPrice && String(sellForm.sellingPrice).trim() !== "";
-    if (!hasSellPrice) {
+    if (sellPriceNum <= 0) {
       canSubmit = false;
-      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN";
+      submitButtonText = "VUI LÒNG NHẬP GIÁ BÁN > 0";
     }
   } else if (decision === "DISMANTLE") {
     if (
       dismantleParts.length === 0 ||
-      dismantleParts.some((p) => !p.itemTypeId || !p.name || !p.price)
+      dismantleParts.some((p) => !p.name || Number(p.price) <= 0)
     ) {
       canSubmit = false;
       submitButtonText = "ĐIỀN ĐỦ THÔNG TIN RÃ XÁC";
@@ -542,7 +557,7 @@ const WaitingDecisionTab = ({
                     {dismantleParts.map((part, idx) => (
                       <div
                         key={idx}
-                        className="p-4 rounded-xl border border-gray-200 relative bg-gray-50 shadow-sm group hover:border-red-300 transition"
+                        className="p-4 rounded-xl border border-gray-200 relative bg-gray-50/50 shadow-sm group hover:border-red-300 transition"
                       >
                         <button
                           onClick={() => onRemovePart(idx)}
@@ -581,66 +596,10 @@ const WaitingDecisionTab = ({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                              Serial (SN)
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Auto tạo"
-                              value={part.serialCode}
-                              onChange={(e) =>
-                                onPartChange(idx, "serialCode", e.target.value)
-                              }
-                              className="w-full p-2.5 border rounded-lg outline-none text-sm font-mono bg-white focus:ring-2 focus:ring-red-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                              Tình trạng
-                            </label>
-                            <input
-                              type="text"
-                              value={part.quality}
-                              onChange={(e) =>
-                                onPartChange(idx, "quality", e.target.value)
-                              }
-                              className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500 font-bold text-green-600"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                              Dung lượng
-                            </label>
-                            <input
-                              type="text"
-                              value={part.capacity}
-                              onChange={(e) =>
-                                onPartChange(idx, "capacity", e.target.value)
-                              }
-                              className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                              RAM
-                            </label>
-                            <input
-                              type="text"
-                              value={part.ram}
-                              onChange={(e) =>
-                                onPartChange(idx, "ram", e.target.value)
-                              }
-                              className="w-full p-2.5 border rounded-lg outline-none text-sm bg-white focus:ring-2 focus:ring-red-500"
-                            />
-                          </div>
-                        </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-1 gap-5 bg-red-50 p-4 rounded-lg border border-red-100">
                           <div>
-                            <label className="block text-xs font-black text-red-600 uppercase mb-1.5">
-                              Giá bán lẻ (VNĐ) *
+                            <label className="block text-[10px] font-bold text-red-600 uppercase mb-1">
+                              Giá bán lẻ (VND) *
                             </label>
                             <input
                               type="text"
@@ -651,14 +610,14 @@ const WaitingDecisionTab = ({
                                     )
                                   : ""
                               }
-                              onChange={(e) => {
-                                let value = e.target.value.replace(/\D/g, "");
-
-                                if (value === "0") value = "";
-
-                                onPartChange(idx, "price", value);
-                              }}
-                              className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none focus:border-red-500 font-black text-red-600 bg-white"
+                              onChange={(e) =>
+                                onPartChange(
+                                  idx,
+                                  "price",
+                                  e.target.value.replace(/\D/g, ""),
+                                )
+                              }
+                              className="w-full p-2.5 border-2 border-red-200 rounded-lg outline-none text-sm font-black text-red-600 bg-white focus:border-red-500"
                             />
                           </div>
                         </div>

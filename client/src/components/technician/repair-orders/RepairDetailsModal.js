@@ -270,18 +270,17 @@ const RepairDetailsModal = ({
       toast.error("Vui lòng chọn ít nhất một dịch vụ sửa chữa");
       return false;
     }
-    if (selectedPartCodes.length === 0) {
-      toast.error('Dịch vụ chưa gán nhóm linh kiện. Admin cần cập nhật "Dịch vụ sửa chữa".');
-      return false;
-    }
+
     for (const id of selectedItems) {
       const item = items.find((i) => String(i._id) === String(id));
       if (!item?.serialCode) continue;
+      
       const result = await validateRepairPartApi({
         phoneModelId: selectedModel,
         partCodes: selectedPartCodes,
         serialCode: item.serialCode,
       });
+      
       if (!result.ok) {
         toast.error(result.message || `Linh kiện "${item.name}" không hợp lệ`);
         return false;
@@ -495,112 +494,114 @@ const RepairDetailsModal = ({
             )}
           </div>
 
-          <div className="border-t pt-6 mt-6">
-            <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <Package className="w-4 h-4 text-green-600" />
-              {isReadOnly ? "Linh kiện đã xuất kho" : "Chọn linh kiện thay thế từ kho"}
-              {isWarranty && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold uppercase">Bảo hành</span>}
-            </h4>
-            
-            {!isReadOnly && canSelectParts && (
-              <div className="mb-4 bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-2">
-                    <h5 className="font-bold text-blue-800">Danh sách linh kiện tương thích:</h5>
-                    {!isWarranty && (
-                        <span className="text-xs font-medium text-blue-700 bg-white px-2 py-1 rounded border border-blue-200">
-                          {selectedModelLabel} — {formatPartCodesDisplay(selectedPartCodes)}
-                        </span>
+          {canSelectParts && (
+              <div className="border-t pt-6 mt-6">
+                <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-green-600" />
+                  {isReadOnly ? "Linh kiện đã xuất kho" : "Chọn linh kiện thay thế từ kho"}
+                  {isWarranty && <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold uppercase">Bảo hành</span>}
+                </h4>
+                
+                {!isReadOnly && (
+                  <div className="mb-4 bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-2">
+                        <h5 className="font-bold text-blue-800">Danh sách linh kiện tương thích:</h5>
+                        {!isWarranty && (
+                            <span className="text-xs font-medium text-blue-700 bg-white px-2 py-1 rounded border border-blue-200">
+                              {selectedModelLabel} — {formatPartCodesDisplay(selectedPartCodes)}
+                            </span>
+                        )}
+                    </div>
+                    
+                    {allowedItemsInStock.length > 0 ? (
+                      <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {allowedItemsInStock.map((item) => (
+                          <div
+                            key={item._id}
+                            onClick={() => {
+                              if (selectedItems.some((id) => String(id) === String(item._id))) {
+                                toast.warning("Đã có trong đơn!");
+                              } else {
+                                setSelectedItems((prev) => [...prev, item._id]);
+                                toast.success(`Đã thêm: ${item.name}`);
+                              }
+                            }}
+                            className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-gray-800">{item.name}</span>
+                              <span className="text-xs text-gray-500 font-mono mt-0.5">SN: {item.serialCode}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm font-black text-blue-600">{formatCurrency(item.price)}</span>
+                                <button className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-blue-200 transition">
+                                    + Thêm
+                                </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                        <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
+                            <p className="text-gray-500 text-sm font-medium">Không có linh kiện nào tương thích trong kho.</p>
+                            <p className="text-xs text-gray-400 mt-1">Vui lòng nhập thêm kho hoặc kiểm tra lại cấu hình Recipe.</p>
+                        </div>
                     )}
+                  </div>
+                )}
+
+                <div className={`overflow-y-auto border border-gray-200 rounded-lg ${isReadOnly ? "" : "max-h-64 bg-gray-50"}`}>
+                  {selectedItems.length === 0 ? (
+                      <div className="text-center py-10 text-gray-400 font-medium">Chưa có linh kiện nào được chọn.</div>
+                  ) : (
+                    selectedItems.map(itemId => {
+                      const item = items.find(i => String(i._id) === String(itemId));
+                      if (!item) return null;
+                      
+                      return (
+                        <div
+                          key={item._id}
+                          className="flex items-center justify-between p-4 transition-colors border-b border-gray-200 last:border-b-0 bg-white"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Package size={20} />
+                            </div>
+                            <div>
+                              <span className="font-bold text-gray-800 block">{item.name}</span>
+                              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border mt-1 inline-block">SN: {item.serialCode}</span>
+                            </div>
+                          </div>
+                          <div className="text-right flex items-center gap-4">
+                            <span className="font-black text-green-600 text-lg">
+                              {isWarranty ? "0 đ" : (item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Liên hệ')}
+                            </span>
+                            {!isReadOnly && (
+                              <button
+                                onClick={() => handleRemoveItem(item._id)}
+                                className="text-gray-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                title="Xóa linh kiện"
+                              >
+                                <XCircle size={20} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
                 
-                {allowedItemsInStock.length > 0 ? (
-                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                    {allowedItemsInStock.map((item) => (
-                      <div
-                        key={item._id}
-                        onClick={() => {
-                          if (selectedItems.some((id) => String(id) === String(item._id))) {
-                            toast.warning("Đã có trong đơn!");
-                          } else {
-                            setSelectedItems((prev) => [...prev, item._id]);
-                            toast.success(`Đã thêm: ${item.name}`);
-                          }
-                        }}
-                        className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-800">{item.name}</span>
-                          <span className="text-xs text-gray-500 font-mono mt-0.5">SN: {item.serialCode}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm font-black text-blue-600">{formatCurrency(item.price)}</span>
-                            <button className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-blue-200 transition">
-                                + Thêm
-                            </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                    <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
-                        <p className="text-gray-500 text-sm font-medium">Không có linh kiện nào tương thích trong kho.</p>
-                        <p className="text-xs text-gray-400 mt-1">Vui lòng nhập thêm kho hoặc kiểm tra lại cấu hình Recipe.</p>
+                {selectedItems.length > 0 && (
+                    <div className="flex justify-between items-center pt-4 mt-2">
+                      <span className="font-bold text-gray-500 uppercase text-xs">Tổng linh kiện ({selectedItems.length}):</span>
+                      <span className="text-xl font-black text-green-600">
+                        {getSelectedItemTotal().toLocaleString('vi-VN')} đ
+                      </span>
                     </div>
                 )}
               </div>
-            )}
-
-            <div className={`overflow-y-auto border border-gray-200 rounded-lg ${isReadOnly ? "" : "max-h-64 bg-gray-50"}`}>
-              {selectedItems.length === 0 ? (
-                  <div className="text-center py-10 text-gray-400 font-medium">Chưa có linh kiện nào được chọn.</div>
-              ) : (
-                selectedItems.map(itemId => {
-                  const item = items.find(i => String(i._id) === String(itemId));
-                  if (!item) return null;
-                  
-                  return (
-                    <div
-                      key={item._id}
-                      className="flex items-center justify-between p-4 transition-colors border-b border-gray-200 last:border-b-0 bg-white"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Package size={20} />
-                        </div>
-                        <div>
-                          <span className="font-bold text-gray-800 block">{item.name}</span>
-                          <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border mt-1 inline-block">SN: {item.serialCode}</span>
-                        </div>
-                      </div>
-                      <div className="text-right flex items-center gap-4">
-                        <span className="font-black text-green-600 text-lg">
-                          {isWarranty ? "0 đ" : (item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Liên hệ')}
-                        </span>
-                        {!isReadOnly && (
-                          <button
-                            onClick={() => handleRemoveItem(item._id)}
-                            className="text-gray-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
-                            title="Xóa linh kiện"
-                          >
-                            <XCircle size={20} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            
-            {selectedItems.length > 0 && (
-                <div className="flex justify-between items-center pt-4 mt-2">
-                  <span className="font-bold text-gray-500 uppercase text-xs">Tổng linh kiện ({selectedItems.length}):</span>
-                  <span className="text-xl font-black text-green-600">
-                    {getSelectedItemTotal().toLocaleString('vi-VN')} đ
-                  </span>
-                </div>
-            )}
-          </div>
+          )}
         </div>
         
         <div className="p-4 bg-gray-100 border-t border-gray-300 flex justify-between items-center">

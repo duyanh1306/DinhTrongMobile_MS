@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download } from "lucide-react";
+import { ShoppingCart, User, Smartphone, Package, Trash2, Save, Settings, Send, ScanLine, Printer, X, CheckCircle, ShieldCheck, Search, AlertTriangle, FileText, CheckSquare, Hammer, MonitorSmartphone, Download, Camera, Scan } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useReactToPrint } from "react-to-print";
 import dayjs from "dayjs";
 import html2pdf from "html2pdf.js";
 import { formatCurrency, docSoThanhChu } from "../../utils/formatCurrency";
+import { Html5Qrcode } from "html5-qrcode";
 import { 
   fetchInventoryApi, 
   createPurchaseOrderApi, 
@@ -135,7 +136,6 @@ const InvoicePrint = ({ order, details, formatCurrency, contentRef, activeTab })
   );
 };
 
-
 export default function SalePOS() {
   const [orderType, setOrderType] = useState("SALE");
   const [customer, setCustomer] = useState({ name: "", phone: "" });
@@ -144,6 +144,11 @@ export default function SalePOS() {
   
   const [scanInput, setScanInput] = useState("");
   const scanInputRef = useRef(null);
+
+  const [showScanner, setShowScanner] = useState(false);
+  const [cameras, setCameras] = useState([]);
+  const [selectedCamera, setSelectedCamera] = useState(null);
+  const scannerRef = useRef(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -165,10 +170,10 @@ export default function SalePOS() {
   const user = userString ? JSON.parse(userString) : null;
 
   useEffect(() => {
-    if (orderType === "SALE" && scanInputRef.current && !isModalOpen) {
+    if (orderType === "SALE" && scanInputRef.current && !isModalOpen && !showScanner) {
       scanInputRef.current.focus();
     }
-  }, [orderType, isModalOpen]);
+  }, [orderType, isModalOpen, showScanner]);
 
   useEffect(() => {
     if (orderType === "SALE") fetchInventoryData();
@@ -178,6 +183,16 @@ export default function SalePOS() {
     setWarrantySearchResults([]);
     setSelectedWarrantyInvoice(null);
   }, [orderType]);
+
+  useEffect(() => {
+    return () => {
+        if (scannerRef.current) {
+            try {
+                scannerRef.current.stop().catch(() => {});
+            } catch (error) {}
+        }
+    };
+  }, []);
 
   const fetchInventoryData = async () => {
     try {
@@ -194,21 +209,83 @@ export default function SalePOS() {
     }
   };
 
+  const processCode = (codeText) => {
+    const code = codeText.trim().toUpperCase();
+    if (!code) return;
+    
+    const foundProduct = inventory.find(item => item.identifier && item.identifier.toUpperCase() === code);
+    if (foundProduct) {
+      if (cart.find((c) => c._id === foundProduct._id)) {
+        toast.warning("Sản phẩm này đã có trong giỏ!");
+      } else {
+        addToCart(foundProduct);
+      }
+    } else {
+      toast.error(`Không tìm thấy sản phẩm có Serial Code: ${code} (Hoặc không sẵn sàng bán)`);
+    }
+  };
+
   const handleScan = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const code = scanInput.trim().toUpperCase();
-      if (!code) return;
-      
-      const foundProduct = inventory.find(item => item.identifier && item.identifier.toUpperCase() === code);
-      if (foundProduct) {
-        if (cart.find((c) => c._id === foundProduct._id)) toast.warning("Sản phẩm này đã có trong giỏ!");
-        else addToCart(foundProduct);
-      } else {
-        toast.error(`Không tìm thấy sản phẩm có Serial Code: ${code} (Hoặc không sẵn sàng bán)`);
-      }
+      processCode(scanInput);
       setScanInput("");
     }
+  };
+
+  const startScanner = async () => {
+    setShowScanner(true);
+    try {
+        const devices = await Html5Qrcode.getCameras();
+        setCameras(devices);
+        if (devices && devices.length) {
+            const rearCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('sau'));
+            const cameraId = rearCamera ? rearCamera.id : devices[devices.length - 1].id;
+            setSelectedCamera(cameraId);
+            initializeScanner(cameraId);
+        } else {
+            toast.error("Không tìm thấy camera trên thiết bị này!");
+        }
+    } catch (err) {
+        toast.error("Lỗi truy cập camera: " + err.message);
+    }
+  };
+
+  const stopScanner = () => {
+    setShowScanner(false);
+    if (scannerRef.current) {
+        try {
+            scannerRef.current.stop().catch(() => {});
+        } catch (error) {}
+        scannerRef.current = null;
+    }
+  };
+
+  const initializeScanner = (cameraId) => {
+    if (scannerRef.current) {
+        try {
+            scannerRef.current.stop().catch(() => {});
+        } catch (error) {}
+    }
+    
+    const html5QrCode = new Html5Qrcode("pos-qr-reader");
+    scannerRef.current = html5QrCode;
+    html5QrCode.start(
+        cameraId,
+        { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.333334, 
+            videoConstraints: { width: { ideal: 640 }, height: { ideal: 480 } }
+        },
+        (decodedText) => {
+            processCode(decodedText);
+            html5QrCode.pause();
+            setTimeout(() => html5QrCode.resume(), 2000);
+        }
+    ).catch(err => {
+        toast.error("Không thể khởi động luồng Camera.");
+    });
   };
 
   const addToCart = (product) => {
@@ -501,7 +578,6 @@ export default function SalePOS() {
             <h2 className="font-bold text-gray-800 flex items-center gap-2"><Settings size={20} /> Điểm bán hàng (POS)</h2>
             <div className="flex bg-white rounded-lg p-1 border shadow-sm">
               <button onClick={() => setOrderType("SALE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "SALE" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BÁN RA</button>
-              {/* <button onClick={() => setOrderType("PURCHASE")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "PURCHASE" ? "bg-purple-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>THU CŨ / MUA VÀO</button> */}
               <button onClick={() => setOrderType("WARRANTY")} className={`px-4 lg:px-6 py-2 rounded-md font-bold transition-all text-sm lg:text-base ${orderType === "WARRANTY" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}>BẢO HÀNH</button>
             </div>
           </div>
@@ -511,10 +587,15 @@ export default function SalePOS() {
               <div className="w-full max-w-xl bg-white p-8 rounded-3xl shadow-xl border border-blue-100 text-center">
                  <div className="mx-auto bg-blue-100 text-blue-600 w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner"><ScanLine size={48} /></div>
                  <h3 className="text-2xl font-black text-gray-800 mb-2">Quét mã Serial Code</h3>
-                 <p className="text-gray-500 mb-8 text-sm">Dùng súng quét tít mã SN trên hộp máy/linh kiện, hoặc nhập tay và ấn Enter.</p>
-                 <div className="relative group">
-                    <input ref={scanInputRef} type="text" placeholder="Nhập Serial Code (SN)..." value={scanInput} onChange={(e) => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full pl-6 pr-4 py-5 bg-gray-50 border-2 border-gray-200 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-xl font-mono text-center tracking-widest transition-all uppercase" />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity"><span className="bg-blue-100 text-blue-600 px-3 py-1 rounded font-bold text-xs">Bấm Enter</span></div>
+                 <p className="text-gray-500 mb-8 text-sm">Dùng súng quét tít mã SN trên hộp máy/linh kiện, hoặc mở camera để quét.</p>
+                 <div className="flex gap-3">
+                    <div className="relative group flex-1">
+                        <input ref={scanInputRef} type="text" placeholder="Nhập Serial Code (SN)..." value={scanInput} onChange={(e) => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full pl-6 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-xl font-mono text-center tracking-widest transition-all uppercase" />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity"><span className="bg-blue-100 text-blue-600 px-3 py-1 rounded font-bold text-xs">Enter</span></div>
+                    </div>
+                    <button onClick={startScanner} className="px-6 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition flex items-center justify-center shadow-md">
+                        <Camera size={24} />
+                    </button>
                  </div>
               </div>
             </div>
@@ -898,6 +979,30 @@ export default function SalePOS() {
               </div>
             </div>
           </div>
+        )}
+
+        {showScanner && (
+            <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-4">
+                <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
+                    <div className="p-4 bg-gray-900 text-white flex justify-between items-center">
+                        <h3 className="font-bold flex items-center gap-2"><Scan size={18}/> Quét mã QR Sản phẩm</h3>
+                        <button onClick={stopScanner} className="p-1 hover:bg-white/20 rounded-full transition"><X size={20}/></button>
+                    </div>
+                    <div className="p-4 bg-gray-100 flex flex-col items-center">
+                        {cameras.length > 1 && (
+                            <select 
+                                value={selectedCamera} 
+                                onChange={(e) => { setSelectedCamera(e.target.value); initializeScanner(e.target.value); }}
+                                className="mb-4 w-full p-2 rounded border outline-none text-sm font-medium"
+                            >
+                                {cameras.map((c, i) => <option key={c.id} value={c.id}>{c.label || `Camera ${i + 1}`}</option>)}
+                            </select>
+                        )}
+                        <div id="pos-qr-reader" className="w-full max-w-[300px] border-4 border-dashed border-blue-300 rounded-xl overflow-hidden bg-black min-h-[225px]"></div>
+                        <p className="mt-4 text-sm text-gray-500 text-center font-medium">Đưa mã QR/Barcode vào khung hình. Trình duyệt sẽ tự nhận diện.</p>
+                    </div>
+                </div>
+            </div>
         )}
       </div>
     </>
