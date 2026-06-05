@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { X, User, Phone, Store, Check, Wrench, CheckCircle, Package, XCircle, Printer, Download } from "lucide-react";
+import { X, User, Phone, Store, Check, Wrench, CheckCircle, Package, XCircle, Printer, Download, ScanLine } from "lucide-react";
 import dayjs from "dayjs";
 import { useReactToPrint } from "react-to-print";
 import html2pdf from "html2pdf.js";
@@ -140,6 +140,9 @@ const RepairDetailsModal = ({
   const [items, setItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
 
+  const [scanInput, setScanInput] = useState("");
+  const scanInputRef = useRef(null);
+
   const [phoneModels, setPhoneModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [recipes, setRecipes] = useState([]);
@@ -168,6 +171,7 @@ const RepairDetailsModal = ({
     return m?.name || "";
   }, [phoneModels, selectedModel]);
 
+  // ĐÃ SỬA: Đổi tên thành canSelectParts
   const canSelectParts =
     isWarranty ||
     (!!selectedModel && selectedServices.length > 0 && selectedPartCodes.length > 0);
@@ -214,6 +218,10 @@ const RepairDetailsModal = ({
           initialModelId = initialModelId._id || "";
       }
       setSelectedModel(initialModelId);
+
+      if (!isReadOnly && scanInputRef.current) {
+        setTimeout(() => scanInputRef.current.focus(), 100);
+      }
     }
   }, [showDetailsModal, orderDetails, selectedOrder]);
 
@@ -255,9 +263,54 @@ const RepairDetailsModal = ({
   const handleServiceToggle = (serviceId) => {
     if (isReadOnly) return; 
     setSelectedServices(prev => {
-      if (prev.includes(serviceId)) return prev.filter(id => id !== serviceId);
+      if (prev.includes(serviceId)) {
+        const removedService = repairServices.find(s => s._id === serviceId);
+        if (removedService && removedService.partCode) {
+            setSelectedItems(currentItems => currentItems.filter(id => {
+                const item = items.find(i => String(i._id) === String(id));
+                return getPartCodeForItem(item) !== removedService.partCode;
+            }));
+        }
+        return prev.filter(id => id !== serviceId);
+      }
       return [...prev, serviceId];
     });
+  };
+
+  const getPartCodeForItem = (item) => {
+    if (!recipeForModel) return null;
+    const typeId = String(item?.item_type?._id || item?.item_type || "");
+    for (const part of recipeForModel.requiredParts) {
+      const allowedTypes = part.acceptedItemTypes.map(t => String(t._id || t));
+      if (allowedTypes.includes(typeId)) return part.partCode;
+    }
+    return null;
+  };
+
+  const handleAddItem = (item) => {
+    if (selectedItems.some((id) => String(id) === String(item._id))) {
+      toast.warning("Linh kiện này đã được chọn!");
+      return;
+    }
+
+    const partCode = getPartCodeForItem(item);
+    if (!partCode) {
+      toast.error("Linh kiện không khớp với cấu hình máy!");
+      return;
+    }
+
+    const isSlotFull = selectedItems.some(id => {
+      const existingItem = items.find(i => String(i._id) === String(id));
+      return getPartCodeForItem(existingItem) === partCode;
+    });
+
+    if (isSlotFull) {
+      toast.warning(`Chỉ được chọn 1 linh kiện cho [${formatPartCodesDisplay([partCode])}]. Vui lòng xóa linh kiện cũ trước!`);
+      return;
+    }
+
+    setSelectedItems(prev => [...prev, item._id]);
+    toast.success(`Đã thêm: ${item.name}`);
   };
 
   const validateBeforeSave = async () => {
@@ -270,23 +323,89 @@ const RepairDetailsModal = ({
       toast.error("Vui lòng chọn ít nhất một dịch vụ sửa chữa");
       return false;
     }
+    
+    for (const code of selectedPartCodes) {
+      const isFulfilled = selectedItems.some(id => {
+        const item = items.find(i => String(i._id) === String(id));
+        return getPartCodeForItem(item) === code;
+      });
+      if (!isFulfilled) {
+        toast.error(`Chưa chọn linh kiện cho dịch vụ thay ${formatPartCodesDisplay([code])}!`);
+        return false;
+      }
+    }
 
     for (const id of selectedItems) {
       const item = items.find((i) => String(i._id) === String(id));
       if (!item?.serialCode) continue;
-      
       const result = await validateRepairPartApi({
         phoneModelId: selectedModel,
         partCodes: selectedPartCodes,
         serialCode: item.serialCode,
       });
-      
       if (!result.ok) {
         toast.error(result.message || `Linh kiện "${item.name}" không hợp lệ`);
         return false;
       }
     }
     return true;
+  };
+
+  const handleScan = async (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const code = scanInput.trim();
+      if (!code) return;
+
+      if (!isWarranty) {
+        if (!selectedModel) {
+          toast.error("Vui lòng chọn mẫu điện thoại trước khi quét linh kiện");
+          setScanInput("");
+          return;
+        }
+        if (selectedServices.length === 0) {
+          toast.error("Vui lòng chọn dịch vụ sửa chữa trước khi quét linh kiện");
+          setScanInput("");
+          return;
+        }
+        if (selectedPartCodes.length === 0) {
+          toast.error('Dịch vụ chưa gán nhóm linh kiện (BAT, SCR...). Liên hệ Admin.');
+          setScanInput("");
+          return;
+        }
+      }
+
+      if (isWarranty) {
+        const foundItem = items.find(
+          (item) => item.serialCode && item.serialCode.toUpperCase() === code.toUpperCase()
+        );
+        if (!foundItem) {
+          toast.error(`Không tìm thấy linh kiện: ${code}`);
+        } else {
+          handleAddItem(foundItem);
+        }
+        setScanInput("");
+        return;
+      }
+
+      try {
+        const result = await validateRepairPartApi({
+          phoneModelId: selectedModel,
+          partCodes: selectedPartCodes,
+          serialCode: code,
+        });
+
+        if (!result.ok || !result.item) {
+          toast.error(result.message || "Linh kiện không phù hợp");
+          setScanInput("");
+          return;
+        }
+        handleAddItem(result.item);
+      } catch {
+        toast.error("Lỗi kiểm tra linh kiện");
+      }
+      setScanInput("");
+    }
   };
 
   const handleRemoveItem = (itemId) => {
@@ -513,19 +632,26 @@ const RepairDetailsModal = ({
                         )}
                     </div>
                     
+                    <div className="relative mb-3 group">
+                        <ScanLine className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                        <input
+                            ref={scanInputRef}
+                            type="text"
+                            placeholder="Quét mã vạch (SN) linh kiện..."
+                            value={scanInput}
+                            onChange={(e) => setScanInput(e.target.value)}
+                            onKeyDown={handleScan}
+                            disabled={!canSelectParts}
+                            className={`w-full pl-12 pr-4 py-3 border-2 border-white rounded-lg focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all uppercase tracking-widest font-mono text-sm shadow-sm ${!canSelectParts ? "bg-gray-100 cursor-not-allowed text-gray-400" : "bg-white text-gray-800"}`}
+                        />
+                    </div>
+                    
                     {allowedItemsInStock.length > 0 ? (
-                      <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                         {allowedItemsInStock.map((item) => (
                           <div
                             key={item._id}
-                            onClick={() => {
-                              if (selectedItems.some((id) => String(id) === String(item._id))) {
-                                toast.warning("Đã có trong đơn!");
-                              } else {
-                                setSelectedItems((prev) => [...prev, item._id]);
-                                toast.success(`Đã thêm: ${item.name}`);
-                              }
-                            }}
+                            onClick={() => handleAddItem(item)}
                             className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
                           >
                             <div className="flex flex-col">
@@ -550,50 +676,57 @@ const RepairDetailsModal = ({
                   </div>
                 )}
 
-                <div className={`overflow-y-auto border border-gray-200 rounded-lg ${isReadOnly ? "" : "max-h-64 bg-gray-50"}`}>
-                  {selectedItems.length === 0 ? (
-                      <div className="text-center py-10 text-gray-400 font-medium">Chưa có linh kiện nào được chọn.</div>
-                  ) : (
-                    selectedItems.map(itemId => {
-                      const item = items.find(i => String(i._id) === String(itemId));
-                      if (!item) return null;
-                      
+                <div className="space-y-4">
+                  {selectedPartCodes.map(code => {
+                      const label = formatPartCodesDisplay([code]);
+                      const selectedItemId = selectedItems.find(id => {
+                          const i = items.find(it => String(it._id) === String(id));
+                          return getPartCodeForItem(i) === code;
+                      });
+                      const selectedItemObj = items.find(it => String(it._id) === String(selectedItemId));
+
                       return (
-                        <div
-                          key={item._id}
-                          className="flex items-center justify-between p-4 transition-colors border-b border-gray-200 last:border-b-0 bg-white"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Package size={20} />
-                            </div>
-                            <div>
-                              <span className="font-bold text-gray-800 block">{item.name}</span>
-                              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border mt-1 inline-block">SN: {item.serialCode}</span>
-                            </div>
+                          <div key={code} className="mb-4">
+                              <h5 className="font-bold text-gray-700 text-xs mb-2 uppercase flex items-center gap-1">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span> Vị trí: {label}
+                              </h5>
+                              {selectedItemObj ? (
+                                  <div className="flex items-center justify-between p-4 bg-white border-2 border-green-300 rounded-xl shadow-sm transition-all hover:shadow-md">
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                                              <Package size={20} />
+                                          </div>
+                                          <div>
+                                              <span className="font-bold text-gray-800 block">{selectedItemObj.name}</span>
+                                              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border mt-1 inline-block">SN: {selectedItemObj.serialCode}</span>
+                                          </div>
+                                      </div>
+                                      <div className="text-right flex items-center gap-4">
+                                          <span className="font-black text-green-600 text-lg">
+                                              {isWarranty ? "0 đ" : `${(selectedItemObj.price || 0).toLocaleString('vi-VN')} đ`}
+                                          </span>
+                                          {!isReadOnly && (
+                                              <button onClick={() => handleRemoveItem(selectedItemObj._id)} className="text-red-400 hover:text-white hover:bg-red-500 p-2 rounded-full transition-colors border border-transparent hover:border-red-600 shadow-sm" title="Gỡ linh kiện">
+                                                  <XCircle size={20} />
+                                              </button>
+                                          )}
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl text-center text-gray-400 text-sm font-medium flex flex-col items-center justify-center gap-2">
+                                      Chưa chọn linh kiện {label}
+                                  </div>
+                              )}
                           </div>
-                          <div className="text-right flex items-center gap-4">
-                            <span className="font-black text-green-600 text-lg">
-                              {isWarranty ? "0 đ" : (item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Liên hệ')}
-                            </span>
-                            {!isReadOnly && (
-                              <button
-                                onClick={() => handleRemoveItem(item._id)}
-                                className="text-gray-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
-                                title="Xóa linh kiện"
-                              >
-                                <XCircle size={20} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
+                      )
+                  })}
+                  {selectedPartCodes.length === 0 && (
+                      <div className="text-center py-10 text-gray-400 font-medium italic">Không có linh kiện nào được yêu cầu thay thế cho các dịch vụ đã chọn.</div>
                   )}
                 </div>
                 
                 {selectedItems.length > 0 && (
-                    <div className="flex justify-between items-center pt-4 mt-2">
+                    <div className="flex justify-between items-center pt-4 mt-6 border-t border-gray-200">
                       <span className="font-bold text-gray-500 uppercase text-xs">Tổng linh kiện ({selectedItems.length}):</span>
                       <span className="text-xl font-black text-green-600">
                         {getSelectedItemTotal().toLocaleString('vi-VN')} đ
