@@ -236,7 +236,7 @@ export default function SaleOrders() {
 
   const handleCancelOrder = async () => {
     if (!selectedOrder) return;
-    if (!window.confirm("Xác nhận HUỶ đơn hàng này? Thao tác này sẽ hoàn trả máy/linh kiện về kho và không thể khôi phục.")) return;
+    if (!window.confirm("Xác nhận HUỶ đơn hàng này? Thao tác này không thể khôi phục.")) return;
     
     const success = await cancelOrderApi(activeTab, selectedOrder);
     if (success) {
@@ -387,6 +387,7 @@ export default function SaleOrders() {
                             <button onClick={() => handleConfirmPayment(order._id)} className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition" title="Xác nhận thanh toán">
                                 <CheckCircle size={18} />
                             </button>
+                            
                         )}
                         </td>
                     </tr>
@@ -421,8 +422,8 @@ export default function SaleOrders() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-              <h3 className="text-xl font-bold text-gray-800">
-                Chi tiết Hóa Đơn <span className="text-blue-600 font-mono">#{selectedOrder._id.substring(selectedOrder._id.length - 6).toUpperCase()}</span>
+              <h3 className="text-xl font-bold text-blue-600 flex items-center gap-2">
+                <CheckCircle size={24}/> {selectedOrder.status === "Pending" ? "Xác nhận tạo đơn bán" : `Đơn hàng #${selectedOrder._id?.substring(selectedOrder._id.length - 6).toUpperCase()}`}
               </h3>
               
               <div className="flex gap-2">
@@ -436,7 +437,10 @@ export default function SaleOrders() {
                       </button>
                   </>
                 )}
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-lg transition">
+                <button onClick={() => {
+                    setIsModalOpen(false);
+                    if(selectedOrder.status === "Completed") loadOrders();
+                  }} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-lg transition">
                   <X size={20} />
                 </button>
               </div>
@@ -445,13 +449,13 @@ export default function SaleOrders() {
             <div className="p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-4 mb-6 bg-blue-50 p-5 rounded-xl border border-blue-100">
                 <div>
-                  <p className="text-xs text-blue-800 font-black uppercase mb-1">Khách hàng</p>
+                  <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Khách hàng</p>
                   <p className="font-bold text-gray-900 text-xl">{selectedOrder.customerName}</p>
                   <p className="text-sm text-blue-700 mt-1 font-medium"><Phone size={14} className="inline mr-1"/> {selectedOrder.customerPhone || "N/A"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-blue-800 font-black uppercase mb-1">Tổng thanh toán</p>
-                  <p className="text-3xl font-black text-blue-700">{formatCurrency(selectedOrder.totalPrice)}</p>
+                  <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Tổng cần thanh toán</p>
+                  <p className="text-3xl font-black text-blue-600">{formatCurrency(selectedOrder.totalPrice)}</p>
                 </div>
               </div>
 
@@ -489,9 +493,9 @@ export default function SaleOrders() {
                            }
                        }
 
-                       return (
+                      return (
                         <tr key={idx} className="border-t hover:bg-gray-50">
-                            <td className="p-4">
+                          <td className="p-4">
                             <div className="flex items-center gap-2 font-bold text-gray-800">
                                 {activeTab === "REPAIR" ? <Wrench size={16} className="text-blue-500" /> : detail.phoneId ? <Smartphone size={16} className="text-blue-500" /> : <Package size={16} className="text-emerald-500" />}
                                 {itemName}
@@ -516,15 +520,15 @@ export default function SaleOrders() {
                                    ))}
                                 </div>
                             )}
-                            </td>
-                            <td className="p-4 text-right font-black text-gray-800">{formatCurrency(price)}</td>
-                            <td className="p-4 text-center">
-                                <span className={`text-[10px] ${warrantyText !== "Không" ? "text-green-600 bg-green-50" : "text-gray-500 bg-gray-100"} font-bold px-2 py-1 rounded`}>
-                                    {warrantyText}
-                                </span>
-                            </td>
+                          </td>
+                          <td className="p-4 text-right font-black text-gray-800">{formatCurrency(price)}</td>
+                          <td className="p-4 text-center">
+                              <span className={`text-[10px] ${warrantyText !== "Không" ? "text-green-600 bg-green-50" : "text-gray-500 bg-gray-100"} font-bold px-2 py-1 rounded`}>
+                                  {warrantyText}
+                              </span>
+                          </td>
                         </tr>
-                       )
+                      )
                     })}
                   </tbody>
                 </table>
@@ -534,11 +538,13 @@ export default function SaleOrders() {
             <div className="p-4 border-t bg-gray-50 flex justify-between items-center rounded-b-xl">
                {selectedOrder.status === "Pending" ? (
                   <div className="flex gap-3 w-full justify-between items-center">
-                     <button onClick={handleCancelOrder} className="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 flex items-center gap-2 transition">
-                        <XCircle size={18}/> HỦY ĐƠN
-                     </button>
+                     {(activeTab === "PURCHASE" || activeTab === "SALE") && (
+                         <button onClick={handleCancelOrder} className="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 flex items-center gap-2 transition">
+                            <XCircle size={18}/> HỦY ĐƠN
+                         </button>
+                     )}
                      
-                     <div className="flex gap-3">
+                     <div className="flex gap-3 ml-auto">
                         <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Đóng</button>
                         <button onClick={() => handleConfirmPayment(selectedOrder._id)} className="px-8 py-2.5 bg-green-600 text-white rounded-lg font-black flex items-center gap-2 hover:bg-green-700 shadow-md transition">
                            <CheckCircle size={18}/> XÁC NHẬN THANH TOÁN

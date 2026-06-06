@@ -95,7 +95,7 @@ const TradeInModal = ({
         <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
           {selectedTradeIn.isNewPurchase ? (
             <div className="bg-white p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-wider mb-3 text-gray-600">Thông tin khách hàng</p>
+                <p className="text-xs font-bold uppercase tracking-wider mb-3 text-gray-600">Thông tin khách hàng</p><span className="text-red-500">*</span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <input 
