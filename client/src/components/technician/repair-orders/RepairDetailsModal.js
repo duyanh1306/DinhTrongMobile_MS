@@ -637,7 +637,7 @@ const RepairDetailsModal = ({
                         <input
                             ref={scanInputRef}
                             type="text"
-                            placeholder="Quét mã vạch (SN) linh kiện..."
+                            placeholder="Nhập mã(SN) linh kiện..."
                             value={scanInput}
                             onChange={(e) => setScanInput(e.target.value)}
                             onKeyDown={handleScan}

@@ -153,6 +153,32 @@ export default function AdminEvaluationCondition() {
             });
         }
 
+        const labelsInForm = validItems.map(item => item.label.trim().toLowerCase());
+        const uniqueLabelsInForm = new Set(labelsInForm);
+        if (labelsInForm.length !== uniqueLabelsInForm.size) {
+            return Swal.fire({
+                icon: "error",
+                title: "Trùng lặp dữ liệu!",
+                text: "Bạn đang nhập các tình trạng trùng tên nhau trong danh sách. Vui lòng kiểm tra lại!",
+                buttonsStyling: false,
+                customClass: { confirmButton: "bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold" }
+            });
+        }
+
+        const existingConditionsInGroup = conditions.filter(c => c.partCode === formData.partCode && c._id !== editingId);
+        const existingLabels = existingConditionsInGroup.map(c => c.label.trim().toLowerCase());
+
+        const hasDuplicateWithDB = labelsInForm.some(label => existingLabels.includes(label));
+        if (hasDuplicateWithDB) {
+            return Swal.fire({
+                icon: "error",
+                title: "Trùng lặp dữ liệu!",
+                text: "Một số tình trạng bạn nhập đã tồn tại trong Nhóm linh kiện này. Vui lòng sử dụng tên khác!",
+                buttonsStyling: false,
+                customClass: { confirmButton: "bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold" }
+            });
+        }
+
         let isSuccess = false;
         
         if (isEditing) {
@@ -192,7 +218,7 @@ export default function AdminEvaluationCondition() {
                     <h1 className="text-2xl font-bold text-gray-800">Quản lý Tình trạng Linh kiện</h1>
                 </div>
                 <button onClick={() => handleOpenModal()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition whitespace-nowrap">
-                    <ListPlus size={20} /> <span>Thêm tình trạng (Hàng loạt)</span>
+                    <ListPlus size={20} /> <span>Thêm tình trạng</span>
                 </button>
             </div>
 
