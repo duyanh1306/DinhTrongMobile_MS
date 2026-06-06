@@ -125,7 +125,7 @@ export default function ImportInventory() {
         if (['HSG', 'SCR', 'FGL', 'BGL'].includes(filterGroup)) {
             if (!itemFormData.color.trim()) return toast.warning("Vui lòng nhập Màu sắc cho linh kiện này!");
         }
-
+        if (!itemFormData.baseCost || itemFormData.baseCost <= 0) return toast.warning("Giá nhập (Vốn) phải lớn hơn 0!");
         const newBatch = {
             ...itemFormData,
             capacity: (filterGroup === 'MB' && itemFormData.capacity) ? formatCapacity(itemFormData.capacity) : itemFormData.capacity,
@@ -164,6 +164,7 @@ export default function ImportInventory() {
         if (!phoneFormData.storeId) return toast.warning("Lỗi: Không tìm thấy Kho nhận của bạn!");
         if (phoneFormData.imageFiles.length === 0) return toast.warning("Vui lòng thêm ít nhất 1 hình ảnh thực tế cho máy (Tối đa 5)!");
 
+        if (!phoneFormData.baseCost || phoneFormData.baseCost <= 0) return toast.warning("Giá nhập (Vốn) phải lớn hơn 0!");
         const selectedModel = models.find(m => m._id === phoneFormData.phoneModelId);
 
         const newBatch = {
@@ -276,9 +277,10 @@ export default function ImportInventory() {
 
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                             <div className="col-span-2">
-                                                <label className="block text-sm font-semibold mb-1">Giá nhập (Vốn) (VNĐ)</label>
+                                                <label className="block text-sm font-semibold mb-1">Giá nhập (Vốn) (VNĐ) <span className="text-red-500">*</span></label>
                                                 <input 
                                                     type="text" 
+                                                    required 
                                                     value={itemFormData.baseCost ? formatCurrencyInput(itemFormData.baseCost) : ''} 
                                                     onChange={e => setItemFormData({...itemFormData, baseCost: parseCurrencyString(e.target.value)})} 
                                                     className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
@@ -286,14 +288,14 @@ export default function ImportInventory() {
                                                 />
                                             </div>
                                             <div className="col-span-2">
-                                                <label className="block text-sm font-semibold mb-1">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
+                                                <label className="block text-sm font-semibold mb-1">Giá nhập (Vốn) (VNĐ) <span className="text-red-500">*</span></label>
                                                 <input 
                                                     type="text" 
                                                     required 
-                                                    value={itemFormData.price ? formatCurrencyInput(itemFormData.price) : ''} 
-                                                    onChange={e => setItemFormData({...itemFormData, price: parseCurrencyString(e.target.value)})} 
+                                                    value={phoneFormData.baseCost ? formatCurrencyInput(phoneFormData.baseCost) : ''} 
+                                                    onChange={e => setPhoneFormData({...phoneFormData, baseCost: parseCurrencyString(e.target.value)})} 
                                                     className="w-full border border-gray-300 p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
-                                                    placeholder="VD: 1.200.000" 
+                                                    placeholder="VD: 10.000.000" 
                                                 />
                                             </div>
                                         </div>
